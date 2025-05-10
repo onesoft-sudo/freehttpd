@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.h": "c",
+        "*.ui": "xml",
+        "chrono": "c",
+        "text_encoding": "c",
+        "typeinfo": "c",
+        "bitset": "c",
+        "string_view": "c"
+    }
+}
