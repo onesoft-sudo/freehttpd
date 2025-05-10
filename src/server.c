@@ -18,6 +18,8 @@
 #include "protocol.h"
 #include "http11.h"
 
+#define FHTTPD_PROC_MAX 128
+
 enum fhttpd_log_level
 {
     FHTTPD_LOG_ERROR,
@@ -31,6 +33,7 @@ struct fhttpd_server
     void *fhttpd_config[__FHTTPD_CONFIG_COUNT];
     int sockfd;
     struct sockaddr_in *server_addr;
+    size_t processes;
 };
 
 struct fhttpd_server *fhttpd_server_create()
@@ -183,6 +186,98 @@ void fhttpd_log(enum fhttpd_log_level level, const char *format, ...)
     va_end(args);
 }
 
+errno_t fhttpd_handle_connection(struct fhttpd_server *server, int client_sockfd)
+{
+    struct http_request request;
+    struct http_response response = {0};
+    enum http_response_code rcode = http11_parse_request(server, client_sockfd, &request);
+
+    if (rcode != HTTP_OK)
+    {
+        fhttpd_log(FHTTPD_LOG_ERROR, "Error parsing request: %d\n", rcode);
+        fhttpd_error(server, client_sockfd, rcode);
+        http_request_destroy_inner(&request);
+        return 0;
+    }
+
+    fhttpd_log_request(&request);
+
+    if (strcmp(request.method, "GET") != 0 && strcmp(request.method, "HEAD") != 0)
+    {
+        fhttpd_log(FHTTPD_LOG_WARNING, "Unsupported method: %s\n", request.method);
+        fhttpd_error(server, client_sockfd, HTTP_METHOD_NOT_ALLOWED);
+        http_request_destroy_inner(&request);
+        return 0;
+    }
+
+    response.code = HTTP_OK;
+    response.version = request.version;
+
+    char text[] = "Hello, World!\n";
+    char text_length[32];
+
+    snprintf(text_length, sizeof(text_length), "%zu", sizeof(text) - 1);
+    
+    http_response_add_header(&response, "Server", "freehttpd");
+    http_response_add_header(&response, "Connection", "close");
+
+    if (strcmp(request.method, "HEAD") != 0) 
+    {
+        http_response_add_header(&response, "Content-Type", "text/plain; charset=\"utf-8\"");
+        http_response_add_header(&response, "Content-Length", text_length);
+    }
+    
+    http11_send_response(server, client_sockfd, &response);
+    http_response_destroy_inner(&response);
+
+    if (strcmp(request.method, "HEAD") != 0) 
+    {
+        send(client_sockfd, "\r\n", 2, 0);
+        send(client_sockfd, text, sizeof(text) - 1, 0);
+    }
+
+    close(client_sockfd);
+    http_request_destroy_inner(&request);
+    return 0;
+}
+
+static bool fhttpd_fork(struct fhttpd_server *server, int client_sockfd)
+{
+    if (server->processes >= FHTTPD_PROC_MAX)
+    {
+        fhttpd_log(FHTTPD_LOG_ERROR, "Cannot create more than %d processes\n", FHTTPD_PROC_MAX);
+        return false;
+    }
+
+    pid_t pid = fork();
+
+    if (pid < 0)
+    {
+        fhttpd_log(FHTTPD_LOG_ERROR, "Fork failed: %s\n", strerror(errno));
+        return false;
+    }
+
+    server->processes++;
+
+    if (pid == 0)
+    {
+        close(server->sockfd);
+        errno_t errcode = fhttpd_handle_connection(server, client_sockfd);
+
+        if (errcode != 0)
+        {
+            fhttpd_log(FHTTPD_LOG_ERROR, "Error handling connection: %s\n", strerror(errno));
+            close(client_sockfd);
+            exit(1);
+        }
+
+        exit(0);
+    }
+
+    close(client_sockfd);
+    return true;
+}
+
 errno_t fhttpd_server_start(struct fhttpd_server *server)
 {
     if (!server)
@@ -192,10 +287,6 @@ errno_t fhttpd_server_start(struct fhttpd_server *server)
 
     while (true)
     {
-        struct http_request request;
-        struct http_response response = {0};
-        enum http_response_code rcode;
-
         struct sockaddr_in client_addr;
         socklen_t addr_len = sizeof(client_addr);
         int client_sockfd = accept(server->sockfd, (struct sockaddr *) &client_addr, &addr_len);
@@ -212,8 +303,8 @@ errno_t fhttpd_server_start(struct fhttpd_server *server)
 
             if (accept_errors >= 1000)
             {
-                puts("Too many accept errors, shutting down server.");
-                printf("Error: %s\n", strerror(errno));
+                fhttpd_log(FHTTPD_LOG_ERROR, "Too many accept errors, shutting down server.");
+                fhttpd_log(FHTTPD_LOG_ERROR, "Error: %s\n", strerror(errno));
                 return errno;
             }
             
@@ -221,54 +312,13 @@ errno_t fhttpd_server_start(struct fhttpd_server *server)
         }
 
         accept_errors = 0;
-        rcode = http11_parse_request(server, client_sockfd, &request);
 
-        if (rcode != HTTP_OK)
+        if (!fhttpd_fork(server, client_sockfd))
         {
-            fprintf(stderr, "Error parsing request: %d\n", rcode);
-            fhttpd_error(server, client_sockfd, rcode);
-            http_request_destroy_inner(&request);
+            fhttpd_log(FHTTPD_LOG_ERROR, "Error handling connection: %s\n", strerror(errno));
+            close(client_sockfd);
             continue;
         }
-
-        fhttpd_log_request(&request);
-
-        if (strcmp(request.method, "GET") != 0 && strcmp(request.method, "HEAD") != 0)
-        {
-            fhttpd_log(FHTTPD_LOG_WARNING, "Unsupported method: %s\n", request.method);
-            fhttpd_error(server, client_sockfd, HTTP_METHOD_NOT_ALLOWED);
-            http_request_destroy_inner(&request);
-            continue;
-        }
-
-        response.code = HTTP_OK;
-        response.version = request.version;
-
-        char text[] = "Hello, World!\n";
-        char text_length[32];
-
-        snprintf(text_length, sizeof(text_length), "%zu", sizeof(text) - 1);
-        
-        http_response_add_header(&response, "Server", "freehttpd");
-        http_response_add_header(&response, "Connection", "close");
-
-        if (strcmp(request.method, "HEAD") != 0) 
-        {
-            http_response_add_header(&response, "Content-Type", "text/plain; charset=\"utf-8\"");
-            http_response_add_header(&response, "Content-Length", text_length);
-        }
-
-        http11_send_response(server, client_sockfd, &response);
-        http_response_destroy_inner(&response);
-
-        if (strcmp(request.method, "HEAD") != 0) 
-        {
-            send(client_sockfd, "\r\n", 2, 0);
-            send(client_sockfd, text, sizeof(text) - 1, 0);
-        }
-
-        close(client_sockfd);
-        http_request_destroy_inner(&request);
     }
 
     return 0;
