@@ -381,6 +381,8 @@ h2_connection_start (struct h2_connection *conn)
             return rc;
         }
 
+    /* TODO: Handle HEADERS frames, which might also include PRIORITY flag. */
+
     return 0;
 }
 
