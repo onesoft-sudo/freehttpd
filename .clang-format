@@ -10,5 +10,4 @@ AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 ColumnLimit: 80
 SortIncludes: true
-Language: C
 BasedOnStyle: GNU

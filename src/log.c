@@ -85,7 +85,7 @@ fhttpd_log (log_level_t level, const char *format, ...)
               ? log_stderr
               : log_stdout;
 
-    fprintf (output, "[fhttpd:%s] ", log_level_to_string (level));
+    fprintf (output, "[fhttpd:%-5s] ", log_level_to_string (level));
 
     va_list args;
     va_start (args, format);

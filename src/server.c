@@ -12,6 +12,7 @@
 #include <sys/shm.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "h2.h"
@@ -140,6 +141,18 @@ fhttpd_socket_create ()
             return -err;
         }
 
+    struct timeval timeout = { 0 };
+
+    timeout.tv_sec = 10;
+
+    if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof (timeout))
+        < 0)
+        {
+            int err = errno;
+            close (sockfd);
+            return -err;
+        }
+
     return sockfd;
 }
 
@@ -184,6 +197,7 @@ freehttpd_server_handle_request_h2 (struct fhttpd_server *server,
                                     int client_sockfd)
 {
     struct h2_connection *conn = h2_connection_create (client_sockfd);
+    int ret;
 
     if (!conn)
         {
@@ -191,9 +205,7 @@ freehttpd_server_handle_request_h2 (struct fhttpd_server *server,
             return ERRNO_GENERIC;
         }
 
-    int ret = h2_connection_start (conn);
-
-    if (ret < 0)
+    if ((ret = h2_connection_start (conn)) < 0)
         {
             fhttpd_wclog_error ("Failed to start HTTP/2 connection: %s",
                                 strerror (-ret));

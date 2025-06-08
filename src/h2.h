@@ -1,17 +1,21 @@
 #ifndef FHTTPD_H2_H
 #define FHTTPD_H2_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "protocol.h"
 #include "error.h"
+#include "protocol.h"
 
-#define H2_MAX_SETTINGS_FRAME_LENGTH  4096
-#define H2_MAX_ALLOWED_FRAME_LENGTH   16777215
-#define H2_MIN_ALLOWED_FRAME_LENGTH   16384
+#define H2_MAX_SETTINGS_FRAME_LENGTH 4096
+#define H2_MAX_ALLOWED_FRAME_LENGTH 16777215
+#define H2_MIN_ALLOWED_FRAME_LENGTH 16384
+#define H2_MAX_ALLOWED_WINDOW_SIZE 2147483647
 
 #define H2_FLAG_SETTINGS_ACK 0x1
+#define H2_FLAG_END_STREAM 0x1
+#define H2_FLAG_END_HEADERS 0x4
 
 enum h2_frame_type
 {
@@ -33,7 +37,7 @@ struct h2_raw_frame_header
     uint8_t type;
     uint8_t flags;
     uint32_t stream_id;
-} __attribute__((packed));
+} __attribute__ ((packed));
 
 struct h2_frame_header
 {
@@ -60,11 +64,21 @@ struct h2_frame_settings
     uint32_t values[__H2_SETTINGS_MAX];
 };
 
+struct h2_frame
+{
+    struct h2_frame_header header;
+    uint8_t *payload;
+    size_t payload_length;
+};
+
 struct h2_connection
 {
     int sockfd;
-    size_t client_stream_count;
     uint32_t settings[__H2_SETTINGS_MAX];
+    bool initial_settings_received;
+
+    uint32_t *client_stream_statuses;
+    size_t client_stream_count;
 };
 
 struct h2_connection *h2_connection_create (int sockfd);
