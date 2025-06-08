@@ -1,325 +1,402 @@
 #define _GNU_SOURCE
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <sys/time.h>
-#include <stdint.h>
-#include <fcntl.h>
-#include <stdarg.h>
-#include <sys/types.h>
+#include <sys/shm.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "server.h"
+#include "log.h"
 #include "protocol.h"
-#include "http11.h"
+#include "server.h"
 
-#define FHTTPD_PROC_MAX 128
-
-enum fhttpd_log_level
-{
-    FHTTPD_LOG_ERROR,
-    FHTTPD_LOG_WARNING,
-    FHTTPD_LOG_INFO,
-    FHTTPD_LOG_DEBUG
-};
+#define FHTTPD_DEFAULT_BACKLOG 8
 
 struct fhttpd_server
 {
-    void *fhttpd_config[__FHTTPD_CONFIG_COUNT];
-    int sockfd;
-    struct sockaddr_in *server_addr;
-    size_t processes;
+    int shmid;
+    void *config[__FHTTPD_CONFIG_MAX];
+    int *sockets;
+    size_t num_sockets;
+    pid_t *workers;
+    size_t num_workers;
+    pid_t master_pid;
 };
 
-struct fhttpd_server *fhttpd_server_create()
+struct fhttpd_server *
+fhttpd_server_create (void)
 {
-    struct fhttpd_server *server = calloc(1, sizeof(struct fhttpd_server));
+    int shmid
+        = shmget (IPC_PRIVATE, sizeof (struct fhttpd_server), IPC_CREAT | 0600);
 
-    if (!server)
+    if (shmid < 0)
         return NULL;
 
-    return server;
+    struct fhttpd_server *shared_server = shmat (shmid, NULL, 0);
+
+    if (!shared_server)
+        return NULL;
+
+    bzero (shared_server, sizeof (struct fhttpd_server));
+    shared_server->shmid = shmid;
+    shared_server->master_pid = getpid ();
+
+    return shared_server;
 }
 
-void fhttpd_server_destroy(struct fhttpd_server *server)
+void
+fhttpd_server_set_config (struct fhttpd_server *server,
+                          enum fhttpd_config config, void *value)
+{
+    if (!server || config < 0 || config >= __FHTTPD_CONFIG_MAX)
+        return;
+
+    server->config[config] = value;
+}
+
+pid_t
+fhttpd_server_get_master_pid (struct fhttpd_server *server)
+{
+    if (!server)
+        return -1;
+
+    return server->master_pid;
+}
+
+void
+fhttpd_server_destroy (struct fhttpd_server *server)
 {
     if (!server)
         return;
 
-    free(server->server_addr);
-    close(server->sockfd);
-    free(server);
+    if (server->sockets)
+        {
+            for (size_t i = 0; i < server->num_sockets; i++)
+                {
+                    if (server->sockets[i] >= 2)
+                        close (server->sockets[i]);
+                }
+
+            free (server->sockets);
+        }
+
+    if (getpid () != server->master_pid)
+        {
+            return;
+        }
+
+    if (server->workers)
+        {
+            for (size_t i = 0; i < server->num_workers; i++)
+                {
+                    if (server->workers[i] > 0)
+                        {
+                            fhttpd_log_warning (
+                                "Terminating worker process: %d",
+                                server->workers[i]);
+                            kill (server->workers[i], SIGTERM);
+                        }
+                }
+
+            free (server->workers);
+        }
+
+    int shmid = server->shmid;
+
+    shmdt (server);
+    shmctl (shmid, IPC_RMID, NULL);
 }
 
-bool fhttpd_server_set_config(struct fhttpd_server *server, enum fhttpd_server_config config, void *value)
+static int
+fhttpd_socket_create ()
 {
-    if (!server || config >= __FHTTPD_CONFIG_COUNT)
-        return false;
-
-    server->fhttpd_config[config] = value;
-    return true;
-}
-
-void *fhttpd_server_get_config(struct fhttpd_server *server, enum fhttpd_server_config config)
-{
-    if (!server || config >= __FHTTPD_CONFIG_COUNT)
-        return NULL;
-
-    return server->fhttpd_config[config];
-}
-
-static int fhttpd_server_create_socket(void)
-{
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockfd = socket (AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
-        return -1;
+        return ERRNO_GENERIC;
 
     int opt = 1;
 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
-        return -1;
+    if (setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt)) < 0)
+        {
+            int err = errno;
+            close (sockfd);
+            return -err;
+        }
 
-    struct timeval timeout;
-
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
-
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *) &timeout, sizeof (timeout)) < 0)
-        return -1; 
- 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *) &timeout, sizeof (timeout)) < 0)
-        return -1;
-
-    int flags = fcntl(sockfd, F_GETFL, 0);
-
-    if (flags < 0)
-        return -1;
-    
-    if (fcntl(sockfd, F_SETFL, flags & ~O_NONBLOCK) < 0)
-        return -1;
+    if (setsockopt (sockfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof (opt)) < 0)
+        {
+            int err = errno;
+            close (sockfd);
+            return -err;
+        }
 
     return sockfd;
 }
 
-errno_t fhttpd_server_initialize(struct fhttpd_server *server)
+static int
+fhttpd_socket_bind (int sockfd, const char *ip, uint16_t port)
 {
-    if (!server)
-        return -EINVAL;
+    struct sockaddr_in addr = { 0 };
 
-    server->sockfd = fhttpd_server_create_socket();
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons (port);
 
-    if (server->sockfd < 0)
-        return errno;
+    if (ip && inet_pton (AF_INET, ip, &addr.sin_addr) <= 0)
+        return ERRNO_GENERIC;
+    else if (!ip)
+        addr.sin_addr.s_addr = INADDR_ANY;
 
-    uint16_t port = server->fhttpd_config[FHTTPD_CONFIG_PORT] ? *(uint16_t *)server->fhttpd_config[FHTTPD_CONFIG_PORT] : 80;
-    uint32_t bind_addr = server->fhttpd_config[FHTTPD_CONFIG_BIND_ADDR] ? *(uint32_t *)server->fhttpd_config[FHTTPD_CONFIG_BIND_ADDR] : INADDR_ANY;
-
-    if (port == 0)
-        return -EINVAL;
-
-    server->server_addr = malloc(sizeof(struct sockaddr_in));
-
-    if (!server->server_addr)
-        return errno;
-
-    server->server_addr->sin_family = AF_INET;
-    server->server_addr->sin_addr.s_addr = bind_addr;
-    server->server_addr->sin_port = htons(port);
-
-    if (bind(server->sockfd, (struct sockaddr *)server->server_addr, sizeof(struct sockaddr_in)) < 0)
-        return errno;
-
-    if (listen(server->sockfd, 5) < 0)
-        return errno;
+    if (bind (sockfd, (struct sockaddr *) &addr, sizeof (addr)) < 0)
+        {
+            int err = errno;
+            close (sockfd);
+            return -err;
+        }
 
     return 0;
 }
 
-static bool fhttpd_error(struct fhttpd_server *server, int client_sockfd, enum http_response_code code)
+static int
+fhttpd_socket_listen (int sockfd, int backlog)
 {
-    if (!server || client_sockfd < 0)
-        return false;
+    if (listen (sockfd, backlog == 0 ? FHTTPD_DEFAULT_BACKLOG : backlog) < 0)
+        {
+            int err = errno;
+            close (sockfd);
+            return -err;
+        }
 
-    struct http_response response = {0};
-    char content_length[32];
-
-    response.version = HTTP_VERSION_11;
-    response.code = code;
-    response.body = buffer_create(1);
-
-    buffer_aprintf(response.body, "%d %s\n\n----\nfreehttpd/1.0.0-alpha.1 Server at localhost\n", code, http_status_code_to_text(code));
-    snprintf(content_length, sizeof(content_length) - 1, "%zu", response.body->length);
-    
-    http_response_add_header(&response, "Server", "freehttpd");
-    http_response_add_header(&response, "Connection", "close");
-    http_response_add_header(&response, "Content-Type", "text/plain; charset=\"utf-8\"");
-    http_response_add_header(&response, "Content-Length", content_length);
-
-    bool ret = http11_send_response(server, client_sockfd, &response);
-    http_response_destroy_inner(&response);
-    close(client_sockfd);
-
-    return ret;
-}
-
-void fhttpd_log_request(const struct http_request *request)
-{
-    printf("[incoming] %s %s %s\n", request->method, request->uri, http_version_string(request->version));
-
-    for (size_t i = 0; i < request->header_count; i++)
-        printf("[incoming] %s: %s\n", request->headers[i].name, request->headers[i].value);
-}
-
-void fhttpd_log(enum fhttpd_log_level level, const char *format, ...)
-{
-    FILE *fp = level == FHTTPD_LOG_ERROR || level == FHTTPD_LOG_WARNING ? stderr : stdout;
-    va_list args;
-    va_start(args, format);
-    fprintf(fp, "[fhttpd:%d] ", level);
-    vfprintf(fp, format, args);
-    va_end(args);
-}
-
-errno_t fhttpd_handle_connection(struct fhttpd_server *server, int client_sockfd)
-{
-    struct http_request request;
-    struct http_response response = {0};
-    enum http_response_code rcode = http11_parse_request(server, client_sockfd, &request);
-
-    if (rcode != HTTP_OK)
-    {
-        fhttpd_log(FHTTPD_LOG_ERROR, "Error parsing request: %d\n", rcode);
-        fhttpd_error(server, client_sockfd, rcode);
-        http_request_destroy_inner(&request);
-        return 0;
-    }
-
-    fhttpd_log_request(&request);
-
-    if (strcmp(request.method, "GET") != 0 && strcmp(request.method, "HEAD") != 0)
-    {
-        fhttpd_log(FHTTPD_LOG_WARNING, "Unsupported method: %s\n", request.method);
-        fhttpd_error(server, client_sockfd, HTTP_METHOD_NOT_ALLOWED);
-        http_request_destroy_inner(&request);
-        return 0;
-    }
-
-    response.code = HTTP_OK;
-    response.version = request.version;
-
-    char text[] = "Hello, World!\n";
-    char text_length[32];
-
-    snprintf(text_length, sizeof(text_length), "%zu", sizeof(text) - 1);
-    
-    http_response_add_header(&response, "Server", "freehttpd");
-    http_response_add_header(&response, "Connection", "close");
-
-    if (strcmp(request.method, "HEAD") != 0) 
-    {
-        http_response_add_header(&response, "Content-Type", "text/plain; charset=\"utf-8\"");
-        http_response_add_header(&response, "Content-Length", text_length);
-    }
-    
-    http11_send_response(server, client_sockfd, &response);
-    http_response_destroy_inner(&response);
-
-    if (strcmp(request.method, "HEAD") != 0) 
-    {
-        send(client_sockfd, "\r\n", 2, 0);
-        send(client_sockfd, text, sizeof(text) - 1, 0);
-    }
-
-    close(client_sockfd);
-    http_request_destroy_inner(&request);
     return 0;
 }
 
-static bool fhttpd_fork(struct fhttpd_server *server, int client_sockfd)
+static int
+freehttpd_server_handle_request (struct fhttpd_server *server,
+                                 int client_sockfd)
 {
-    if (server->processes >= FHTTPD_PROC_MAX)
-    {
-        fhttpd_log(FHTTPD_LOG_ERROR, "Cannot create more than %d processes\n", FHTTPD_PROC_MAX);
-        return false;
-    }
+    protocol_t protocol = fhttpd_stream_detect_protocol (client_sockfd);
 
-    pid_t pid = fork();
+    fhttpd_wclog_info ("Detected protocol: %s",
+                       fhttpd_protocol_to_string (protocol));
+
+    if (protocol == FHTTPD_PROTOCOL_UNKNOWN)
+        {
+            fhttpd_wclog_info ("Unknown protocol detected");
+            return ERRNO_GENERIC;
+        }
+
+    switch (protocol)
+        {
+        case FHTTPD_PROTOCOL_H2:
+            fhttpd_wclog_info ("Handling h2 request");
+            break;
+
+        default:
+            fhttpd_wclog_error ("Unsupported protocol: %s",
+                                fhttpd_protocol_to_string (protocol));
+            close (client_sockfd);
+            return ERRNO_GENERIC;
+        }
+
+    return ERRNO_SUCCESS;
+}
+
+static int
+freehttpd_server_enter_loop (struct fhttpd_server *server, int sockfd)
+{
+    while (true)
+        {
+            struct sockaddr_in client_addr;
+            socklen_t addr_len = sizeof (client_addr);
+
+            int client_sockfd
+                = accept (sockfd, (struct sockaddr *) &client_addr, &addr_len);
+
+            if (client_sockfd < 0)
+                {
+                    if (client_sockfd == -1
+                        && (errno == EINTR || errno == EAGAIN))
+                        continue;
+
+                    fhttpd_wclog_perror ("accept");
+                    continue;
+                }
+
+            char client_ip[INET_ADDRSTRLEN];
+
+            if (inet_ntop (AF_INET, &client_addr.sin_addr, client_ip,
+                           sizeof (client_ip))
+                == NULL)
+                {
+                    fhttpd_wclog_perror ("inet_ntop");
+                    close (client_sockfd);
+                    continue;
+                }
+
+            fhttpd_wclog_info ("Accepted connection from %s:%d", client_ip,
+                               ntohs (client_addr.sin_port));
+
+            int rc = freehttpd_server_handle_request (server, client_sockfd);
+
+            if (rc < 0)
+                {
+                    fhttpd_wclog_error ("Error handling request: %s",
+                                        rc == ERRNO_GENERIC ? "Generic error"
+                                                            : strerror (-rc));
+                }
+
+            close (client_sockfd);
+        }
+
+    return 0;
+}
+
+static int
+fhttpd_server_setup_sockets (struct fhttpd_server *server)
+{
+    uint16_t *ports = server->config[FHTTPD_CONFIG_PORTS]
+                          ? (uint16_t *) server->config[FHTTPD_CONFIG_PORTS]
+                          : NULL;
+
+    while (ports && *ports)
+        {
+            int sockfd = fhttpd_socket_create ();
+
+            if (sockfd < 0)
+                return sockfd;
+
+            int ret;
+
+            if ((ret = fhttpd_socket_bind (sockfd, NULL, *ports)) < 0)
+                {
+                    close (sockfd);
+                    return ret;
+                }
+
+            if ((ret = fhttpd_socket_listen (sockfd, FHTTPD_DEFAULT_BACKLOG))
+                < 0)
+                {
+                    close (sockfd);
+                    return -ret;
+                }
+
+            server->sockets = realloc (
+                server->sockets, sizeof (int) * (server->num_sockets + 1));
+
+            if (!server->sockets)
+                {
+                    close (sockfd);
+                    return ERRNO_GENERIC;
+                }
+
+            server->sockets[server->num_sockets++] = sockfd;
+            ports++;
+        }
+
+    if (server->num_sockets == 0)
+        return ERRNO_GENERIC;
+
+    return ERRNO_SUCCESS;
+}
+
+static void
+fhttpd_print_socket_info (int sockfd, pid_t worker_pid)
+{
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof (addr);
+
+    if (getsockname (sockfd, (struct sockaddr *) &addr, &addr_len) < 0)
+        {
+            perror ("getsockname");
+            return;
+        }
+
+    char ip[INET_ADDRSTRLEN];
+
+    if (inet_ntop (AF_INET, &addr.sin_addr, ip, sizeof (ip)) == NULL)
+        {
+            perror ("inet_ntop");
+            return;
+        }
+
+    fhttpd_wlog_info (worker_pid, "Listening on socket %d: bound to %s:%d",
+                      sockfd, ip, ntohs (addr.sin_port));
+}
+
+static int
+fhttpd_server_fork_socket_worker (struct fhttpd_server *server, int sockfd)
+{
+    pid_t pid = fork ();
 
     if (pid < 0)
-    {
-        fhttpd_log(FHTTPD_LOG_ERROR, "Fork failed: %s\n", strerror(errno));
-        return false;
-    }
-
-    server->processes++;
-
-    if (pid == 0)
-    {
-        close(server->sockfd);
-        errno_t errcode = fhttpd_handle_connection(server, client_sockfd);
-
-        if (errcode != 0)
         {
-            fhttpd_log(FHTTPD_LOG_ERROR, "Error handling connection: %s\n", strerror(errno));
-            close(client_sockfd);
-            exit(1);
+            return -errno;
+        }
+    else if (pid != 0)
+        {
+            server->workers = realloc (
+                server->workers, sizeof (pid_t) * (server->num_workers + 1));
+
+            if (!server->workers)
+                return ERRNO_GENERIC;
+
+            server->workers[server->num_workers++] = pid;
+        }
+    else
+        {
+            int ret;
+
+            if ((ret = freehttpd_server_enter_loop (server, sockfd)) < 0)
+                {
+                    fhttpd_wclog_error (
+                        "Failed to enter server loop for socket %d: %s", sockfd,
+                        strerror (-ret));
+                    exit (EXIT_FAILURE);
+                }
         }
 
-        exit(0);
-    }
-
-    close(client_sockfd);
-    return true;
+    return ERRNO_SUCCESS;
 }
 
-errno_t fhttpd_server_start(struct fhttpd_server *server)
+int
+fhttpd_server_run (struct fhttpd_server *server)
 {
     if (!server)
-        return -1;
+        return ERRNO_GENERIC;
 
-    uint16_t accept_errors = 0;
+    int ret;
+
+    if ((ret = fhttpd_server_setup_sockets (server)) < 0)
+        return ret;
+
+    for (size_t i = 0; i < server->num_sockets; i++)
+        {
+            if ((ret = fhttpd_server_fork_socket_worker (server,
+                                                         server->sockets[i]))
+                < 0)
+                {
+                    fhttpd_log_error (
+                        "Failed to fork child process for socket %d: %s",
+                        server->sockets[i], strerror (-ret));
+                    return ret;
+                }
+
+            fhttpd_print_socket_info (server->sockets[i],
+                                      server->workers[server->num_workers - 1]);
+        }
 
     while (true)
-    {
-        struct sockaddr_in client_addr;
-        socklen_t addr_len = sizeof(client_addr);
-        int client_sockfd = accept(server->sockfd, (struct sockaddr *) &client_addr, &addr_len);
-
-        if (client_sockfd < 0)
         {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                usleep(500);
-                continue;
-            }
-
-            accept_errors++;
-
-            if (accept_errors >= 1000)
-            {
-                fhttpd_log(FHTTPD_LOG_ERROR, "Too many accept errors, shutting down server.");
-                fhttpd_log(FHTTPD_LOG_ERROR, "Error: %s\n", strerror(errno));
-                return errno;
-            }
-            
-            continue;
+            pause ();
         }
 
-        accept_errors = 0;
-
-        if (!fhttpd_fork(server, client_sockfd))
-        {
-            fhttpd_log(FHTTPD_LOG_ERROR, "Error handling connection: %s\n", strerror(errno));
-            close(client_sockfd);
-            continue;
-        }
-    }
-
-    return 0;
+    return ERRNO_SUCCESS;
 }

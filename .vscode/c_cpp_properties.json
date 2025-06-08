@@ -2,12 +2,10 @@
     "configurations": [
         {
             "name": "Linux",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
+            "includePath": ["${workspaceFolder}/**"],
             "defines": ["_POSIX_C_SOURCE=200809L", "true=1", "false=0"],
             "compilerPath": "/usr/bin/gcc",
-            "cStandard": "gnu99",
+            "cStandard": "gnu11",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64"
         }

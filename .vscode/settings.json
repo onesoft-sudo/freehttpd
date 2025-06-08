@@ -7,5 +7,6 @@
         "typeinfo": "c",
         "bitset": "c",
         "string_view": "c"
-    }
+    },
+    "editor.formatOnSave": true
 }
