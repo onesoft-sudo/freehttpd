@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "h2.h"
 #include "log.h"
 #include "protocol.h"
 #include "server.h"
@@ -179,6 +180,32 @@ fhttpd_socket_listen (int sockfd, int backlog)
 }
 
 static int
+freehttpd_server_handle_request_h2 (struct fhttpd_server *server,
+                                    int client_sockfd)
+{
+    struct h2_connection *conn = h2_connection_create (client_sockfd);
+
+    if (!conn)
+        {
+            fhttpd_wclog_error ("Failed to create HTTP/2 connection");
+            return ERRNO_GENERIC;
+        }
+
+    int ret = h2_connection_start (conn);
+
+    if (ret < 0)
+        {
+            fhttpd_wclog_error ("Failed to start HTTP/2 connection: %s",
+                                strerror (-ret));
+            h2_connection_close (conn);
+            return ret;
+        }
+
+    h2_connection_close (conn);
+    return ERRNO_SUCCESS;
+}
+
+static int
 freehttpd_server_handle_request (struct fhttpd_server *server,
                                  int client_sockfd)
 {
@@ -196,8 +223,7 @@ freehttpd_server_handle_request (struct fhttpd_server *server,
     switch (protocol)
         {
         case FHTTPD_PROTOCOL_H2:
-            fhttpd_wclog_info ("Handling h2 request");
-            break;
+            return freehttpd_server_handle_request_h2 (server, client_sockfd);
 
         default:
             fhttpd_wclog_error ("Unsupported protocol: %s",

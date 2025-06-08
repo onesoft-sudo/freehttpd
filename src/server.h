@@ -3,8 +3,7 @@
 
 #include <sys/types.h>
 
-#define ERRNO_GENERIC   -256
-#define ERRNO_SUCCESS      0
+#include "error.h"
 
 enum fhttpd_config
 {

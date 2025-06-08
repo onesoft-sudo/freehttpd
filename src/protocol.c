@@ -9,9 +9,7 @@
 
 #define STREAM_DETECT_INITIAL_READ_SIZE 64
 
-#define HTTP2_PREFACE "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
-
-static_assert (sizeof (HTTP2_PREFACE) - 1 <= STREAM_DETECT_INITIAL_READ_SIZE,
+static_assert (sizeof (H2_PREFACE) - 1 <= STREAM_DETECT_INITIAL_READ_SIZE,
                "HTTP2_PREFACE size exceeds initial read buffer size");
 
 const char *
@@ -47,13 +45,13 @@ enum fhttpd_protocol
 fhttpd_stream_detect_protocol (int sockfd)
 {
     uint8_t local_read_buf[STREAM_DETECT_INITIAL_READ_SIZE];
-    ssize_t size = sizeof (HTTP2_PREFACE) - 1;
+    ssize_t size = sizeof (H2_PREFACE) - 1;
     ssize_t bytes_read = recv (sockfd, local_read_buf, size, MSG_PEEK);
 
     if (bytes_read <= 0)
         return -errno;
 
-    if (bytes_read == size && memcmp (local_read_buf, HTTP2_PREFACE, size) == 0)
+    if (bytes_read == size && memcmp (local_read_buf, H2_PREFACE, size) == 0)
         return FHTTPD_PROTOCOL_H2;
 
     return FHTTPD_PROTOCOL_HTTP_1_x;
