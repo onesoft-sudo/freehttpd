@@ -17,6 +17,22 @@
 #define H2_FLAG_END_STREAM 0x1
 #define H2_FLAG_END_HEADERS 0x4
 
+#define H2_FLAG_HEADERS_PADDED 0x8
+#define H2_FLAG_HEADERS_PRIORITY 0x20
+
+#define H2_HPACK_HEADER_NAME_MAX_LENGTH 254
+#define H2_HPACK_HEADER_VALUE_MAX_LENGTH 254
+
+enum h2_header_field_flags
+{
+    H2_HEADER_FIELD_FLAG_PSEUDO = 0x1,
+    H2_HEADER_FIELD_FLAG_FULL_INDEXED = 0x2,
+    H2_HEADER_FIELD_FLAG_NAME_INDEXED = 0x4,
+    H2_HEADER_FIELD_FLAG_FULL_STATIC = 0x8,
+    H2_HEADER_FIELD_FLAG_NAME_STATIC = 0x10,
+
+};
+
 enum h2_frame_type
 {
     H2_FRAME_TYPE_DATA = 0x0,
@@ -71,6 +87,35 @@ struct h2_frame
     size_t payload_length;
 };
 
+struct h2_header_table_entry
+{
+    char *name;
+    char *value;
+    uint8_t flags;
+};
+
+struct h2_header_field
+{
+    char *name;
+    char *value;
+    uint8_t flags;
+    struct h2_header_field *next;
+    struct h2_header_field *prev;
+};
+
+struct h2_request
+{
+    uint32_t stream_id;
+    bool end_stream;
+    bool end_headers;
+    struct h2_header_field *header_head;
+    struct h2_header_field *header_tail;
+    size_t num_headers;
+
+    struct h2_header_table_entry *dyn_table;
+    size_t dyn_table_size;
+};
+
 struct h2_connection
 {
     int sockfd;
@@ -79,6 +124,9 @@ struct h2_connection
 
     uint32_t *client_stream_statuses;
     size_t client_stream_count;
+
+    struct h2_request *requests;
+    size_t request_count;
 };
 
 struct h2_connection *h2_connection_create (int sockfd);
