@@ -16,10 +16,10 @@ exit_handler (void)
     fprintf (stderr, "Exiting server...\n");
 
     if (server)
-        {
-            fhttpd_server_destroy (server);
-            server = NULL;
-        }
+    {
+        fhttpd_server_destroy (server);
+        server = NULL;
+    }
 }
 
 void
@@ -29,11 +29,20 @@ signal_handler (int signum)
              fhttpd_server_get_master_pid (server) == getpid () ? "server"
                                                                 : "worker");
 
+    if (fhttpd_server_get_master_pid (server) != getpid ())
+    {
+        struct sigaction sa;
+        sa.sa_handler = SIG_DFL;
+        sigemptyset (&sa.sa_mask);
+        sa.sa_flags = 0;
+        sigaction (signum, &sa, NULL);
+    }
+
     if (server)
-        {
-            fhttpd_server_destroy (server);
-            server = NULL;
-        }
+    {
+        fhttpd_server_destroy (server);
+        server = NULL;
+    }
 
     _exit (0);
 }
@@ -48,10 +57,10 @@ main (void)
     server = fhttpd_server_create ();
 
     if (!server)
-        {
-            fprintf (stderr, "Failed to create server\n");
-            return 1;
-        }
+    {
+        fprintf (stderr, "Failed to create server\n");
+        return 1;
+    }
 
     struct sigaction sa;
     sa.sa_handler = &signal_handler;
@@ -59,10 +68,10 @@ main (void)
     sa.sa_flags = 0;
 
     if (sigaction (SIGINT, &sa, NULL) < 0 || sigaction (SIGTERM, &sa, NULL) < 0)
-        {
-            fprintf (stderr, "Failed to set up signal handlers\n");
-            return 1;
-        }
+    {
+        fprintf (stderr, "Failed to set up signal handlers\n");
+        return 1;
+    }
 
     uint16_t ports[] = { 8080, 0 };
 
@@ -71,11 +80,11 @@ main (void)
     int ret = fhttpd_server_run (server);
 
     if (ret < 0)
-        {
-            fprintf (stderr, "Failed to run server: %s\n",
-                     ret == ERRNO_GENERIC ? "Generic error" : strerror (-ret));
-            return 1;
-        }
+    {
+        fprintf (stderr, "Failed to run server: %s\n",
+                 ret == ERRNO_GENERIC ? "Generic error" : strerror (-ret));
+        return 1;
+    }
 
     return 0;
 }

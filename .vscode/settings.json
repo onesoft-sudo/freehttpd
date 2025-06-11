@@ -2,11 +2,14 @@
     "files.associations": {
         "*.h": "c",
         "*.ui": "xml",
+        "*.service": "ini",
         "chrono": "c",
         "text_encoding": "c",
         "typeinfo": "c",
         "bitset": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "compare": "c",
+        "type_traits": "c"
     },
     "editor.formatOnSave": true
 }

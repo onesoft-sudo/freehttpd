@@ -9,7 +9,7 @@ SUBDIRS = src
 
 export srcdir = "$(shell pwd)/src"
 
-.PHONY: all clean
+.PHONY: all clean tests
 
 all:
 	@for dir in $(SUBDIRS); do \
@@ -25,3 +25,6 @@ clean:
 	done
 
 	$(RM) -r bin
+
+tests:
+	@$(MAKE) -C tests
