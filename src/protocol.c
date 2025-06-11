@@ -39,22 +39,3 @@ fhttpd_string_to_protocol (const char *protocol_str)
     else
         return -1;
 }
-
-int
-fhttpd_stream_detect_protocol (int sockfd, size_t *bytes_peeked)
-{
-    uint8_t local_read_buf[STREAM_DETECT_INITIAL_READ_SIZE];
-    ssize_t size = sizeof (H2_PREFACE) - 1;
-    ssize_t bytes_read = recv (sockfd, local_read_buf, size, MSG_PEEK);
-
-    if (bytes_read <= 0)
-        return -errno;
-
-    if (bytes_peeked)
-        *bytes_peeked = bytes_read;
-
-    if (bytes_read == size && memcmp (local_read_buf, H2_PREFACE, size) == 0)
-        return FHTTPD_PROTOCOL_H2;
-
-    return FHTTPD_PROTOCOL_HTTP1x;
-}

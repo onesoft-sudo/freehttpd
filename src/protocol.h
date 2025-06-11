@@ -51,6 +51,4 @@ struct fhttpd_request
 const char *fhttpd_protocol_to_string (enum fhttpd_protocol protocol);
 enum fhttpd_protocol fhttpd_string_to_protocol (const char *protocol_str);
 
-int fhttpd_stream_detect_protocol (int sockfd, size_t *bytes_peeked);
-
 #endif /* FHTTPD_PROTOCOL_H */

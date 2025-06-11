@@ -28,12 +28,20 @@
 
 struct fhttpd_connection
 {
+    uint64_t id;
     protocol_t protocol;
+
     int client_sockfd;
     struct sockaddr_in client_addr;
     socklen_t addr_len;
+
+    char buffer[H2_PREFACE_SIZE];
+    size_t buffer_len;
+
     struct fhttpd_request *requests;
     size_t num_requests;
+
+    time_t last_activity;
 };
 
 struct fhttpd_worker
@@ -57,22 +65,24 @@ struct fhttpd_server
     size_t num_sockets;
 
     pid_t master_pid;
+    uint64_t last_connection_id;
 };
 
 struct fhttpd_server *
 fhttpd_server_create (void)
 {
-    struct fhttpd_server *shared_server
+    struct fhttpd_server *server
         = mmap (NULL, sizeof (struct fhttpd_server), PROT_READ | PROT_WRITE,
                 MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-    if (!shared_server)
+    if (!server)
         return NULL;
 
-    bzero (shared_server, sizeof (struct fhttpd_server));
-    shared_server->master_pid = getpid ();
+    bzero (server, sizeof (struct fhttpd_server));
+    server->master_pid = getpid ();
+    server->last_connection_id = 0;
 
-    return shared_server;
+    return server;
 }
 
 void
@@ -278,12 +288,14 @@ fhttpd_new_connection (struct fhttpd_worker *worker, int client_sockfd,
     if (!connection)
         return NULL;
 
+    connection->id = worker->server->last_connection_id++;
     connection->protocol = FHTTPD_PROTOCOL_UNKNOWN;
     connection->client_sockfd = client_sockfd;
     connection->client_addr = *client_addr;
     connection->addr_len = addr_len;
     connection->requests = NULL;
     connection->num_requests = 0;
+    connection->buffer_len = 0;
 
     if (!htable_set (worker->connections, client_sockfd, connection))
     {
@@ -364,12 +376,11 @@ fhttpd_server_loop_accept (struct fhttpd_worker *worker)
 }
 
 static void
-fhttpd_server_close_fd (struct fhttpd_worker *worker, int sockfd)
+fhttpd_server_close_sockfd (struct fhttpd_worker *worker, int sockfd)
 {
     if (sockfd < 0)
         return;
 
-    fhttpd_wclog_info ("Closing socket %d", sockfd);
     epoll_ctl (worker->epoll_fd, EPOLL_CTL_DEL, sockfd, NULL);
     close (sockfd);
 
@@ -387,25 +398,66 @@ fhttpd_server_close_fd (struct fhttpd_worker *worker, int sockfd)
     }
 }
 
+static ssize_t
+fhttpd_connection_recv (struct fhttpd_connection *connection, void *buf,
+                        size_t len, int flags)
+{
+    ssize_t bytes_read = recv (connection->client_sockfd, buf, len, flags);
+
+    if (bytes_read < 0)
+        return bytes_read;
+
+    if (bytes_read > 0)
+        connection->last_activity = time (NULL);
+
+    return bytes_read;
+}
+
+static loop_operation_t
+fhttpd_server_detect_protocol (struct fhttpd_worker *worker,
+                               const struct epoll_event *event,
+                               struct fhttpd_connection *connection)
+{
+    ssize_t bytes_read = fhttpd_connection_recv (
+        connection, connection->buffer,
+        sizeof (connection->buffer) - connection->buffer_len, MSG_PEEK);
+
+    if (bytes_read < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return LOOP_OPERATION_CONTINUE;
+
+        fhttpd_wclog_perror ("fhttpd_connection_recv");
+        fhttpd_server_close_sockfd (worker, event->data.fd);
+        return LOOP_OPERATION_CONTINUE;
+    }
+    else if (bytes_read == 0)
+    {
+        fhttpd_server_close_sockfd (worker, event->data.fd);
+        return LOOP_OPERATION_CONTINUE;
+    }
+
+    connection->buffer_len += bytes_read;
+
+    if (connection->buffer_len < H2_PREFACE_SIZE)
+    {
+        fhttpd_wclog_debug ("Received %zd bytes, waiting for more data",
+                            bytes_read);
+        return LOOP_OPERATION_CONTINUE;
+    }
+
+    if (memcmp (connection->buffer, H2_PREFACE, H2_PREFACE_SIZE) == 0)
+        connection->protocol = FHTTPD_PROTOCOL_H2;
+    else
+        connection->protocol = FHTTPD_PROTOCOL_HTTP1x;
+
+    return LOOP_OPERATION_NONE;
+}
+
 static loop_operation_t
 fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
                              const struct epoll_event *event)
 {
-    size_t bytes_peeked = 0;
-    int protocol
-        = fhttpd_stream_detect_protocol (event->data.fd, &bytes_peeked);
-
-    if (protocol < 0)
-    {
-        if (protocol == -EAGAIN || protocol == -EINTR
-            || protocol == -EWOULDBLOCK)
-            return LOOP_OPERATION_CONTINUE;
-
-        fhttpd_wclog_error ("Failed to detect protocol: %s",
-                            strerror (-protocol));
-        fhttpd_server_close_fd (worker, event->data.fd);
-    }
-
     struct fhttpd_connection *connection
         = htable_get (worker->connections, event->data.fd);
 
@@ -413,15 +465,28 @@ fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
     {
         fhttpd_wclog_error ("Connection not found for socket %d",
                             event->data.fd);
-        fhttpd_server_close_fd (worker, event->data.fd);
+        fhttpd_server_close_sockfd (worker, event->data.fd);
         return LOOP_OPERATION_CONTINUE;
     }
 
-    connection->protocol = (protocol_t) protocol;
-    fhttpd_wclog_debug ("Detected protocol %s for socket %d",
-                        fhttpd_protocol_to_string (protocol), event->data.fd);
-    fhttpd_wclog_debug ("Bytes peeked: %zu", bytes_peeked);
+    if (connection->protocol == FHTTPD_PROTOCOL_UNKNOWN)
+    {
+        loop_operation_t op
+            = fhttpd_server_detect_protocol (worker, event, connection);
 
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return op;
+
+        if (connection->protocol != FHTTPD_PROTOCOL_UNKNOWN)
+        {
+            fhttpd_wclog_info (
+                "Detected protocol: %s",
+                fhttpd_protocol_to_string (connection->protocol));
+        }
+    }
+
+    fhttpd_wclog_info ("No handler for %d, closing", connection->id);
+    fhttpd_server_close_sockfd (worker, event->data.fd);
     return LOOP_OPERATION_NONE;
 }
 
@@ -429,7 +494,7 @@ static loop_operation_t
 fhttpd_server_on_hup (struct fhttpd_worker *worker,
                       const struct epoll_event *event)
 {
-    fhttpd_wclog_info ("Socket %d closed", event->data.fd);
+    fhttpd_wclog_info ("Socket %d HUP: closed by peer", event->data.fd);
     epoll_ctl (worker->epoll_fd, EPOLL_CTL_DEL, event->data.fd, NULL);
     close (event->data.fd);
     return LOOP_OPERATION_CONTINUE;
