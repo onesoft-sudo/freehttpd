@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "htable.h"
+#include "http11.h"
 #include "log.h"
 #include "loop.h"
 #include "protocol.h"
@@ -25,24 +26,6 @@
 
 #define FHTTPD_DEFAULT_BACKLOG 8
 #define MAX_EVENTS 64
-
-struct fhttpd_connection
-{
-    uint64_t id;
-    protocol_t protocol;
-
-    int client_sockfd;
-    struct sockaddr_in client_addr;
-    socklen_t addr_len;
-
-    char buffer[H2_PREFACE_SIZE];
-    size_t buffer_len;
-
-    struct fhttpd_request *requests;
-    size_t num_requests;
-
-    time_t last_activity;
-};
 
 struct fhttpd_worker
 {
@@ -283,7 +266,7 @@ fhttpd_new_connection (struct fhttpd_worker *worker, int client_sockfd,
                        socklen_t addr_len)
 {
     struct fhttpd_connection *connection
-        = malloc (sizeof (struct fhttpd_connection));
+        = calloc (1, sizeof (struct fhttpd_connection));
 
     if (!connection)
         return NULL;
@@ -398,11 +381,12 @@ fhttpd_server_close_sockfd (struct fhttpd_worker *worker, int sockfd)
     }
 }
 
-static ssize_t
+ssize_t
 fhttpd_connection_recv (struct fhttpd_connection *connection, void *buf,
                         size_t len, int flags)
 {
     ssize_t bytes_read = recv (connection->client_sockfd, buf, len, flags);
+    int err = errno;
 
     if (bytes_read < 0)
         return bytes_read;
@@ -410,6 +394,7 @@ fhttpd_connection_recv (struct fhttpd_connection *connection, void *buf,
     if (bytes_read > 0)
         connection->last_activity = time (NULL);
 
+    errno = err;
     return bytes_read;
 }
 
@@ -420,7 +405,7 @@ fhttpd_server_detect_protocol (struct fhttpd_worker *worker,
 {
     ssize_t bytes_read = fhttpd_connection_recv (
         connection, connection->buffer,
-        sizeof (connection->buffer) - connection->buffer_len, MSG_PEEK);
+        sizeof (connection->buffer) - connection->buffer_len, 0);
 
     if (bytes_read < 0)
     {
@@ -477,16 +462,100 @@ fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return op;
 
-        if (connection->protocol != FHTTPD_PROTOCOL_UNKNOWN)
+        if (connection->protocol == FHTTPD_PROTOCOL_UNKNOWN)
+            return op;
+
+        fhttpd_wclog_info ("Detected protocol: %s",
+                           fhttpd_protocol_to_string (connection->protocol));
+
+        struct fhttpd_request *new_requests = realloc (
+            connection->requests,
+            sizeof (struct fhttpd_request) * (connection->num_requests + 1));
+
+        if (!new_requests)
         {
-            fhttpd_wclog_info (
-                "Detected protocol: %s",
-                fhttpd_protocol_to_string (connection->protocol));
+            fhttpd_wclog_error ("Failed to allocate memory for new request");
+            fhttpd_server_close_sockfd (worker, event->data.fd);
+            return LOOP_OPERATION_CONTINUE;
+        }
+
+        connection->requests = new_requests;
+        connection->num_requests++;
+
+        switch (connection->protocol)
+        {
+            case FHTTPD_PROTOCOL_HTTP1x:
+                {
+                    struct http11_parser_ctx *new_list = realloc (
+                        connection->http11_parser_ctx_list,
+                        sizeof (struct http11_parser_ctx)
+                            * (connection->http11_parser_ctx_count + 1));
+
+                    if (!new_list)
+                    {
+                        fhttpd_wclog_error ("Failed to allocate memory for "
+                                            "HTTP/1.x parser context");
+                        fhttpd_server_close_sockfd (worker, event->data.fd);
+                        return LOOP_OPERATION_CONTINUE;
+                    }
+
+                    connection->http11_parser_ctx_list = new_list;
+                    new_list[connection->http11_parser_ctx_count]
+                        = (struct http11_parser_ctx) { 0 };
+                    new_list[connection->http11_parser_ctx_count].request
+                        = &new_requests[connection->num_requests - 1];
+                    connection->http11_parser_ctx_count++;
+
+                    break;
+                }
+
+            default:
+                fhttpd_wclog_warning ("Unsupported protocol for socket %lu",
+                                      connection->id);
+                fhttpd_server_close_sockfd (worker, event->data.fd);
+                return LOOP_OPERATION_CONTINUE;
         }
     }
 
-    fhttpd_wclog_info ("No handler for %d, closing", connection->id);
-    fhttpd_server_close_sockfd (worker, event->data.fd);
+    switch (connection->protocol)
+    {
+        case FHTTPD_PROTOCOL_HTTP1x:
+            fhttpd_wclog_info (
+                "Handling HTTP/1.x protocol for socket connection %lu",
+                connection->id);
+            struct http11_parser_ctx *ctx
+                = &connection->http11_parser_ctx_list
+                       [connection->http11_parser_ctx_count - 1];
+
+            while (true)
+            {
+                enum http11_parse_error error
+                    = http11_stream_parse_request (connection, ctx);
+
+                if (error != HTTP11_PARSE_ERROR_NONE)
+                    break;
+
+                if (ctx->state == HTTP11_PARSE_STATE_COMPLETE
+                    || ctx->state == HTTP11_PARSE_STATE_ERROR)
+                    break;
+
+                if (errno != EAGAIN && errno != EWOULDBLOCK && errno != 0)
+                    break;
+
+                puts ("Parsing HTTP/1.x request...");
+            }
+
+            puts ("Finished parsing HTTP/1.x request");
+            fhttpd_server_close_sockfd (worker, event->data.fd);
+            break;
+
+        default:
+            fhttpd_wclog_warning ("Unsupported protocol for socket %lu",
+                                  connection->id);
+            fhttpd_server_close_sockfd (worker, event->data.fd);
+            return LOOP_OPERATION_CONTINUE;
+    }
+
     return LOOP_OPERATION_NONE;
 }
 

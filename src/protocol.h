@@ -1,6 +1,7 @@
 #ifndef FHTTPD_PROTOCOL_H
 #define FHTTPD_PROTOCOL_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -29,6 +30,22 @@ enum fhttpd_method
     FHTTPD_METHOD_TRACE
 };
 
+enum fhttpd_status
+{
+    FHTTPD_STATUS_OK = 200,
+    FHTTPD_STATUS_CREATED = 201,
+    FHTTPD_STATUS_ACCEPTED = 202,
+    FHTTPD_STATUS_NO_CONTENT = 204,
+    FHTTPD_STATUS_BAD_REQUEST = 400,
+    FHTTPD_STATUS_UNAUTHORIZED = 401,
+    FHTTPD_STATUS_FORBIDDEN = 403,
+    FHTTPD_STATUS_NOT_FOUND = 404,
+    FHTTPD_STATUS_REQUEST_URI_TOO_LONG = 414,
+    FHTTPD_STATUS_INTERNAL_SERVER_ERROR = 500,
+    FHTTPD_STATUS_NOT_IMPLEMENTED = 501,
+    FHTTPD_STATUS_SERVICE_UNAVAILABLE = 503,
+};
+
 struct fhttpd_header
 {
     char *name;
@@ -46,6 +63,10 @@ struct fhttpd_headers
 struct fhttpd_request
 {
     protocol_t protocol;
+    enum fhttpd_method method;
+    char *uri;
+    size_t uri_length;
+    struct fhttpd_headers headers;
 };
 
 const char *fhttpd_protocol_to_string (enum fhttpd_protocol protocol);

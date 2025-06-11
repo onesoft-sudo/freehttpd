@@ -2,7 +2,7 @@ SpaceAfterCStyleCast: true
 IndentWidth: 4
 UseTab: Never
 BreakBeforeBraces: Allman
-IndentSwitchCase: true
+IndentCaseLabels: true
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
@@ -11,3 +11,5 @@ AllowShortLoopsOnASingleLine: false
 ColumnLimit: 80
 SortIncludes: true
 BasedOnStyle: GNU
+IndentGotoLabels: true
+IndentCaseBlocks: true
