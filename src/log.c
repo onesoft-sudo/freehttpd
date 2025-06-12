@@ -54,7 +54,7 @@ static const char *
 log_level_to_string (log_level_t level)
 {
     switch (level)
-        {
+    {
         case FHTTPD_LOG_LEVEL_DEBUG:
             return "debug";
         case FHTTPD_LOG_LEVEL_INFO:
@@ -67,7 +67,7 @@ log_level_to_string (log_level_t level)
             return "fatal";
         default:
             return "unknown";
-        }
+    }
 }
 
 void
@@ -85,7 +85,11 @@ fhttpd_log (log_level_t level, const char *format, ...)
               ? log_stderr
               : log_stdout;
 
-    fprintf (output, "[fhttpd:%-5s] ", log_level_to_string (level));
+    fprintf (output, "%s[fhttpd:%-5s]\033[0m ",
+             level == FHTTPD_LOG_LEVEL_FATAL || level == FHTTPD_LOG_LEVEL_ERROR
+                 ? "\033[1;31m"
+                 : "",
+             log_level_to_string (level));
 
     va_list args;
     va_start (args, format);

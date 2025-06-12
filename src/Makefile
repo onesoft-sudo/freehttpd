@@ -1,6 +1,6 @@
 BIN_PROGRAMS = freehttpd
 
-freehttpd_OBJECTS = freehttpd.o server.o protocol.o log.o htable.o list.o http11.o
+freehttpd_OBJECTS = freehttpd.o server.o protocol.o log.o htable.o list.o http11.o utils.o
 freehttpd_CFLAGS = -I. -I..
 
 freehttpd: $(freehttpd_OBJECTS)

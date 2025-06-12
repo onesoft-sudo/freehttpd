@@ -17,12 +17,12 @@ fhttpd_protocol_to_string (enum fhttpd_protocol protocol)
 {
     switch (protocol)
     {
-    case FHTTPD_PROTOCOL_HTTP1x:
-        return "HTTP/1.x";
-    case FHTTPD_PROTOCOL_H2:
-        return "h2";
-    default:
-        return "Unknown Protocol";
+        case FHTTPD_PROTOCOL_HTTP1x:
+            return "HTTP/1.x";
+        case FHTTPD_PROTOCOL_H2:
+            return "h2";
+        default:
+            return "Unknown Protocol";
     }
 }
 
@@ -38,4 +38,32 @@ fhttpd_string_to_protocol (const char *protocol_str)
         return FHTTPD_PROTOCOL_H2;
     else
         return -1;
+}
+
+const char *
+fhttpd_method_to_string (enum fhttpd_method method)
+{
+    switch (method)
+    {
+        case FHTTPD_METHOD_GET:
+            return "GET";
+        case FHTTPD_METHOD_POST:
+            return "POST";
+        case FHTTPD_METHOD_PUT:
+            return "PUT";
+        case FHTTPD_METHOD_DELETE:
+            return "DELETE";
+        case FHTTPD_METHOD_HEAD:
+            return "HEAD";
+        case FHTTPD_METHOD_OPTIONS:
+            return "OPTIONS";
+        case FHTTPD_METHOD_PATCH:
+            return "PATCH";
+        case FHTTPD_METHOD_CONNECT:
+            return "CONNECT";
+        case FHTTPD_METHOD_TRACE:
+            return "TRACE";
+        default:
+            return "Unknown Method";
+    }
 }

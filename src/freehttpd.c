@@ -76,6 +76,12 @@ main (void)
     uint16_t ports[] = { 8080, 0 };
 
     fhttpd_server_set_config (server, FHTTPD_CONFIG_PORTS, ports);
+    fhttpd_server_set_config (server, FHTTPD_CONFIG_CLIENT_RECV_TIMEOUT,
+                              &(uint32_t) { 10000 });
+    fhttpd_server_set_config (server, FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT,
+                              &(uint32_t) { 20000 });
+    fhttpd_server_set_config (server, FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
+                              &(uint32_t) { 30000 });
 
     int ret = fhttpd_server_run (server);
 

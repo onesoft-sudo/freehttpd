@@ -1,5 +1,5 @@
 export CC = gcc
-export CFLAGS = -g -Wall -Wextra -pedantic -std=gnu11 -D_POSIX_C_SOURCE=200809L
+export CFLAGS = -g -O0 -Wall -Wextra -pedantic -std=gnu11 -D_POSIX_C_SOURCE=200809L
 export LDFLAGS = 
 export RM = rm -f
 export MKDIR = mkdir -p

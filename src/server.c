@@ -23,8 +23,9 @@
 #include "loop.h"
 #include "protocol.h"
 #include "server.h"
+#include "utils.h"
 
-#define FHTTPD_DEFAULT_BACKLOG 8
+#define FHTTPD_DEFAULT_BACKLOG SOMAXCONN
 #define MAX_EVENTS 64
 
 struct fhttpd_worker
@@ -62,6 +63,7 @@ fhttpd_server_create (void)
         return NULL;
 
     bzero (server, sizeof (struct fhttpd_server));
+
     server->master_pid = getpid ();
     server->last_connection_id = 0;
 
@@ -114,8 +116,22 @@ fhttpd_server_destroy (struct fhttpd_server *server)
         free (server->sockets);
     }
 
-    if (getpid () != server->master_pid)
+    pid_t pid = getpid ();
+
+    if (pid != server->master_pid)
     {
+        if (server->workers)
+        {
+            for (size_t i = 0; i < server->num_sockets; i++)
+            {
+                if (server->workers[i].pid == pid)
+                {
+                    close (server->workers[i].epoll_fd);
+                    htable_destroy (server->workers[i].connections);
+                }
+            }
+        }
+
         return;
     }
 
@@ -279,6 +295,8 @@ fhttpd_new_connection (struct fhttpd_worker *worker, int client_sockfd,
     connection->requests = NULL;
     connection->num_requests = 0;
     connection->buffer_len = 0;
+    connection->created_at_ts = utils_get_current_timestamp ();
+    connection->last_recv_activity_ts = connection->created_at_ts;
 
     if (!htable_set (worker->connections, client_sockfd, connection))
     {
@@ -297,12 +315,17 @@ fhttpd_free_connection (struct fhttpd_worker *worker,
     if (!connection)
         return;
 
+    htable_remove (worker->connections, connection->client_sockfd);
+
     if (connection->requests)
     {
+        for (size_t i = 0; i < connection->num_requests; i++)
+            free (connection->requests[i].uri);
+
         free (connection->requests);
     }
 
-    htable_remove (worker->connections, connection->client_sockfd);
+    free (connection->http11_parser_ctx);
     free (connection);
 }
 
@@ -372,7 +395,8 @@ fhttpd_server_close_sockfd (struct fhttpd_worker *worker, int sockfd)
 
     if (connection)
     {
-        fhttpd_wclog_info ("Connection closed for socket %d", sockfd);
+        fhttpd_wclog_info ("Connection closed for socket %d [cleaning up]",
+                           sockfd);
         fhttpd_free_connection (worker, connection);
     }
     else
@@ -392,7 +416,9 @@ fhttpd_connection_recv (struct fhttpd_connection *connection, void *buf,
         return bytes_read;
 
     if (bytes_read > 0)
-        connection->last_activity = time (NULL);
+    {
+        connection->last_recv_activity_ts = utils_get_current_timestamp ();
+    }
 
     errno = err;
     return bytes_read;
@@ -404,7 +430,7 @@ fhttpd_server_detect_protocol (struct fhttpd_worker *worker,
                                struct fhttpd_connection *connection)
 {
     ssize_t bytes_read = fhttpd_connection_recv (
-        connection, connection->buffer,
+        connection, connection->buffer + connection->buffer_len,
         sizeof (connection->buffer) - connection->buffer_len, 0);
 
     if (bytes_read < 0)
@@ -459,11 +485,18 @@ fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
         loop_operation_t op
             = fhttpd_server_detect_protocol (worker, event, connection);
 
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        if ((connection->protocol == FHTTPD_PROTOCOL_UNKNOWN
+             && (errno == EAGAIN || errno == EWOULDBLOCK))
+            || op != LOOP_OPERATION_NONE)
             return op;
 
         if (connection->protocol == FHTTPD_PROTOCOL_UNKNOWN)
-            return op;
+        {
+            fhttpd_wclog_error ("Failed to detect protocol for connection %lu",
+                                connection->id);
+            fhttpd_server_close_sockfd (worker, event->data.fd);
+            return LOOP_OPERATION_CONTINUE;
+        }
 
         fhttpd_wclog_info ("Detected protocol: %s",
                            fhttpd_protocol_to_string (connection->protocol));
@@ -479,6 +512,7 @@ fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
             return LOOP_OPERATION_CONTINUE;
         }
 
+        new_requests[connection->num_requests].uri = NULL;
         connection->requests = new_requests;
         connection->num_requests++;
 
@@ -486,31 +520,16 @@ fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
         {
             case FHTTPD_PROTOCOL_HTTP1x:
                 {
-                    struct http11_parser_ctx *new_list = realloc (
-                        connection->http11_parser_ctx_list,
-                        sizeof (struct http11_parser_ctx)
-                            * (connection->http11_parser_ctx_count + 1));
-
-                    if (!new_list)
-                    {
-                        fhttpd_wclog_error ("Failed to allocate memory for "
-                                            "HTTP/1.x parser context");
-                        fhttpd_server_close_sockfd (worker, event->data.fd);
-                        return LOOP_OPERATION_CONTINUE;
-                    }
-
-                    connection->http11_parser_ctx_list = new_list;
-                    new_list[connection->http11_parser_ctx_count]
-                        = (struct http11_parser_ctx) { 0 };
-                    new_list[connection->http11_parser_ctx_count].request
-                        = &new_requests[connection->num_requests - 1];
-                    connection->http11_parser_ctx_count++;
+                    connection->http11_parser_ctx
+                        = calloc (1, sizeof (struct http11_parser_ctx));
+                    connection->http11_parser_ctx->request
+                        = &connection->requests[connection->num_requests - 1];
 
                     break;
                 }
 
             default:
-                fhttpd_wclog_warning ("Unsupported protocol for socket %lu",
+                fhttpd_wclog_warning ("Unsupported protocol for connection %lu",
                                       connection->id);
                 fhttpd_server_close_sockfd (worker, event->data.fd);
                 return LOOP_OPERATION_CONTINUE;
@@ -520,37 +539,63 @@ fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
     switch (connection->protocol)
     {
         case FHTTPD_PROTOCOL_HTTP1x:
-            fhttpd_wclog_info (
-                "Handling HTTP/1.x protocol for socket connection %lu",
-                connection->id);
-            struct http11_parser_ctx *ctx
-                = &connection->http11_parser_ctx_list
-                       [connection->http11_parser_ctx_count - 1];
+            fhttpd_wclog_info ("Handling HTTP/1.x protocol for connection %lu",
+                               connection->id);
+            struct http11_parser_ctx *ctx = connection->http11_parser_ctx;
+
+            enum http11_parse_error error;
 
             while (true)
             {
-                enum http11_parse_error error
-                    = http11_stream_parse_request (connection, ctx);
+                error = http11_stream_parse_request (connection, ctx);
 
-                if (error != HTTP11_PARSE_ERROR_NONE)
+                if (error == HTTP11_PARSE_ERROR_WAIT)
+                {
+                    fhttpd_wclog_debug ("HTTP/1.x request not complete, "
+                                        "waiting for more data");
                     break;
+                }
 
-                if (ctx->state == HTTP11_PARSE_STATE_COMPLETE
+                if (error != HTTP11_PARSE_ERROR_NONE
                     || ctx->state == HTTP11_PARSE_STATE_ERROR)
+                {
+                    fhttpd_wclog_error (
+                        "Error parsing HTTP/1.x request: %d [state: %d]", error,
+                        ctx->state);
+                    fhttpd_server_close_sockfd (worker, event->data.fd);
+                    return LOOP_OPERATION_CONTINUE;
+                }
+
+                if (ctx->state == HTTP11_PARSE_STATE_COMPLETE)
                     break;
 
-                if (errno != EAGAIN && errno != EWOULDBLOCK && errno != 0)
-                    break;
-
-                puts ("Parsing HTTP/1.x request...");
+                fhttpd_wclog_debug ("Parsing HTTP/1.x request...");
             }
 
-            puts ("Finished parsing HTTP/1.x request");
-            fhttpd_server_close_sockfd (worker, event->data.fd);
+            if (ctx->state == HTTP11_PARSE_STATE_COMPLETE)
+            {
+                fhttpd_wclog_debug ("Finished parsing HTTP/1.x request");
+                fhttpd_wclog_info (
+                    "\033[1;34mIncoming:\033[0m Connection %lu: \033[1m%s "
+                    "%s "
+                    "%s\033[0m",
+                    connection->id,
+                    fhttpd_method_to_string (ctx->request->method),
+                    ctx->request->uri,
+                    fhttpd_protocol_to_string (ctx->request->protocol));
+
+                struct epoll_event new_event
+                    = { .events = EPOLLOUT | EPOLLRDHUP | EPOLLHUP,
+                        .data = event->data };
+
+                epoll_ctl (worker->epoll_fd, EPOLL_CTL_MOD, event->data.fd,
+                           &new_event);
+            }
+
             break;
 
         default:
-            fhttpd_wclog_warning ("Unsupported protocol for socket %lu",
+            fhttpd_wclog_warning ("Unsupported protocol for connection %lu",
                                   connection->id);
             fhttpd_server_close_sockfd (worker, event->data.fd);
             return LOOP_OPERATION_CONTINUE;
@@ -560,12 +605,85 @@ fhttpd_server_on_read_ready (struct fhttpd_worker *worker,
 }
 
 static loop_operation_t
+fhttpd_server_on_write_ready (struct fhttpd_worker *worker,
+                              const struct epoll_event *event)
+{
+    struct fhttpd_connection *connection
+        = htable_get (worker->connections, event->data.fd);
+
+    if (!connection)
+    {
+        fhttpd_wclog_error ("Connection not found for socket %d",
+                            event->data.fd);
+        fhttpd_server_close_sockfd (worker, event->data.fd);
+        return LOOP_OPERATION_CONTINUE;
+    }
+
+    switch (connection->protocol)
+    {
+        case FHTTPD_PROTOCOL_HTTP1x:
+            fhttpd_wclog_info (
+                "Handling HTTP/1.x protocol for write-ready socket %d",
+                event->data.fd);
+
+            struct http11_parser_ctx *ctx = connection->http11_parser_ctx;
+
+            if (ctx->state != HTTP11_PARSE_STATE_COMPLETE)
+            {
+                fhttpd_wclog_warning (
+                    "HTTP/1.x request not complete, cannot send response");
+                return LOOP_OPERATION_CONTINUE;
+            }
+
+            int rc = dprintf (
+                connection->client_sockfd,
+                "HTTP/1.1 200 OK\r\nServer: freehttpd\r\nConnection: "
+                "Close\r\nX-FHTTPD-Message: Thank you for using "
+                "freehttpd!\r\nContent-Type: text/plain; "
+                "charset=UTF-8\r\nContent-Length: "
+                "%zu\r\n\r\nFile: %s\n",
+                7 + ctx->request->uri_length, ctx->request->uri);
+
+            if (rc < 0)
+            {
+                fhttpd_wclog_error ("Error sending response (200 OK) - %s",
+                                    strerror (errno));
+            }
+
+            break;
+
+        default:
+            fhttpd_wclog_warning ("Unsupported protocol connection %lu",
+                                  connection->id);
+            fhttpd_server_close_sockfd (worker, event->data.fd);
+            return LOOP_OPERATION_CONTINUE;
+    }
+
+    fhttpd_server_close_sockfd (worker, event->data.fd);
+    return LOOP_OPERATION_CONTINUE;
+}
+
+static loop_operation_t
 fhttpd_server_on_hup (struct fhttpd_worker *worker,
                       const struct epoll_event *event)
 {
     fhttpd_wclog_info ("Socket %d HUP: closed by peer", event->data.fd);
     epoll_ctl (worker->epoll_fd, EPOLL_CTL_DEL, event->data.fd, NULL);
     close (event->data.fd);
+    struct fhttpd_connection *connection
+        = htable_get (worker->connections, event->data.fd);
+
+    if (connection)
+    {
+        fhttpd_wclog_info ("Cleaning up connection %lu", connection->id);
+        fhttpd_free_connection (worker, connection);
+    }
+    else
+    {
+        fhttpd_wclog_error ("Connection not found for socket %d",
+                            event->data.fd);
+    }
+
     return LOOP_OPERATION_CONTINUE;
 }
 
@@ -573,10 +691,11 @@ static int
 fhttpd_server_enter_loop (struct fhttpd_worker *worker)
 {
     struct epoll_event events[MAX_EVENTS];
+    uint64_t last_timeout_check = 0;
 
     while (true)
     {
-        int nsockfds = epoll_wait (worker->epoll_fd, events, MAX_EVENTS, -1);
+        int nsockfds = epoll_wait (worker->epoll_fd, events, MAX_EVENTS, 2000);
 
         if (nsockfds < 0)
         {
@@ -585,28 +704,93 @@ fhttpd_server_enter_loop (struct fhttpd_worker *worker)
             return err;
         }
 
+        uint64_t now = utils_get_current_timestamp ();
+        loop_operation_t op = LOOP_OPERATION_NONE;
+
         for (int i = 0; i < nsockfds; i++)
         {
             if (events[i].data.fd == worker->sockfd)
             {
-                loop_operation_t op = fhttpd_server_loop_accept (worker);
-
-                LOOP_OPERATION (op);
+                op = fhttpd_server_loop_accept (worker);
             }
             else if (events[i].events & EPOLLIN)
             {
-                loop_operation_t op
-                    = fhttpd_server_on_read_ready (worker, &events[i]);
-
-                LOOP_OPERATION (op);
+                op = fhttpd_server_on_read_ready (worker, &events[i]);
+            }
+            else if (events[i].events & EPOLLOUT)
+            {
+                op = fhttpd_server_on_write_ready (worker, &events[i]);
+            }
+            else if (events[i].events & EPOLLERR)
+            {
+                fhttpd_wclog_error ("Socket %d has an error",
+                                    events[i].data.fd);
+                fhttpd_server_close_sockfd (worker, events[i].data.fd);
             }
 
-            if (events[i].events & (EPOLLHUP | EPOLLRDHUP))
+            if (events[i].events & EPOLLHUP)
             {
-                loop_operation_t op = fhttpd_server_on_hup (worker, &events[i]);
-                LOOP_OPERATION (op);
+                loop_operation_t local_op
+                    = fhttpd_server_on_hup (worker, &events[i]);
+
+                if (op == LOOP_OPERATION_NONE)
+                    op = local_op;
             }
         }
+
+        if (now - last_timeout_check >= 4000)
+        {
+            last_timeout_check = now;
+            uint32_t recv_timeout
+                = *(uint32_t *) worker->server
+                       ->config[FHTTPD_CONFIG_CLIENT_RECV_TIMEOUT];
+            uint32_t header_timeout
+                = *(uint32_t *) worker->server
+                       ->config[FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT];
+
+            for (struct htable_entry *entry = worker->connections->head; entry;)
+            {
+                struct fhttpd_connection *connection = entry->data;
+                bool to_close = false;
+
+                if (!connection)
+                {
+                    entry = entry->next;
+                    continue;
+                }
+
+                if (connection->protocol == FHTTPD_PROTOCOL_HTTP1x
+                    && connection->http11_parser_ctx->state
+                           <= HTTP11_PARSE_STATE_HEADERS
+                    && connection->created_at_ts + header_timeout < now)
+                {
+                    fhttpd_wclog_info (
+                        "Connection %lu timed out - did not finish sending "
+                        "headers in time, closing socket %d",
+                        connection->id, connection->client_sockfd);
+                    to_close = true;
+                }
+                else if (connection->last_recv_activity_ts + recv_timeout < now)
+                {
+                    fhttpd_wclog_info (
+                        "Connection %lu timed out, closing socket %d",
+                        connection->id, connection->client_sockfd);
+                    to_close = true;
+                }
+
+                if (to_close)
+                {
+                    entry = entry->next;
+                    fhttpd_server_close_sockfd (worker,
+                                                connection->client_sockfd);
+                    continue;
+                }
+
+                entry = entry->next;
+            }
+        }
+
+        LOOP_OPERATION (op);
     }
 
     return 0;

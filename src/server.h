@@ -3,6 +3,7 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #include "error.h"
@@ -13,7 +14,9 @@ enum fhttpd_config
     FHTTPD_CONFIG_PORTS,
     FHTTPD_CONFIG_DOCROOT,
     FHTTPD_CONFIG_MAX_CONNECTIONS,
-    FHTTPD_CONFIG_TIMEOUT,
+    FHTTPD_CONFIG_CLIENT_RECV_TIMEOUT,
+    FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT,
+    FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
     FHTTPD_CONFIG_LOG_LEVEL,
     FHTTPD_CONFIG_MAX
 };
@@ -33,10 +36,10 @@ struct fhttpd_connection
     struct fhttpd_request *requests;
     size_t num_requests;
 
-    struct http11_parser_ctx *http11_parser_ctx_list;
-    size_t http11_parser_ctx_count;
+    struct http11_parser_ctx *http11_parser_ctx;
 
-    time_t last_activity;
+    uint64_t last_recv_activity_ts;
+    uint64_t created_at_ts;
 };
 
 struct fhttpd_server;

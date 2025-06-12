@@ -72,4 +72,6 @@ struct fhttpd_request
 const char *fhttpd_protocol_to_string (enum fhttpd_protocol protocol);
 enum fhttpd_protocol fhttpd_string_to_protocol (const char *protocol_str);
 
+const char *fhttpd_method_to_string (enum fhttpd_method method);
+
 #endif /* FHTTPD_PROTOCOL_H */
