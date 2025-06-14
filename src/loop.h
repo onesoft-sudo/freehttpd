@@ -8,7 +8,7 @@ enum loop_operation
     LOOP_OPERATION_BREAK
 };
 
-typedef enum loop_operation loop_operation_t;
+typedef enum loop_operation loop_op_t;
 
 #define LOOP_OPERATION(op)                                                     \
     if ((op) == LOOP_OPERATION_BREAK)                                          \

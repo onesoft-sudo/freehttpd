@@ -1,7 +1,7 @@
 SpaceAfterCStyleCast: true
 IndentWidth: 4
 UseTab: Never
-BreakBeforeBraces: Allman
+BreakBeforeBraces: GNU
 IndentCaseLabels: true
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false

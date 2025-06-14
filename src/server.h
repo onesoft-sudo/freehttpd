@@ -8,10 +8,13 @@
 
 #include "error.h"
 #include "protocol.h"
+#include "types.h"
+#include "htable.h"
 
 enum fhttpd_config
 {
     FHTTPD_CONFIG_PORTS,
+    FHTTPD_CONFIG_WORKER_COUNT,
     FHTTPD_CONFIG_DOCROOT,
     FHTTPD_CONFIG_MAX_CONNECTIONS,
     FHTTPD_CONFIG_CLIENT_RECV_TIMEOUT,
@@ -21,39 +24,38 @@ enum fhttpd_config
     FHTTPD_CONFIG_MAX
 };
 
-struct fhttpd_connection
+struct fhttpd_server
 {
-    uint64_t id;
-    protocol_t protocol;
+    pid_t master_pid;
+    pid_t pid;
 
-    int client_sockfd;
-    struct sockaddr_in client_addr;
-    socklen_t addr_len;
+    fd_t epoll_fd;
 
-    char buffer[H2_PREFACE_SIZE];
-    size_t buffer_len;
+    fd_t *listen_fds;
+    size_t listen_fd_count;
 
-    struct fhttpd_request *requests;
-    size_t num_requests;
+    void *config[FHTTPD_CONFIG_MAX];
 
-    struct http11_parser_ctx *http11_parser_ctx;
-
-    uint64_t last_recv_activity_ts;
-    uint64_t created_at_ts;
+    /* (fd_t) => (struct fhttpd_connection *) */
+    struct htable *connections;
+    uint64_t last_connection_id;
 };
 
-struct fhttpd_server;
+struct fhttpd_master
+{
+    pid_t pid;
+    pid_t *workers;
+    size_t worker_count;
+    void *config[FHTTPD_CONFIG_MAX];
+};
 
-struct fhttpd_server *fhttpd_server_create (void);
-void fhttpd_server_destroy (struct fhttpd_server *server);
-int fhttpd_server_run (struct fhttpd_server *server);
-void *fhttpd_server_get_config (struct fhttpd_server *server,
+struct fhttpd_master *fhttpd_master_create (void);
+bool fhttpd_master_start (struct fhttpd_master *master);
+void fhttpd_master_destroy (struct fhttpd_master *master);
+
+void *fhttpd_get_config (struct fhttpd_master *master,
                                 enum fhttpd_config config);
-void fhttpd_server_set_config (struct fhttpd_server *server,
+void fhttpd_set_config (struct fhttpd_master *master,
                                enum fhttpd_config config, void *value);
-pid_t fhttpd_server_get_master_pid (struct fhttpd_server *server);
-
-ssize_t fhttpd_connection_recv (struct fhttpd_connection *connection, void *buf,
-                                size_t len, int flags);
 
 #endif /* FHTTPD_SERVER_H */
