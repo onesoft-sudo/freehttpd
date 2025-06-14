@@ -1,14 +1,14 @@
 SpaceAfterCStyleCast: true
 IndentWidth: 4
 UseTab: Never
-BreakBeforeBraces: GNU
+BreakBeforeBraces: Allman
 IndentCaseLabels: true
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-ColumnLimit: 80
+ColumnLimit: 120
 SortIncludes: true
 BasedOnStyle: GNU
 IndentGotoLabels: true

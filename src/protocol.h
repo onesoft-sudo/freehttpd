@@ -56,7 +56,7 @@ struct fhttpd_header
 
 struct fhttpd_headers
 {
-    struct fhttpd_header *headers;
+    struct fhttpd_header *list;
     size_t count;
 };
 
@@ -65,13 +65,20 @@ struct fhttpd_request
     protocol_t protocol;
     enum fhttpd_method method;
     char *uri;
-    size_t uri_length;
+    size_t uri_len;
     struct fhttpd_headers headers;
+    uint8_t *body;
+    uint64_t body_len;
 };
 
 const char *fhttpd_protocol_to_string (enum fhttpd_protocol protocol);
 enum fhttpd_protocol fhttpd_string_to_protocol (const char *protocol_str);
 
 const char *fhttpd_method_to_string (enum fhttpd_method method);
+
+bool fhttpd_validate_header_name (const char *name, size_t len);
+
+const char *fhttpd_get_status_text (enum fhttpd_status code);
+const char *fhttpd_get_status_description (enum fhttpd_status code);
 
 #endif /* FHTTPD_PROTOCOL_H */

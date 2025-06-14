@@ -9,6 +9,8 @@
         "bitset": "c",
         "string_view": "c",
         "compare": "c",
-        "type_traits": "c"
+        "type_traits": "c",
+        "queue": "c",
+        "vector": "c"
     }
 }
