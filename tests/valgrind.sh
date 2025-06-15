@@ -1,9 +1,15 @@
 #!/bin/sh
 
-valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes \
+valgrind \
+    -s \
+    --leak-check=full \
+    --show-leak-kinds=all \
+    --errors-for-leak-kinds=all \
+    --track-origins=yes \
     --trace-children=yes \
     --error-exitcode=1 \
     --log-file=valgrind.log \
+    --verbose \
     ../bin/freehttpd > freehttpd.log 2>&1 &
 
 pid=$!
