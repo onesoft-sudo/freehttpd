@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 
 #include "log.h"
@@ -85,11 +86,18 @@ fhttpd_log (log_level_t level, const char *format, ...)
               ? log_stderr
               : log_stdout;
 
-    fprintf (output, "%s[fhttpd:%-5s]\033[0m ",
-             level == FHTTPD_LOG_LEVEL_FATAL || level == FHTTPD_LOG_LEVEL_ERROR
-                 ? "\033[1;31m"
-                 : "",
-             log_level_to_string (level));
+    if (isatty (fileno (output)))
+    {
+        fprintf (output, "%s[fhttpd:%-5s]\033[0m ",
+                level == FHTTPD_LOG_LEVEL_FATAL || level == FHTTPD_LOG_LEVEL_ERROR
+                    ? "\033[1;31m"
+                    : "",
+                log_level_to_string (level));
+    }
+    else
+    {
+        fprintf (output, "[fhttpd:%-5s] ", log_level_to_string (level));
+    }
 
     va_list args;
     va_start (args, format);

@@ -2,3 +2,4 @@
 /src/freehttpd
 /bin
 tmp
+*.log

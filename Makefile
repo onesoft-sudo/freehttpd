@@ -9,7 +9,7 @@ SUBDIRS = res src
 
 export srcdir = "$(shell pwd)/src"
 
-.PHONY: all clean tests
+.PHONY: all clean check check-valgrind
 
 all:
 	@for dir in $(SUBDIRS); do \
@@ -26,5 +26,8 @@ clean:
 
 	$(RM) -r bin
 
-tests:
+check: all
 	@$(MAKE) -C tests
+
+check-valgrind: all
+	@$(MAKE) -C tests check-valgrind
