@@ -353,10 +353,10 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
         switch (conn->protocol)
         {
             case FHTTPD_PROTOCOL_HTTP1x:
-                http1_parser_ctx_init (&conn->http1_ctx);
-                static_assert (sizeof (conn->http1_ctx.buffer) >= H2_PREFACE_SIZE);
-                memcpy (conn->http1_ctx.buffer, conn->buffers.protobuf, H2_PREFACE_SIZE);
-                conn->http1_ctx.buffer_len = H2_PREFACE_SIZE;
+                http1_parser_ctx_init (&conn->http1_req_ctx);
+                static_assert (sizeof (conn->http1_req_ctx.buffer) >= H2_PREFACE_SIZE);
+                memcpy (conn->http1_req_ctx.buffer, conn->buffers.protobuf, H2_PREFACE_SIZE);
+                conn->http1_req_ctx.buffer_len = H2_PREFACE_SIZE;
                 fhttpd_wclog_info ("Connection #%lu: HTTP/1.x protocol initialized", conn->id);
                 break;
 
@@ -370,39 +370,19 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
     switch (conn->protocol)
     {
         case FHTTPD_PROTOCOL_HTTP1x:
-            if (!http1_parse (conn, &conn->http1_ctx))
+            if (!http1_parse (conn, &conn->http1_req_ctx))
             {
                 fhttpd_wclog_error ("Connection #%lu: HTTP/1.x parsing failed", conn->id);
-                fhttpd_server_free_connection (server, conn);
+
+                if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
+                    fhttpd_server_free_connection (server, conn);
+
                 return LOOP_OPERATION_NONE;
             }
 
-            if (conn->http1_ctx.state == HTTP1_STATE_DONE)
+            if (conn->http1_req_ctx.state == HTTP1_STATE_DONE)
             {
                 fhttpd_wclog_info ("Connection #%lu: HTTP/1.x request parsed successfully", conn->id);
-                struct fhttpd_request *requests = realloc (conn->requests, sizeof (struct fhttpd_request) * (conn->request_count + 1));
-
-                if (!requests)
-                {
-                    fhttpd_wclog_error("Memory allocation failed");
-                    fhttpd_server_free_connection (server, conn);
-                    return LOOP_OPERATION_NONE;
-                }
-
-                conn->requests = requests;
-
-                struct fhttpd_request *request = &conn->requests[conn->request_count++];
-
-                request->protocol = conn->protocol;
-                request->method = conn->http1_ctx.result.method;
-                request->uri = conn->http1_ctx.result.uri;
-                request->uri_len = conn->http1_ctx.result.uri_len;
-                request->headers = conn->http1_ctx.result.headers;
-                request->body = (uint8_t *) conn->http1_ctx.result.body;
-                request->body_len = conn->http1_ctx.result.body_len;
-
-                memcpy(conn->exact_protocol, conn->http1_ctx.result.version, 4);
-                conn->http1_ctx.result.used = true;
 
                 if (!fhttpd_epoll_ctl_mod (server, conn->client_sockfd, EPOLLOUT | EPOLLHUP))
                 {
@@ -411,18 +391,54 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
                     return LOOP_OPERATION_NONE;
                 }
 
-                fhttpd_wclog_info ("Connection #%lu: accepted request #%zu", conn->id, conn->request_count - 1);
+                struct fhttpd_request *requests = realloc (conn->requests, sizeof (struct fhttpd_request) * (conn->request_count + 1));
+
+                if (!requests)
+                {
+                    fhttpd_wclog_error("Memory allocation failed");
+                    
+                    if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
+                        fhttpd_server_free_connection (server, conn);
+
+                    return LOOP_OPERATION_NONE;
+                }
+
+                conn->requests = requests;
+
+                struct fhttpd_request *request = &conn->requests[conn->request_count++];
+
+                request->protocol = conn->protocol;
+                request->method = conn->http1_req_ctx.result.method;
+                request->uri = conn->http1_req_ctx.result.uri;
+                request->uri_len = conn->http1_req_ctx.result.uri_len;
+                request->headers = conn->http1_req_ctx.result.headers;
+                request->body = (uint8_t *) conn->http1_req_ctx.result.body;
+                request->body_len = conn->http1_req_ctx.result.body_len;
+
+                memcpy(conn->exact_protocol, conn->http1_req_ctx.result.version, 4);
+                conn->http1_req_ctx.result.used = true;
+                fhttpd_wclog_info ("Connection #%lu: Accepted request #%zu", conn->id, conn->request_count - 1);
                 return LOOP_OPERATION_NONE;
             }
-            else if (conn->http1_ctx.state == HTTP1_STATE_RECV)
+            else if (conn->http1_req_ctx.state == HTTP1_STATE_RECV)
             {
                 fhttpd_wclog_debug ("Connection #%lu: Waiting for more data in HTTP/1.x parser", conn->id);
                 return LOOP_OPERATION_NONE;
             }
-            else if (conn->http1_ctx.state == HTTP1_STATE_ERROR)
+            else if (conn->http1_req_ctx.state == HTTP1_STATE_ERROR)
             {
                 fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x parser encountered an error", conn->id);
-                fhttpd_server_free_connection (server, conn);
+
+                if (!fhttpd_epoll_ctl_mod (server, conn->client_sockfd, EPOLLOUT | EPOLLHUP))
+                {
+                    fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id, strerror (errno));
+                    fhttpd_server_free_connection (server, conn);
+                    return LOOP_OPERATION_NONE;
+                }
+
+                if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
+                    fhttpd_server_free_connection (server, conn);
+
                 return LOOP_OPERATION_NONE;
             }
             break;
@@ -456,17 +472,49 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
         return LOOP_OPERATION_NONE;
     }
 
-    if (!fhttpd_connection_error_response (conn, FHTTPD_STATUS_FORBIDDEN))
+    if (conn->request_count > conn->response_count)
     {
-        fhttpd_wclog_error ("Connection #%lu: Failed to send error response: %s", conn->id, strerror (errno));
+        fhttpd_wclog_debug ("Connection #%lu: Some requests need to be processed", conn->id);
+
+        for (size_t i = 0; i < conn->request_count; i++)
+        {
+            if (!fhttpd_connection_defer_error_response (conn, i, FHTTPD_STATUS_NOT_FOUND))
+            {
+                fhttpd_wclog_debug ("Connection #%lu: Failed to defer response", conn->id);
+                fhttpd_server_free_connection (server, conn);
+                return LOOP_OPERATION_NONE;
+            }
+        }
+    }
+
+    if (conn->response_count == 0)
+    {
+        fhttpd_wclog_debug ("Connection #%lu: No responses to send", conn->id);
         fhttpd_server_free_connection (server, conn);
         return LOOP_OPERATION_NONE;
     }
 
-    if (errno == EAGAIN || errno == EWOULDBLOCK)
+    for (size_t i = 0; i < conn->response_count; i++)
     {
-        fhttpd_wclog_debug ("Connection #%lu: Client cannot accept data right now, waiting for next event", conn->id);
-        return LOOP_OPERATION_NONE;
+        struct fhttpd_response *response = &conn->responses[i];
+
+        if (response->sent)
+            continue;
+
+        if (!fhttpd_connection_send_response (conn, i, response))
+        {
+            fhttpd_wclog_debug ("Connection #%lu: Failed to send response", conn->id);
+            fhttpd_server_free_connection (server, conn);
+            return LOOP_OPERATION_NONE;
+        }
+
+        if (would_block())
+        {
+            fhttpd_wclog_debug ("Connection #%lu: Client cannot accept data right now, waiting for next event", conn->id);
+            return LOOP_OPERATION_NONE;
+        }
+
+        response->sent = true;
     }
 
     fhttpd_wclog_info ("Connection #%lu: Response sent successfully", conn->id);
@@ -517,9 +565,7 @@ fhttpd_server_loop (struct fhttpd_server *server)
                 if (server->listen_fds[j] == events[i].data.fd)
                 {
                     if (!fhttpd_server_accept (server, j))
-                    {
                         fhttpd_wclog_error ("Error accepting new connection: %s", strerror (errno));
-                    }
 
                     is_listen_fd = true;
                     break;

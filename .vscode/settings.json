@@ -11,6 +11,7 @@
         "compare": "c",
         "type_traits": "c",
         "queue": "c",
-        "vector": "c"
+        "vector": "c",
+        "system_error": "c"
     }
 }

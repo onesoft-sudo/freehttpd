@@ -71,6 +71,19 @@ struct fhttpd_request
     uint64_t body_len;
 };
 
+struct fhttpd_response
+{
+    enum fhttpd_status status;
+    struct fhttpd_headers headers;
+    uint8_t *body;
+    uint64_t body_len;
+
+    bool set_content_length;
+    bool is_deferred;
+    bool use_builtin_error_response;
+    bool sent;
+};
+
 const char *fhttpd_protocol_to_string (enum fhttpd_protocol protocol);
 enum fhttpd_protocol fhttpd_string_to_protocol (const char *protocol_str);
 
@@ -80,5 +93,8 @@ bool fhttpd_validate_header_name (const char *name, size_t len);
 
 const char *fhttpd_get_status_text (enum fhttpd_status code);
 const char *fhttpd_get_status_description (enum fhttpd_status code);
+
+bool fhttpd_header_add (struct fhttpd_headers *headers, const char *name, const char *value, size_t name_length, size_t value_length);
+bool fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const char *name, const char *value, size_t name_length, size_t value_length);
 
 #endif /* FHTTPD_PROTOCOL_H */

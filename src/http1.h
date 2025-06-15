@@ -8,6 +8,7 @@
 #include "protocol.h"
 
 #define HTTP1_PARSER_BUFFER_SIZE 8192
+#define HTTP1_RESPONSE_BUFFER_SIZE 8192
 
 #define HTTP1_METHOD_MAX_LEN 16
 #define HTTP1_VERSION_MAX_LEN 8
@@ -61,12 +62,26 @@ struct http1_parser_ctx
     struct http1_parser_result result;
 };
 
-void
-http1_parser_ctx_init (struct http1_parser_ctx *ctx);
-void
-http1_parser_ctx_free (struct http1_parser_ctx *ctx);
-bool
-http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx);
+struct http1_response_ctx
+{
+    bool resline_written;
+    size_t written_headers_count;
+    bool all_headers_written;
+    size_t written_body_len;
+    
+    char buffer[HTTP1_RESPONSE_BUFFER_SIZE];
+    size_t buffer_len;
+
+    bool eos;
+    bool drain_first;
+};
+
+void http1_parser_ctx_init (struct http1_parser_ctx *ctx);
+void http1_parser_ctx_free (struct http1_parser_ctx *ctx);
+void http1_response_ctx_init (struct http1_response_ctx *ctx);
+void http1_response_ctx_free (struct http1_response_ctx *ctx);
+bool http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx);
+bool http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection *conn, const struct fhttpd_response *response);
 
 #endif /* FHTTPD_HTTP1_H */
 

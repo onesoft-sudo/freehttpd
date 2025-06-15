@@ -175,3 +175,24 @@ fhttpd_get_status_description (enum fhttpd_status code)
             return "Additional information is not available for this request.";
     }
 }
+
+bool fhttpd_header_add (struct fhttpd_headers *headers, const char *name, const char *value, size_t name_length, size_t value_length)
+{
+    struct fhttpd_header *list = realloc (headers->list, sizeof (struct fhttpd_header) * (headers->count + 1));
+
+    if (!list)
+        return false;
+
+    headers->list = list;
+    return fhttpd_header_add_noalloc (headers, headers->count, name, value, name_length, value_length);
+}
+
+bool fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const char *name, const char *value, size_t name_length, size_t value_length)
+{
+    headers->list[index].name_length = name_length == 0 ? strlen (name) : name_length;
+    headers->list[index].value_length = value_length == 0 ? strlen (value) : value_length;
+    headers->list[index].name = strndup (name, headers->list[index].name_length);
+    headers->list[index].value = strndup (value, headers->list[index].value_length);
+    headers->count++;
+    return headers->list[index].name && headers->list[index].value;
+}

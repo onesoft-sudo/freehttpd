@@ -3,15 +3,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <sys/sendfile.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "connection.h"
 #include "http1.h"
+#include "log.h"
 #include "loop.h"
 #include "utils.h"
+
+#ifdef HAVE_RESOURCES
+#include "resources.h"
+#endif
 
 struct fhttpd_connection *
 fhttpd_connection_create (uint64_t id, fd_t client_sockfd)
@@ -36,7 +41,10 @@ fhttpd_connection_free (struct fhttpd_connection *conn)
         return;
 
     if (conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
-        http1_parser_ctx_free (&conn->http1_ctx);
+    {
+        http1_parser_ctx_free (&conn->http1_req_ctx);
+        http1_response_ctx_free (&conn->http1_res_ctx);
+    }
 
     if (conn->requests)
     {
@@ -59,6 +67,27 @@ fhttpd_connection_free (struct fhttpd_connection *conn)
         }
 
         free (conn->requests);
+    }
+
+    if (conn->responses)
+    {
+        for (size_t i = 0; i < conn->response_count; i++)
+        {
+            if (conn->responses[i].headers.list)
+            {
+                for (size_t j = 0; j < conn->responses[i].headers.count; j++)
+                {
+                    free (conn->responses[i].headers.list[j].name);
+                    free (conn->responses[i].headers.list[j].value);
+                }
+
+                free (conn->responses[i].headers.list);
+            }
+
+            free (conn->responses[i].body);
+        }
+
+        free (conn->responses);
     }
 
     free (conn);
@@ -111,100 +140,160 @@ fhttpd_connection_detect_protocol (struct fhttpd_connection *conn)
     return true;
 }
 
-bool
+ssize_t
 fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t size, int flags)
 {
     ssize_t bytes_sent = send (conn->client_sockfd, buf, size, flags);
 
-    if (bytes_sent < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return true;
-
-        return false;
-    }
+    if (bytes_sent <= 0)
+        return bytes_sent;
 
     int err = errno;
     conn->last_send_timestamp = get_current_timestamp ();
     errno = err;
 
-    return true;
+    return bytes_sent;
 }
 
-bool
+ssize_t
 fhttpd_connection_sendfile (struct fhttpd_connection *conn, int src_fd, off_t *offset, size_t count)
 {
     ssize_t bytes_sent = sendfile (conn->client_sockfd, src_fd, offset, count);
 
-    if (bytes_sent < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return true;
-
-        return false;
-    }
+    if (bytes_sent <= 0)
+        return bytes_sent;
 
     int err = errno;
     conn->last_send_timestamp = get_current_timestamp ();
     errno = err;
 
-    return true;
+    return bytes_sent;
 }
 
+#if 0
 bool
 fhttpd_connection_error_response (struct fhttpd_connection *conn, enum fhttpd_status code)
 {
-    const char html_start_title[] = "<!DOCTYPE html>\n"
-                                    "<html lang=\"en\">\n"
-                                    "<head>\n"
-                                    "<meta charset=\"UTF-8\">\n"
-                                    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
-                                    "<meta http-equiv=\"X-UA-Compatible\" content=\"ie=edge\">\n"
-                                    "<style>\n"
-                                    "html { font-family: sans-serif; }\n"
-                                    "@media (prefers-color-scheme: dark) {\n"
-                                    "    html {\n"
-                                    "        background: black;\n"
-                                    "        color: white;\n"
-                                    "    }\n"
-                                    "}\n"
-                                    "</style>\n"
-                                    "<title>";
-    const char html_end_title[] = "</title>\n"
-                                  "</head>\n"
-                                  "<body>\n"
-                                  "<h1>";
-    const char html_end_heading[] = "</h1>\n";
-    const char html_start_paragraph[] = "<p>";
-    const char html_end_paragraph[] = "</p>\n";
-    const char html_end_body[] = "</body>\n"
-                                 "</html>\n";
-
+    const char headers[] = "HTTP/%s %d %s\r\n"
+                           "Server: freehttpd\r\n"
+                           "Content-Length: %zu\r\n"
+                           "Connection: close\r\n"
+                           "\r\n";
+    const size_t headers_length = sizeof (headers);
+    char format[headers_length + resource_error_html_len + 1];
     const char *status_text = fhttpd_get_status_text (code);
     const char *description = fhttpd_get_status_description (code);
+    const size_t content_length
+        = (strlen (status_text) * 2) + (2 * 3) + strlen (description) + resource_error_html_len - 10;
 
-    size_t content_length = (strlen (status_text) * 2) + (2 * 4) + strlen (description) + sizeof (html_start_title)
-                            + sizeof (html_end_title) + sizeof (html_end_heading) + sizeof (html_start_paragraph)
-                            + sizeof (html_end_paragraph) + sizeof (html_end_body) - 6;
+    strncpy (format, headers, headers_length);
+    strncpy (format + headers_length, (const char *) resource_error_html, resource_error_html_len);
 
-    const char *format = "HTTP/%s %d %s\r\n"
-                         "Server: freehttpd\r\n"
-                         "Content-Length: %zu\r\n"
-                         "Connection: close\r\n"
-                         "\r\n"
-                         "%s%d %s%s%d %s%s%s%s%s%s";
+    format[headers_length + resource_error_html_len] = 0;
 
-    int rc
-        = dprintf (conn->client_sockfd, format, conn->exact_protocol[0] == 0 ? "1.1" : conn->exact_protocol, code,
-                   status_text, content_length, html_start_title, code, status_text, html_end_title, code, status_text,
-                   html_end_heading, html_start_paragraph, description, html_end_paragraph, html_end_body);
+    int rc = dprintf (conn->client_sockfd, format, conn->exact_protocol[0] == 0 ? "1.1" : conn->exact_protocol, code,
+                      status_text, content_length, code, status_text, code, status_text, description);
 
     if (rc < 0)
     {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return true;
-            
+
         return false;
+    }
+
+    return true;
+}
+#endif
+
+bool
+fhttpd_connection_defer_response (struct fhttpd_connection *conn, size_t response_index,
+                                  const struct fhttpd_response *response)
+{
+    if (conn->response_count <= response_index)
+    {
+        struct fhttpd_response *responses
+            = realloc (conn->responses, sizeof (struct fhttpd_response) * (response_index + 1));
+
+        if (!responses)
+            return false;
+
+        conn->responses = responses;
+        conn->response_count = response_index + 1;
+    }
+
+    struct fhttpd_response *new_response = &conn->responses[response_index];
+
+    memcpy (new_response, response, sizeof (struct fhttpd_response));
+    new_response->is_deferred = true;
+
+    if (new_response->headers.count == 0)
+    {
+        struct fhttpd_header *list = malloc (sizeof (struct fhttpd_header) * 2);
+
+        if (!list)
+            return false;
+
+        new_response->headers.list = list;
+
+        fhttpd_header_add_noalloc (&new_response->headers, 0, "Server", "freehttpd", 6, 9);
+        fhttpd_header_add_noalloc (&new_response->headers, 1, "Connection", "close", 10, 5);
+    }
+
+    return true;
+}
+
+bool
+fhttpd_connection_defer_error_response (struct fhttpd_connection *conn, size_t response_index, enum fhttpd_status code)
+{
+    struct fhttpd_response response = {
+        .status = code,
+        .headers = { .list = NULL, .count = 0 },
+        .body = NULL,
+        .body_len = 0,
+        .use_builtin_error_response = true,
+    };
+
+    return fhttpd_connection_defer_response (conn, response_index, &response);
+}
+
+bool
+fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response_index,
+                                 const struct fhttpd_response *response)
+{
+    if (!response)
+    {
+        if (response_index >= conn->response_count)
+            return false;
+
+        response = &conn->responses[response_index];
+    }
+
+    struct http1_response_ctx *ctx = &conn->http1_res_ctx;
+    size_t sent = 0;
+
+    while (true)
+    {
+        if (ctx->buffer_len <= sent)
+        {
+            ctx->buffer_len = 0;
+            sent = 0;
+
+            if (!ctx->drain_first && !http1_response_buffer (ctx, conn, response))
+                return ctx->eos;
+        }
+
+        ssize_t bytes_sent
+            = fhttpd_connection_send (conn, ctx->buffer + sent, ctx->buffer_len - sent, MSG_DONTWAIT | MSG_NOSIGNAL);
+
+        if (bytes_sent < 0 && would_block ())
+            return true;
+
+        if (bytes_sent == 0)
+            return false;
+
+        sent += bytes_sent;
+        fhttpd_wclog_debug ("Connection #%lu: Sent %zu bytes", conn->id, bytes_sent);
     }
 
     return true;

@@ -1,7 +1,7 @@
 BIN_PROGRAMS = freehttpd
 
-freehttpd_OBJECTS = freehttpd.o server.o protocol.o log.o htable.o connection.o utils.o http1.o
-freehttpd_CFLAGS = -I. -I..
+freehttpd_OBJECTS = freehttpd.o server.o protocol.o log.o htable.o connection.o utils.o http1.o ../res/resources.o
+freehttpd_CFLAGS = -I. -I.. -I../res -DHAVE_RESOURCES
 
 freehttpd: $(freehttpd_OBJECTS)
 	$(CC) -o $@ $^ $(LDFLAGS)

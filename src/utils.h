@@ -2,6 +2,9 @@
 #define FHTTPD_UTILS_H
 
 #include <stdint.h>
+#include <errno.h>
+
+#define would_block() (errno == EAGAIN || errno == EWOULDBLOCK)
 
 uint64_t get_current_timestamp (void);
 _Noreturn void freeze (void);

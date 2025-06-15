@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-#include "types.h"
-#include "protocol.h"
 #include "http1.h"
+#include "protocol.h"
+#include "types.h"
 
 struct fhttpd_connection
 {
@@ -26,22 +26,33 @@ struct fhttpd_connection
 
     size_t buffer_size;
 
-   union
-   {
-       struct http1_parser_ctx http1_ctx;
-   };
+    union
+    {
+        struct
+        {
+            struct http1_parser_ctx http1_req_ctx;
+            struct http1_response_ctx http1_res_ctx;
+        };
+    };
 
-   struct fhttpd_request *requests;
-   size_t request_count;
+    struct fhttpd_request *requests;
+    size_t request_count;
+
+    struct fhttpd_response *responses;
+    size_t response_count;
 };
-
 
 struct fhttpd_connection *fhttpd_connection_create (uint64_t id, fd_t client_sockfd);
 void fhttpd_connection_free (struct fhttpd_connection *conn);
 ssize_t fhttpd_connection_recv (struct fhttpd_connection *conn, void *buf, size_t size, int flags);
 bool fhttpd_connection_detect_protocol (struct fhttpd_connection *conn);
-bool fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t size, int flags);
-bool fhttpd_connection_sendfile (struct fhttpd_connection *conn, int src_fd, off_t *offset, size_t count);
-bool fhttpd_connection_error_response (struct fhttpd_connection *conn, enum fhttpd_status code);
+ssize_t fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t size, int flags);
+ssize_t fhttpd_connection_sendfile (struct fhttpd_connection *conn, int src_fd, off_t *offset, size_t count);
+bool fhttpd_connection_defer_response (struct fhttpd_connection *conn, size_t response_index,
+                                       const struct fhttpd_response *response);
+bool fhttpd_connection_defer_error_response (struct fhttpd_connection *conn, size_t response_index,
+                                             enum fhttpd_status code);
+bool fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response_index,
+                                      const struct fhttpd_response *response);
 
 #endif /* FHTTPD_CONNECTION_H */

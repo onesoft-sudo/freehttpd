@@ -15,6 +15,10 @@
 #include "log.h"
 #include "utils.h"
 
+#ifdef HAVE_RESOURCES
+#include "resources.h"
+#endif
+
 #define HTTP1_PARSER_NEXT 0
 #define HTTP1_PARSER_RETURN(value) ((1 << 8) | (value))
 
@@ -103,6 +107,7 @@ http1_parse_method (struct http1_parser_ctx *ctx)
 
     if (method_len == 0 && method_len > HTTP1_METHOD_MAX_LEN)
     {
+        fhttpd_wclog_debug ("HTTP1_METHOD_MAX_LEN");
         ctx->state = HTTP1_STATE_ERROR;
         return HTTP1_PARSER_RETURN (false);
     }
@@ -124,6 +129,7 @@ http1_parse_method (struct http1_parser_ctx *ctx)
     if (!method_found)
     {
         ctx->state = HTTP1_STATE_ERROR;
+        fhttpd_wclog_debug ("!method_found");
         return HTTP1_PARSER_RETURN (false);
     }
 
@@ -443,7 +449,6 @@ http1_parse_body (struct http1_parser_ctx *ctx)
     if (ctx->result.body_len >= ctx->result.content_length)
     {
         fhttpd_wclog_debug ("Body fully received, switching to done state");
-        printf ("Body:\n%s\n", ctx->result.body);
         ctx->state = HTTP1_STATE_DONE;
         return HTTP1_PARSER_NEXT;
     }
@@ -471,6 +476,7 @@ http1_parse_recv (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
     if (bytes_received == 0)
     {
         ctx->state = HTTP1_STATE_ERROR;
+        fhttpd_wclog_debug ("Connection closed by peer, rejecting request: %s", strerror (errno));
         return HTTP1_PARSER_RETURN (false);
     }
 
@@ -482,7 +488,10 @@ http1_parse_recv (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
             return HTTP1_PARSER_RETURN (true);
         }
 
+        int err = errno;
+        fhttpd_wclog_debug ("Error receiving data: %s", strerror (errno));
         ctx->state = HTTP1_STATE_ERROR;
+        errno = err;
         return HTTP1_PARSER_RETURN (false);
     }
 
@@ -563,4 +572,189 @@ http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
     }
 
     return true;
+}
+
+bool
+http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection *conn,
+                       const struct fhttpd_response *response)
+{
+    if (ctx->eos)
+        return false;
+
+    if (ctx->drain_first && ctx->buffer_len > 0)
+        return true;
+
+    ctx->drain_first = false;
+
+    while (ctx->buffer_len < HTTP1_RESPONSE_BUFFER_SIZE)
+    {
+        if (!ctx->resline_written)
+        {
+            int sp_bytes = snprintf (ctx->buffer, HTTP1_RESPONSE_BUFFER_SIZE, "HTTP/%3s %d %s\r\n",
+                                     conn->exact_protocol[0] == 0 ? "1.1" : conn->exact_protocol, response->status,
+                                     fhttpd_get_status_text (response->status));
+
+            if (sp_bytes <= 0)
+                return false;
+
+            if (ctx->buffer_len + sp_bytes > HTTP1_RESPONSE_BUFFER_SIZE)
+            {
+                fhttpd_wclog_debug ("Response line too long, this should not happen");
+                return false;
+            }
+
+            ctx->resline_written = true;
+            ctx->buffer_len += sp_bytes;
+            continue;
+        }
+
+        if (ctx->written_headers_count < response->headers.count)
+        {
+            const struct fhttpd_header *header = &response->headers.list[ctx->written_headers_count];
+
+            size_t name_len = header->name_length;
+            size_t value_len = header->value_length;
+            size_t total = name_len + value_len + 4;
+
+            if (ctx->buffer_len + total > HTTP1_RESPONSE_BUFFER_SIZE)
+            {
+                ctx->drain_first = true;
+                return true;
+            }
+
+            memcpy (ctx->buffer + ctx->buffer_len, header->name, name_len);
+            memcpy (ctx->buffer + ctx->buffer_len + name_len, ": ", 2);
+            memcpy (ctx->buffer + ctx->buffer_len + name_len + 2, header->value, value_len);
+            memcpy (ctx->buffer + ctx->buffer_len + name_len + 2 + value_len, "\r\n", 2);
+
+            ctx->buffer_len += total;
+            ctx->written_headers_count++;
+
+            fhttpd_wclog_debug ("Added header: %.*s: %.*s", (int) name_len, header->name, (int) value_len,
+                                header->value);
+            continue;
+        }
+
+        if (!ctx->all_headers_written)
+        {
+            if (response->set_content_length)
+            {
+                char header_buf[64];
+                int sp_bytes
+                    = snprintf (header_buf, sizeof (header_buf) - 1, "Content-Length: %lu\r\n", response->body_len);
+
+                if (sp_bytes <= 0)
+                    return false;
+
+                if (header_buf[63] != '\n')
+                {
+                    fhttpd_wclog_debug ("Header buffer overflow");
+                    return false;
+                }
+
+                if (ctx->buffer_len + sp_bytes > HTTP1_RESPONSE_BUFFER_SIZE)
+                {
+                    ctx->drain_first = true;
+                    return true;
+                }
+
+                memcpy (ctx->buffer + ctx->buffer_len, header_buf, sp_bytes);
+
+                ctx->written_headers_count++;
+                ctx->buffer_len += sp_bytes;
+
+                fhttpd_wclog_debug ("Added content length header");
+            }
+
+            ctx->all_headers_written = true;
+            continue;
+        }
+
+        if (response->use_builtin_error_response)
+        {
+            const char *status_text = fhttpd_get_status_text (response->status);
+            const char *description = fhttpd_get_status_description (response->status);
+            const size_t content_length
+                = (strlen (status_text) * 2) + (2 * 3) + strlen (description) + resource_error_html_len - 10;
+
+            if (ctx->buffer_len + content_length + 64 > HTTP1_RESPONSE_BUFFER_SIZE)
+            {
+                ctx->drain_first = true;
+                return true;
+            }
+
+            char format[24 + resource_error_html_len + 1];
+
+            memcpy (format, "Content-Length: %zu\r\n\r\n", 23);
+            memcpy (format + 23, (const char *) resource_error_html, resource_error_html_len);
+
+            format[23 + resource_error_html_len] = 0;
+
+            int sp_bytes
+                = snprintf (ctx->buffer + ctx->buffer_len, HTTP1_RESPONSE_BUFFER_SIZE - ctx->buffer_len, format,
+                            content_length, response->status, status_text, response->status, status_text, description);
+
+            if (sp_bytes <= 0)
+                return false;
+
+            if (ctx->buffer_len + sp_bytes > HTTP1_RESPONSE_BUFFER_SIZE)
+            {
+                ctx->drain_first = true;
+                return true;
+            }
+
+            ctx->buffer_len += sp_bytes;
+            ctx->eos = true;
+            fhttpd_wclog_debug ("Added built-in error response");
+            break;
+        }
+
+        if (response->body && response->body_len > 0 && ctx->written_body_len < response->body_len)
+        {
+            if (ctx->written_body_len == 0)
+            {
+                if (ctx->buffer_len + 2 >= HTTP1_RESPONSE_BUFFER_SIZE)
+                {
+                    ctx->drain_first = true;
+                    return true;
+                }
+
+                memcpy (ctx->buffer + ctx->buffer_len, "\r\n", 2);
+                ctx->buffer_len += 2;
+            }
+
+            if (ctx->buffer_len >= HTTP1_RESPONSE_BUFFER_SIZE)
+            {
+                ctx->drain_first = true;
+                return true;
+            }
+
+            size_t remaining = response->body_len - ctx->written_body_len;
+            size_t to_write = remaining < (HTTP1_RESPONSE_BUFFER_SIZE - ctx->buffer_len)
+                                  ? remaining
+                                  : (HTTP1_RESPONSE_BUFFER_SIZE - ctx->buffer_len);
+
+            memcpy (ctx->buffer + ctx->buffer_len, response->body, to_write);
+
+            ctx->buffer_len += to_write;
+            ctx->written_body_len += to_write;
+            continue;
+        }
+
+        ctx->eos = true;
+        break;
+    }
+
+    return true;
+}
+
+void
+http1_response_ctx_init (struct http1_response_ctx *ctx)
+{
+    memset (ctx, 0, sizeof (struct http1_response_ctx));
+}
+
+void
+http1_response_ctx_free (struct http1_response_ctx *ctx __attribute_maybe_unused__)
+{
 }
