@@ -4,12 +4,15 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdint.h>
+#include <pthread.h>
 #include <sys/types.h>
 
 #include "error.h"
 #include "protocol.h"
 #include "types.h"
 #include "htable.h"
+
+#define MAX_REQUEST_THREADS 4
 
 enum fhttpd_config
 {

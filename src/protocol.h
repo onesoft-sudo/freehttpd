@@ -17,6 +17,8 @@ enum fhttpd_protocol
 
 typedef enum fhttpd_protocol protocol_t;
 
+struct fhttpd_connection; /* Forward declaration */
+
 enum fhttpd_method
 {
     FHTTPD_METHOD_GET,
@@ -62,6 +64,7 @@ struct fhttpd_headers
 
 struct fhttpd_request
 {
+    struct fhttpd_connection *conn;
     protocol_t protocol;
     enum fhttpd_method method;
     char *uri;
@@ -81,7 +84,7 @@ struct fhttpd_response
     bool set_content_length;
     bool is_deferred;
     bool use_builtin_error_response;
-    bool sent;
+    bool sent, ready;
 };
 
 const char *fhttpd_protocol_to_string (enum fhttpd_protocol protocol);
@@ -96,5 +99,7 @@ const char *fhttpd_get_status_description (enum fhttpd_status code);
 
 bool fhttpd_header_add (struct fhttpd_headers *headers, const char *name, const char *value, size_t name_length, size_t value_length);
 bool fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const char *name, const char *value, size_t name_length, size_t value_length);
+
+void fhttpd_request_free (struct fhttpd_request *request, bool inner_only);
 
 #endif /* FHTTPD_PROTOCOL_H */

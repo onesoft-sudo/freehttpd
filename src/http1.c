@@ -639,14 +639,14 @@ http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection 
         {
             if (response->set_content_length)
             {
-                char header_buf[64];
+                char header_buf[65] = {0};
                 int sp_bytes
                     = snprintf (header_buf, sizeof (header_buf) - 1, "Content-Length: %lu\r\n", response->body_len);
 
                 if (sp_bytes <= 0)
                     return false;
 
-                if (header_buf[63] != '\n')
+                if (header_buf[63] == '\r' || header_buf[64] != 0 || (size_t) sp_bytes >= sizeof (header_buf) - 1)
                 {
                     fhttpd_wclog_debug ("Header buffer overflow");
                     return false;

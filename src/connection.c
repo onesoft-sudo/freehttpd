@@ -35,7 +35,7 @@ fhttpd_connection_create (uint64_t id, fd_t client_sockfd)
 }
 
 void
-fhttpd_connection_free (struct fhttpd_connection *conn)
+fhttpd_connection_close (struct fhttpd_connection *conn)
 {
     if (!conn)
         return;
@@ -50,20 +50,7 @@ fhttpd_connection_free (struct fhttpd_connection *conn)
     {
         for (size_t i = 0; i < conn->request_count; i++)
         {
-            free (conn->requests[i].uri);
-
-            if (conn->requests[i].headers.list)
-            {
-                for (size_t j = 0; j < conn->requests[i].headers.count; j++)
-                {
-                    free (conn->requests[i].headers.list[j].name);
-                    free (conn->requests[i].headers.list[j].value);
-                }
-
-                free (conn->requests[i].headers.list);
-            }
-
-            free (conn->requests[i].body);
+            fhttpd_request_free (&conn->requests[i], true);
         }
 
         free (conn->requests);
@@ -240,6 +227,7 @@ fhttpd_connection_defer_response (struct fhttpd_connection *conn, size_t respons
         fhttpd_header_add_noalloc (&new_response->headers, 1, "Connection", "close", 10, 5);
     }
 
+    new_response->ready = true;
     return true;
 }
 

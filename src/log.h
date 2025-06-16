@@ -2,6 +2,7 @@
 #define FHTTPD_LOG_H
 
 #include <stdio.h>
+#include <unistd.h>
 
 enum fhttpd_log_level
 {

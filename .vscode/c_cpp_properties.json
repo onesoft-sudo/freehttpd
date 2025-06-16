@@ -3,9 +3,9 @@
         {
             "name": "Linux",
             "includePath": ["${workspaceFolder}/**"],
-            "defines": ["_POSIX_C_SOURCE=200809L", "true=1", "false=0", "HAVE_RESOURCES"],
+            "defines": ["_POSIX_C_SOURCE=200809L", "true=1", "false=0", "HAVE_RESOURCES", "auto=__auto_type"],
             "compilerPath": "/usr/bin/gcc",
-            "cStandard": "gnu11",
+            "cStandard": "gnu23",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64"
         }

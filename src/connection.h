@@ -43,7 +43,7 @@ struct fhttpd_connection
 };
 
 struct fhttpd_connection *fhttpd_connection_create (uint64_t id, fd_t client_sockfd);
-void fhttpd_connection_free (struct fhttpd_connection *conn);
+void fhttpd_connection_close (struct fhttpd_connection *conn);
 ssize_t fhttpd_connection_recv (struct fhttpd_connection *conn, void *buf, size_t size, int flags);
 bool fhttpd_connection_detect_protocol (struct fhttpd_connection *conn);
 ssize_t fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t size, int flags);

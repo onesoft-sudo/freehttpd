@@ -18,9 +18,12 @@
 #include <time.h>
 #include <unistd.h>
 #include <assert.h>
+#include <pthread.h>
 
-#include "htable.h"
+#define FHTTPD_LOG_MODULE_NAME "server"
+
 #include "log.h"
+#include "htable.h"
 
 #include "loop.h"
 #include "protocol.h"
@@ -33,6 +36,7 @@
 #define FHTTPD_DEFAULT_BACKLOG SOMAXCONN
 #define MAX_EVENTS 64
 
+/* Only used by the worker processes */
 static struct fhttpd_server *local_server = NULL;
 
 static struct fhttpd_server *
@@ -229,7 +233,7 @@ fhttpd_server_destroy (struct fhttpd_server *server)
             struct fhttpd_connection *conn = entry->data;
 
             if (conn)
-                fhttpd_connection_free (conn);
+                fhttpd_connection_close (conn);
 
             entry = entry->next;
         }
@@ -250,7 +254,7 @@ fhttpd_server_new_connection (struct fhttpd_server *server, fd_t client_sockfd)
 
     if (!htable_set (server->connections, client_sockfd, conn))
     {
-        fhttpd_connection_free (conn);
+        fhttpd_connection_close (conn);
         return NULL;
     }
 
@@ -267,7 +271,7 @@ fhttpd_server_free_connection (struct fhttpd_server *server, struct fhttpd_conne
         return false;
 
     fhttpd_wclog_debug ("Connection #%lu is being deallocated", conn->id);
-    fhttpd_connection_free (conn);
+    fhttpd_connection_close (conn);
 
     if (epoll_ctl (server->epoll_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
         return false;
@@ -289,7 +293,11 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
     struct sockaddr_in client_addr;
     socklen_t addrlen = sizeof (client_addr);
 
+#if defined(__linux__) || defined (__FreeBSD__)
+    fd_t client_sockfd = accept4 (sockfd, (struct sockaddr *) &client_addr, &addrlen, SOCK_NONBLOCK);
+#else
     fd_t client_sockfd = accept (sockfd, (struct sockaddr *) &client_addr, &addrlen);
+#endif /* defined(__linux__) || defined(__FreeBSD__) */
 
     if (client_sockfd < 0)
         return errno == EAGAIN || errno == EWOULDBLOCK;
@@ -298,11 +306,13 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
     inet_ntop (AF_INET, &client_addr.sin_addr, ip, sizeof (ip));
     fhttpd_wclog_info ("Accepted connection from %s:%d", ip, ntohs (client_addr.sin_port));
 
+#if !defined(__linux__) && !defined (__FreeBSD__)
     if (!fhttpd_fd_set_nonblocking (client_sockfd))
     {
         close (client_sockfd);
         return false;
     }
+#endif /* !defined(__linux__) && !defined (__FreeBSD__) */
 
     if (!fhttpd_epoll_ctl_add (server, client_sockfd, EPOLLIN | EPOLLET | EPOLLHUP))
     {
@@ -320,6 +330,48 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
     }
 
     fhttpd_wclog_info ("Connection established with %s:%d [ID #%lu]", ip, ntohs (client_addr.sin_port), conn->id);
+    return true;
+}
+
+static bool
+fhttpd_process_request (struct fhttpd_connection *conn, size_t request_index)
+{
+    struct fhttpd_request *request = &conn->requests[request_index];
+    struct fhttpd_response response = {
+        .status = FHTTPD_STATUS_OK,
+        .headers = { .list = NULL, .count = 0 },
+        .body = NULL,
+        .body_len = 0,
+        .use_builtin_error_response = false,
+        .ready = false
+    };
+    
+    fhttpd_wclog_info ("Processing request #%zu for connection #%lu", request_index, conn->id);
+
+    response.set_content_length = true;
+    response.body = (uint8_t *) strdup("Hello, World!");
+    response.body_len = strlen ((const char *) response.body);
+    response.status = FHTTPD_STATUS_OK;
+    response.is_deferred = true;
+    response.sent = false;
+    response.use_builtin_error_response = false;
+    response.headers.list = malloc (sizeof (struct fhttpd_header) * 3);
+
+    if (!response.headers.list)
+    {
+        fhttpd_wclog_error ("Memory allocation failed for response headers");
+        return false;
+    }
+
+    response.headers.count = 0;
+
+    fhttpd_header_add_noalloc (&response.headers, 0, "Content-Type", "text/html; charset=UTF-8", 12, 24);
+    fhttpd_header_add_noalloc (&response.headers, 1, "Content-Length", "13", 14, 2);
+    fhttpd_header_add_noalloc (&response.headers, 2, "Connection", "close", 10, 5);
+
+    response.ready = true;
+
+    memcpy (&conn->responses[request_index], &response, sizeof (struct fhttpd_response));
     return true;
 }
 
@@ -407,6 +459,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
                 struct fhttpd_request *request = &conn->requests[conn->request_count++];
 
+                request->conn = conn;
                 request->protocol = conn->protocol;
                 request->method = conn->http1_req_ctx.result.method;
                 request->uri = conn->http1_req_ctx.result.uri;
@@ -416,7 +469,8 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
                 request->body_len = conn->http1_req_ctx.result.body_len;
 
                 memcpy(conn->exact_protocol, conn->http1_req_ctx.result.version, 4);
-                conn->http1_req_ctx.result.used = true;
+                http1_parser_ctx_init (&conn->http1_req_ctx);
+
                 fhttpd_wclog_info ("Connection #%lu: Accepted request #%zu", conn->id, conn->request_count - 1);
                 return LOOP_OPERATION_NONE;
             }
@@ -474,13 +528,24 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
     if (conn->request_count > conn->response_count)
     {
-        fhttpd_wclog_debug ("Connection #%lu: Some requests need to be processed", conn->id);
+        fhttpd_wclog_debug ("Connection #%lu: Some requests are being processed", conn->id);
+        conn->responses = realloc (conn->responses, sizeof (struct fhttpd_response) * conn->request_count);
 
-        for (size_t i = 0; i < conn->request_count; i++)
+        if (!conn->responses)
         {
-            if (!fhttpd_connection_defer_error_response (conn, i, FHTTPD_STATUS_NOT_FOUND))
+            fhttpd_wclog_error ("Memory allocation failed for responses in connection #%lu", conn->id);
+            fhttpd_server_free_connection (server, conn);
+            return LOOP_OPERATION_NONE;
+        }
+
+        size_t prev_response_count = conn->response_count;
+        conn->response_count = conn->request_count;
+
+        for (size_t i = prev_response_count; i < conn->request_count; i++)
+        {
+            if (!fhttpd_process_request (conn, i))
             {
-                fhttpd_wclog_debug ("Connection #%lu: Failed to defer response", conn->id);
+                fhttpd_wclog_debug ("Connection #%lu: Failed to process request", conn->id);
                 fhttpd_server_free_connection (server, conn);
                 return LOOP_OPERATION_NONE;
             }
@@ -494,12 +559,21 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
         return LOOP_OPERATION_NONE;
     }
 
+    bool all_responses_sent = true;
+
     for (size_t i = 0; i < conn->response_count; i++)
     {
         struct fhttpd_response *response = &conn->responses[i];
 
         if (response->sent)
             continue;
+
+        if (!response->ready)
+        {
+            fhttpd_wclog_debug ("Connection #%lu: Response #%zu is not ready to be sent", conn->id, i);
+            all_responses_sent = false;
+            continue;
+        }
 
         if (!fhttpd_connection_send_response (conn, i, response))
         {
@@ -515,6 +589,12 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
         }
 
         response->sent = true;
+    }
+
+    if (!all_responses_sent)
+    {
+        fhttpd_wclog_debug ("Connection #%lu: Not all responses were sent, waiting for next event", conn->id);
+        return LOOP_OPERATION_NONE;
     }
 
     fhttpd_wclog_info ("Connection #%lu: Response sent successfully", conn->id);

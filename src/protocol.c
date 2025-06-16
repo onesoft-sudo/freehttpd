@@ -75,7 +75,7 @@ fhttpd_validate_header_name (const char *name, size_t len)
     {
         if (!isalnum (name[i]) && name[i] != '!' && name[i] != '#' && name[i] != '$' && name[i] != '%' && name[i] != '&'
             && name[i] != '\'' && name[i] != '*' && name[i] != '+' && name[i] != '-' && name[i] != '.' && name[i] != '^'
-            && name[i] != '_'  && name[i] != '`' && name[i] != '|' && name[i] != '~')
+            && name[i] != '_' && name[i] != '`' && name[i] != '|' && name[i] != '~')
         {
             return false;
         }
@@ -91,10 +91,10 @@ fhttpd_get_status_text (enum fhttpd_status code)
     {
         case FHTTPD_STATUS_OK:
             return "OK";
-        
+
         case FHTTPD_STATUS_CREATED:
             return "Created";
-        
+
         case FHTTPD_STATUS_ACCEPTED:
             return "Accepted";
 
@@ -124,7 +124,7 @@ fhttpd_get_status_text (enum fhttpd_status code)
 
         case FHTTPD_STATUS_SERVICE_UNAVAILABLE:
             return "Service Unavailable";
-            
+
         default:
             return "Unknown Status";
     }
@@ -137,10 +137,10 @@ fhttpd_get_status_description (enum fhttpd_status code)
     {
         case FHTTPD_STATUS_OK:
             return "The request has succeeded.";
-        
+
         case FHTTPD_STATUS_CREATED:
             return "The request has been fulfilled and resulted in a new resource being created.";
-        
+
         case FHTTPD_STATUS_ACCEPTED:
             return "The request has been accepted for processing, but the processing has not been completed.";
 
@@ -148,7 +148,8 @@ fhttpd_get_status_description (enum fhttpd_status code)
             return "The server successfully processed the request, but is not returning any content.";
 
         case FHTTPD_STATUS_BAD_REQUEST:
-            return "The server cannot or will not process the request due to a client error (e.g., malformed request syntax).";
+            return "The server cannot or will not process the request due to a client error (e.g., malformed request "
+                   "syntax).";
 
         case FHTTPD_STATUS_UNAUTHORIZED:
             return "The server could not verify that the client is authorized to access the requested resource.";
@@ -170,13 +171,15 @@ fhttpd_get_status_description (enum fhttpd_status code)
 
         case FHTTPD_STATUS_SERVICE_UNAVAILABLE:
             return "The server is currently unable to handle the request due to temporary overloading or maintenance.";
-            
+
         default:
             return "Additional information is not available for this request.";
     }
 }
 
-bool fhttpd_header_add (struct fhttpd_headers *headers, const char *name, const char *value, size_t name_length, size_t value_length)
+bool
+fhttpd_header_add (struct fhttpd_headers *headers, const char *name, const char *value, size_t name_length,
+                   size_t value_length)
 {
     struct fhttpd_header *list = realloc (headers->list, sizeof (struct fhttpd_header) * (headers->count + 1));
 
@@ -187,7 +190,9 @@ bool fhttpd_header_add (struct fhttpd_headers *headers, const char *name, const 
     return fhttpd_header_add_noalloc (headers, headers->count, name, value, name_length, value_length);
 }
 
-bool fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const char *name, const char *value, size_t name_length, size_t value_length)
+bool
+fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const char *name, const char *value,
+                           size_t name_length, size_t value_length)
 {
     headers->list[index].name_length = name_length == 0 ? strlen (name) : name_length;
     headers->list[index].value_length = value_length == 0 ? strlen (value) : value_length;
@@ -195,4 +200,26 @@ bool fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, co
     headers->list[index].value = strndup (value, headers->list[index].value_length);
     headers->count++;
     return headers->list[index].name && headers->list[index].value;
+}
+
+void
+fhttpd_request_free (struct fhttpd_request *request, bool inner_only)
+{
+    free (request->uri);
+
+    if (request->headers.list)
+    {
+        for (size_t j = 0; j < request->headers.count; j++)
+        {
+            free (request->headers.list[j].name);
+            free (request->headers.list[j].value);
+        }
+
+        free (request->headers.list);
+    }
+
+    free (request->body);
+
+    if (!inner_only)
+        free (request);
 }
