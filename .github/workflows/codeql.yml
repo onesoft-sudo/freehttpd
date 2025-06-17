@@ -59,6 +59,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Install deps
+      run: sudo apt update && sudo apt install gcc-14 && sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 500
+
     # Add any setup steps before running the `github/codeql-action/init` action.
     # This includes steps like installing compilers or runtimes (`actions/setup-node`
     # or others). This is typically only required for manual builds.
