@@ -2,7 +2,7 @@ resources_c = resources.c
 resources_h = resources.h
 resources_o = resources.o
 
-RESOURCES = error.html
+RESOURCES = error.html index.html
 
 .PHONY: all clean
 
@@ -18,7 +18,7 @@ $(resources_c): $(RESOURCES) $(resources_h)
 
 	for res in $(RESOURCES); do \
 	    name=$$(basename $$res | sed "s/\./_/g"); \
-		xxd -n "resource_$$name" -i $$res | sed 's/unsigned int/__attribute__\(\(section\(".rodata"\)\)\) const size_t/g' | sed 's/unsigned char/__attribute__\(\(section\(".rodata"\)\)\) const unsigned char/g' >> $@; \
+		xxd -n "resource_$$name" -i $$res | sed 's/unsigned int/__attribute__\(\(section\(".rodata"\)\)\) const size_t/g' | sed 's/unsigned char/__attribute__\(\(section\(".rodata"\)\)\) const char/g' >> $@; \
 	done
 
 	echo "__attribute__((section(\".rodata\"))) const struct resource_file global_resources[] = {" >> $@; \
@@ -38,13 +38,13 @@ $(resources_h): $(RESOURCES)
 	echo 'struct resource_file {' >> $@
 	echo '  const char *name;' >> $@
 	echo '  size_t name_len;' >> $@
-	echo '  const unsigned char *data;' >> $@
+	echo '  const char *data;' >> $@
 	echo '  size_t data_len;' >> $@
 	echo '};' >> $@
 	for res in $(RESOURCES); do \
 	    name=$$(basename $$res | sed "s/\./_/g"); \
 		echo '__attribute__((section(".rodata"))) extern const size_t resource_'$$name'_len;' >> $@; \
-		echo '__attribute__((section(".rodata"))) extern const unsigned char resource_'$$name'[];' >> $@; \
+		echo '__attribute__((section(".rodata"))) extern const char resource_'$$name'[];' >> $@; \
 	done
 	echo '__attribute__((section(".rodata"))) extern const struct resource_file global_resources[];' >> $@
 	echo '__attribute__((section(".rodata"))) extern const size_t global_resources_size;' >> $@

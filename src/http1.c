@@ -41,8 +41,14 @@ http1_parser_ctx_free (struct http1_parser_ctx *ctx)
 {
     if (!ctx->result.used)
     {
+        if (ctx->result.path)
+            free (ctx->result.path);
+
         if (ctx->result.uri)
             free (ctx->result.uri);
+        
+        if (ctx->result.qs)
+            free (ctx->result.qs);
 
         if (ctx->result.headers.list)
         {
@@ -173,6 +179,47 @@ http1_parse_uri (struct http1_parser_ctx *ctx)
     ctx->result.uri_len = uri_len;
 
     fhttpd_wclog_debug ("URI: |%.*s|", (int) uri_len, ctx->result.uri);
+
+    char *qs_start = memchr (ctx->result.uri, '?', uri_len);
+
+    if (!qs_start)
+    {
+        ctx->result.qs = NULL;
+        ctx->result.qs_len = 0;
+        ctx->result.path = strndup (ctx->result.uri, uri_len);
+        ctx->result.path_len = uri_len;
+
+        if (!ctx->result.path)
+        {
+            fhttpd_wclog_debug ("Memory allocation failed for path");
+            free (ctx->result.uri);
+            ctx->state = HTTP1_STATE_ERROR;
+            return HTTP1_PARSER_RETURN (false);
+        }
+    }
+    else
+    {
+        size_t path_len = qs_start - ctx->result.uri;
+        
+        ctx->result.path = strndup (ctx->result.uri, path_len);
+        ctx->result.path_len = path_len;
+        ctx->result.qs = strndup (qs_start + 1, uri_len - path_len - 1);
+        ctx->result.qs_len = uri_len - path_len - 1;
+
+        if (!ctx->result.path || !ctx->result.qs)
+        {
+            fhttpd_wclog_debug ("Memory allocation failed for path or query string");
+            free (ctx->result.path);
+            free (ctx->result.qs);
+            ctx->result.path = NULL;
+            ctx->result.qs = NULL;
+            ctx->state = HTTP1_STATE_ERROR;
+            return HTTP1_PARSER_RETURN (false);
+        }
+    }
+
+    fhttpd_wclog_debug ("Path: |%.*s|, Query String: |%.*s|", (int) ctx->result.path_len, ctx->result.path,
+                        (int) ctx->result.qs_len, ctx->result.qs);
 
     buffer_shift (ctx, uri_len + 1);
     ctx->state = HTTP1_STATE_VERSION;
@@ -575,8 +622,7 @@ http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 }
 
 bool
-http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection *conn,
-                       const struct fhttpd_response *response)
+http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection *conn, const struct fhttpd_response *response)
 {
     if (ctx->eos)
         return false;
@@ -672,27 +718,32 @@ http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection 
 
         if (response->use_builtin_error_response)
         {
+            uint16_t port = conn->port;
+            const char *host = conn->host;
+            size_t host_len = strlen (host);
+            size_t port_width = port >= 10000 ? 5 : port >= 1000 ? 4 : port >= 100 ? 3 : port >= 10 ? 2 : 1;
+
             const char *status_text = fhttpd_get_status_text (response->status);
             const char *description = fhttpd_get_status_description (response->status);
             const size_t content_length
-                = (strlen (status_text) * 2) + (2 * 3) + strlen (description) + resource_error_html_len - 10;
+                = (strlen (status_text) * 2) + (2 * 3) + host_len + port_width + strlen (description) + resource_error_html_len - 14;
 
-            if (ctx->buffer_len + content_length + 64 > HTTP1_RESPONSE_BUFFER_SIZE)
+            if (ctx->buffer_len + content_length + 104 + host_len + port_width > HTTP1_RESPONSE_BUFFER_SIZE)
             {
                 ctx->drain_first = true;
                 return true;
             }
 
-            char format[24 + resource_error_html_len + 1];
+            char format[64 + resource_error_html_len + 1];
 
-            memcpy (format, "Content-Length: %zu\r\n\r\n", 23);
-            memcpy (format + 23, (const char *) resource_error_html, resource_error_html_len);
+            memcpy (format, "Content-Type: text/html; charset=UTF-8\r\nContent-Length: %zu\r\n\r\n", 63);
+            memcpy (format + 63, (const char *) resource_error_html, resource_error_html_len);
 
-            format[23 + resource_error_html_len] = 0;
+            format[63 + resource_error_html_len] = 0;
 
             int sp_bytes
                 = snprintf (ctx->buffer + ctx->buffer_len, HTTP1_RESPONSE_BUFFER_SIZE - ctx->buffer_len, format,
-                            content_length, response->status, status_text, response->status, status_text, description);
+                            content_length, response->status, status_text, response->status, status_text, description, host, port);
 
             if (sp_bytes <= 0)
                 return false;
@@ -733,8 +784,15 @@ http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection 
             size_t to_write = remaining < (HTTP1_RESPONSE_BUFFER_SIZE - ctx->buffer_len)
                                   ? remaining
                                   : (HTTP1_RESPONSE_BUFFER_SIZE - ctx->buffer_len);
+            
+            if (to_write == 0 || ctx->written_body_len > response->body_len)
+            {
+                fhttpd_wclog_debug ("No more body to write or already written all body, stopping");
+                ctx->eos = true;
+                break;
+            }
 
-            memcpy (ctx->buffer + ctx->buffer_len, response->body, to_write);
+            memcpy (ctx->buffer + ctx->buffer_len, response->body + ctx->written_body_len, to_write);
 
             ctx->buffer_len += to_write;
             ctx->written_body_len += to_write;
@@ -755,6 +813,12 @@ http1_response_ctx_init (struct http1_response_ctx *ctx)
 }
 
 void
-http1_response_ctx_free (struct http1_response_ctx *ctx __attribute_maybe_unused__)
+http1_response_ctx_free (struct http1_response_ctx *ctx)
 {
+    if (ctx->fd > 0)
+    {
+        fhttpd_log_debug ("Closing file descriptor %d in response context", ctx->fd);
+        close (ctx->fd);
+        ctx->fd = -1;
+    }
 }

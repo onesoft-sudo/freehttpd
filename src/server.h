@@ -24,7 +24,17 @@ enum fhttpd_config
     FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT,
     FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
     FHTTPD_CONFIG_LOG_LEVEL,
+    FHTTPD_CONFIG_MAX_BODY_SIZE,
     FHTTPD_CONFIG_MAX
+};
+
+struct fhttpd_addrinfo
+{
+    struct sockaddr_in addr;
+    socklen_t addr_len;
+    char host[INET_ADDRSTRLEN];
+    uint16_t port;
+    fd_t sockfd;
 };
 
 struct fhttpd_server
@@ -38,6 +48,9 @@ struct fhttpd_server
     size_t listen_fd_count;
 
     void *config[FHTTPD_CONFIG_MAX];
+
+    /* (fd_t) => (struct fhttpd_addrinfo *) */
+    struct htable *sockaddr_in_table;
 
     /* (fd_t) => (struct fhttpd_connection *) */
     struct htable *connections;

@@ -16,7 +16,8 @@ jobs:
       - name: Install Tools
         run: |
           sudo apt update
-          sudo apt install -y xxd valgrind apache2-utils
+          sudo apt install -y xxd valgrind apache2-utils gcc-14
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 500
 
       - name: Build
         run: |

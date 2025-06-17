@@ -1,9 +1,13 @@
 #define _GNU_SOURCE
 
 #include <arpa/inet.h>
+#include <assert.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -13,25 +17,28 @@
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include <assert.h>
-#include <pthread.h>
 
 #define FHTTPD_LOG_MODULE_NAME "server"
 
-#include "log.h"
 #include "htable.h"
+#include "log.h"
 
+#include "connection.h"
+#include "htable.h"
 #include "loop.h"
 #include "protocol.h"
 #include "server.h"
 #include "types.h"
 #include "utils.h"
-#include "connection.h"
-#include "htable.h"
+
+#ifdef HAVE_RESOURCES
+#include "resources.h"
+#endif
 
 #define FHTTPD_DEFAULT_BACKLOG SOMAXCONN
 #define MAX_EVENTS 64
@@ -67,13 +74,22 @@ fhttpd_server_create (const struct fhttpd_master *master)
         return NULL;
     }
 
+    server->sockaddr_in_table = htable_create (0);
+
+    if (!server->sockaddr_in_table)
+    {
+        htable_destroy (server->connections);
+        close (server->epoll_fd);
+        free (server);
+        return NULL;
+    }
+
     memcpy (server->config, master->config, sizeof (server->config));
     return server;
 }
 
 void *
-fhttpd_get_config (struct fhttpd_master *master,
-                                 enum fhttpd_config config)
+fhttpd_get_config (struct fhttpd_master *master, enum fhttpd_config config)
 {
     if (config < 0 || config >= FHTTPD_CONFIG_MAX)
         return NULL;
@@ -145,18 +161,14 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
             return false;
 
         int opt = 1;
-        struct timeval tv = {0};
+        struct timeval tv = { 0 };
 
         tv.tv_sec = 10;
 
-        setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &opt,
-                    sizeof (opt));
-        setsockopt (sockfd, SOL_SOCKET, SO_REUSEPORT, &opt,
-                    sizeof (opt));
-        setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv,
-                    sizeof (tv));
-        setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv,
-                    sizeof (tv));
+        setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
+        setsockopt (sockfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof (opt));
+        setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof (tv));
+        setsockopt (sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof (tv));
 
         struct sockaddr_in addr = {
             .sin_family = AF_INET,
@@ -189,6 +201,27 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
 
         if (!fhttpd_epoll_ctl_add (server, sockfd, EPOLLIN))
         {
+            close (sockfd);
+            return false;
+        }
+
+        struct fhttpd_addrinfo *srv_addr = malloc (sizeof (struct fhttpd_addrinfo));
+
+        if (!srv_addr)
+        {
+            close (sockfd);
+            return false;
+        }
+
+        srv_addr->addr = addr;
+        srv_addr->addr_len = sizeof (addr);
+        srv_addr->port = port;
+        srv_addr->sockfd = sockfd;
+        inet_ntop (AF_INET, &addr.sin_addr, srv_addr->host, sizeof (srv_addr->host));
+
+        if (!htable_set (server->sockaddr_in_table, sockfd, srv_addr))
+        {
+            free (srv_addr);
             close (sockfd);
             return false;
         }
@@ -239,6 +272,23 @@ fhttpd_server_destroy (struct fhttpd_server *server)
         }
 
         htable_destroy (server->connections);
+    }
+
+    if (server->sockaddr_in_table)
+    {
+        struct htable_entry *entry = server->sockaddr_in_table->head;
+
+        while (entry)
+        {
+            struct fhttpd_addrinfo *addr = entry->data;
+
+            if (addr)
+                free (addr);
+
+            entry = entry->next;
+        }
+
+        htable_destroy (server->sockaddr_in_table);
     }
 
     free (server);
@@ -293,7 +343,7 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
     struct sockaddr_in client_addr;
     socklen_t addrlen = sizeof (client_addr);
 
-#if defined(__linux__) || defined (__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__)
     fd_t client_sockfd = accept4 (sockfd, (struct sockaddr *) &client_addr, &addrlen, SOCK_NONBLOCK);
 #else
     fd_t client_sockfd = accept (sockfd, (struct sockaddr *) &client_addr, &addrlen);
@@ -302,11 +352,20 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
     if (client_sockfd < 0)
         return errno == EAGAIN || errno == EWOULDBLOCK;
 
+    struct fhttpd_addrinfo *srv_addr = htable_get (server->sockaddr_in_table, sockfd);
+
+    if (!srv_addr)
+    {
+        fhttpd_wclog_error ("Failed to retrieve server address for socket %d", sockfd);
+        close (client_sockfd);
+        return false;
+    }
+
     char ip[INET_ADDRSTRLEN];
     inet_ntop (AF_INET, &client_addr.sin_addr, ip, sizeof (ip));
     fhttpd_wclog_info ("Accepted connection from %s:%d", ip, ntohs (client_addr.sin_port));
 
-#if !defined(__linux__) && !defined (__FreeBSD__)
+#if !defined(__linux__) && !defined(__FreeBSD__)
     if (!fhttpd_fd_set_nonblocking (client_sockfd))
     {
         close (client_sockfd);
@@ -329,50 +388,356 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
         return false;
     }
 
+    conn->port = srv_addr->port;
+    memcpy (conn->host, srv_addr->host, INET_ADDRSTRLEN);
+
     fhttpd_wclog_info ("Connection established with %s:%d [ID #%lu]", ip, ntohs (client_addr.sin_port), conn->id);
     return true;
 }
 
 static bool
-fhttpd_process_request (struct fhttpd_connection *conn, size_t request_index)
+fhttpd_server_add_default_headers (struct fhttpd_response *response)
 {
-    struct fhttpd_request *request = &conn->requests[request_index];
-    struct fhttpd_response response = {
-        .status = FHTTPD_STATUS_OK,
-        .headers = { .list = NULL, .count = 0 },
-        .body = NULL,
-        .body_len = 0,
-        .use_builtin_error_response = false,
-        .ready = false
-    };
-    
-    fhttpd_wclog_info ("Processing request #%zu for connection #%lu", request_index, conn->id);
+    if (!response || response->headers.count > 0)
+        return true;
 
-    response.set_content_length = true;
-    response.body = (uint8_t *) strdup("Hello, World!");
-    response.body_len = strlen ((const char *) response.body);
-    response.status = FHTTPD_STATUS_OK;
-    response.is_deferred = true;
-    response.sent = false;
-    response.use_builtin_error_response = false;
-    response.headers.list = malloc (sizeof (struct fhttpd_header) * 3);
+    response->headers.list = malloc (sizeof (struct fhttpd_header) * 3);
 
-    if (!response.headers.list)
+    if (!response->headers.list)
+        return false;
+
+    response->headers.count = 0;
+
+    time_t now = time (NULL);
+    struct tm *tm = gmtime (&now);
+    char date_buf[128] = { 0 };
+    size_t date_buf_size = strftime (date_buf, sizeof (date_buf), "%a, %d %b %Y %H:%M:%S GMT", tm);
+
+    if (!fhttpd_header_add_noalloc (&response->headers, 0, "Server", "freehttpd", 6, 9))
+        return false;
+
+    if (!fhttpd_header_add_noalloc (&response->headers, 1, "Connection", "close", 10, 5))
+        return false;
+
+    if (!fhttpd_header_add_noalloc (&response->headers, 2, "Date", date_buf, 4, date_buf_size))
+        return false;
+
+    return true;
+}
+
+static bool
+fhttpd_process_file_request (struct fhttpd_server *server __attribute_maybe_unused__,
+                             struct fhttpd_connection *conn __attribute_maybe_unused__,
+                             const struct fhttpd_request *request, struct fhttpd_response *response,
+                             const char *filepath, const struct stat *st)
+{
+
+    response->status = FHTTPD_STATUS_OK;
+    response->ready = true;
+    response->body = NULL;
+    response->body_len = st->st_size;
+    response->fd = request->method == FHTTPD_METHOD_HEAD ? -1 : open (filepath, O_RDONLY | O_CLOEXEC);
+    response->set_content_length = true;
+
+    if (request->method != FHTTPD_METHOD_HEAD && response->fd < 0)
     {
-        fhttpd_wclog_error ("Memory allocation failed for response headers");
+        fhttpd_wclog_error ("Failed to open file '%s': %s", filepath, strerror (errno));
+        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    return true;
+}
+
+static bool
+fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe_unused__,
+                                  struct fhttpd_connection *conn,
+                                  const struct fhttpd_request *request __attribute_maybe_unused__,
+                                  struct fhttpd_response *response, const char *filepath, size_t filepath_len,
+                                  const struct stat *st __attribute_maybe_unused__)
+{
+    fhttpd_header_add (&response->headers, "Content-Type", "text/html; charset=UTF-8", 12, 24);
+
+    size_t buf_size = 128, buf_len = 0;
+    char *buf = malloc (buf_size);
+
+    if (!buf)
+    {
+        fhttpd_wclog_error ("Failed to allocate memory for directory listing buffer");
+        response->ready = true;
+        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    DIR *dir = opendir (filepath);
+    struct dirent *entry;
+    size_t total_entries = 0;
+
+    if (!dir)
+    {
+        int err = errno;
+        fhttpd_wclog_error ("Failed to open directory '%s': %s", filepath, strerror (err));
+        response->ready = true;
+        response->status = err == EACCES ? FHTTPD_STATUS_FORBIDDEN : FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        free (buf);
+        return true;
+    }
+
+    while ((entry = readdir (dir)) != NULL)
+    {
+        if (strcmp (entry->d_name, ".") == 0 || strcmp (entry->d_name, "..") == 0)
+            continue;
+
+        char fullpath[PATH_MAX + 1] = { 0 };
+        snprintf (fullpath, sizeof (fullpath), "%s/%s", filepath, entry->d_name);
+
+        struct stat entry_st;
+
+        if (lstat (fullpath, &entry_st) < 0)
+            continue;
+
+        size_t entry_name_len = strlen (entry->d_name);
+
+        char size_buf[64];
+        char lastmod_buf[64];
+
+        strftime (lastmod_buf, sizeof (lastmod_buf), "%Y-%m-%d %H:%M:%S", localtime (&entry_st.st_mtime));
+
+        if (entry->d_type != DT_REG || !format_size (entry_st.st_size, size_buf, NULL, NULL))
+            strcpy (size_buf, "-");
+
+        size_t entry_str_len
+            = (entry_name_len * 2) + 80 + (entry->d_type == DT_DIR ? 2 : 0) + strlen (size_buf) + strlen (lastmod_buf);
+
+        if (buf_len + entry_str_len >= buf_size)
+        {
+            buf_size += entry_str_len >= 128 ? entry_str_len : 128;
+            char *new_buf = realloc (buf, buf_size);
+
+            if (!new_buf)
+            {
+                fhttpd_wclog_error ("Failed to reallocate memory for directory listing buffer");
+                closedir (dir);
+                free (buf);
+                response->ready = true;
+                response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+                response->use_builtin_error_response = true;
+                return true;
+            }
+
+            buf = new_buf;
+        }
+
+        const char *format = "<tr><td></td><td>"
+                             "<a href=\"%s%s\">%s%s</a><br>\n"
+                             "</td><td>%s</td><td>%s</td></tr>\n";
+
+        int bytes_written
+            = snprintf (buf + buf_len, entry_str_len, format, entry->d_name, entry->d_type == DT_DIR ? "/" : "",
+                        entry->d_name, entry->d_type == DT_DIR ? "/" : "", size_buf, lastmod_buf);
+
+        if (bytes_written < 0 || (size_t) bytes_written >= entry_str_len)
+        {
+            fhttpd_wclog_error ("Failed to format directory entry '%s': %s", entry->d_name, strerror (errno));
+            closedir (dir);
+            free (buf);
+            response->ready = true;
+            response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+            response->use_builtin_error_response = true;
+            return true;
+        }
+
+        buf_len += bytes_written;
+        total_entries++;
+    }
+
+    if (buf_len >= buf_size)
+        buf = realloc (buf, buf_len + 1);
+
+    buf[buf_len] = 0;
+
+    size_t html_len
+        = resource_index_html_len + buf_len + 1 - 10 + (request->path_len * 2) + (conn->port / 10) + 1 + INET_ADDRSTRLEN;
+    char *html = malloc (html_len);
+
+    if (!html)
+    {
+        fhttpd_wclog_error ("Failed to allocate memory for directory listing HTML");
+        closedir (dir);
+        free (buf);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    char format[resource_index_html_len + 1];
+    strncpy (format, resource_index_html, resource_index_html_len);
+    format[resource_index_html_len] = 0;
+
+    int bytes_written
+        = snprintf (html, html_len - 1, format, request->path, request->path, buf, conn->host, conn->port);
+
+    if (bytes_written < 0 || (size_t) bytes_written >= html_len)
+    {
+        fhttpd_wclog_error ("Failed to format directory listing HTML: %s", strerror (errno));
+        closedir (dir);
+        free (buf);
+        free (html);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    response->status = FHTTPD_STATUS_OK;
+    response->ready = true;
+    response->body = (uint8_t *) html;
+    response->body_len = (size_t) bytes_written;
+    response->fd = -1;
+    response->set_content_length = true;
+    response->use_builtin_error_response = false;
+
+    free (buf);
+    closedir (dir);
+    return true;
+}
+
+static bool
+fhttpd_process_static_request (struct fhttpd_server *server, struct fhttpd_connection *conn __attribute_maybe_unused__,
+                               const struct fhttpd_request *request, struct fhttpd_response *response)
+{
+    const char *docroot = (const char *) server->config[FHTTPD_CONFIG_DOCROOT];
+    const size_t docroot_len = strlen (docroot);
+    const size_t max_body_len = *(const size_t *) server->config[FHTTPD_CONFIG_MAX_BODY_SIZE];
+
+    response->ready = false;
+    response->fd = -1;
+    response->headers.list = NULL;
+    response->headers.count = 0;
+
+#ifndef NDEBUG
+    if (!docroot)
+    {
+        fhttpd_wclog_error ("Document root is not set in the server configuration");
+        return false;
+    }
+#endif /* NDEBUG */
+
+    if (!fhttpd_server_add_default_headers (response))
+    {
+        fhttpd_wclog_error ("Failed to add default headers to response");
         return false;
     }
 
-    response.headers.count = 0;
+    if (request->method != FHTTPD_METHOD_GET && request->method != FHTTPD_METHOD_HEAD)
+    {
+        fhttpd_wclog_error ("Unsupported method: %d", request->method);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_METHOD_NOT_ALLOWED;
+        response->use_builtin_error_response = true;
+        return true;
+    }
 
-    fhttpd_header_add_noalloc (&response.headers, 0, "Content-Type", "text/html; charset=UTF-8", 12, 24);
-    fhttpd_header_add_noalloc (&response.headers, 1, "Content-Length", "13", 14, 2);
-    fhttpd_header_add_noalloc (&response.headers, 2, "Connection", "close", 10, 5);
+    if (docroot_len + request->path_len > PATH_MAX)
+    {
+        fhttpd_wclog_error ("Document root length (%zu) + Path length (%zu) exceeds maximum path length (%d)",
+                            docroot_len, request->path_len, PATH_MAX);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_REQUEST_URI_TOO_LONG;
+        response->use_builtin_error_response = true;
+        return true;
+    }
 
-    response.ready = true;
+    char filepath[PATH_MAX + 1] = { 0 };
+    size_t filepath_len = docroot_len + request->path_len;
+    struct stat st;
 
-    memcpy (&conn->responses[request_index], &response, sizeof (struct fhttpd_response));
-    return true;
+    memcpy (filepath, docroot, docroot_len);
+    memcpy (filepath + docroot_len, request->path, request->path_len);
+
+    if (!path_normalize (filepath, filepath, &filepath_len))
+    {
+        fhttpd_wclog_error ("Failed to normalize file path: '%s'", filepath);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_FORBIDDEN;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    if (filepath_len < docroot_len || strncmp (filepath, docroot, docroot_len) != 0)
+    {
+        fhttpd_wclog_error ("Normalized file path '%s' is outside of document root '%s'", filepath, docroot);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_FORBIDDEN;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    fhttpd_wclog_debug ("Normalized file path: '%s'", filepath);
+
+    if (lstat (filepath, &st) < 0)
+    {
+        int err = errno;
+        fhttpd_wclog_error ("Failed to stat file '%s': %s", filepath, strerror (err));
+        response->ready = true;
+        response->status = err == ENOENT || err == ENOTDIR ? FHTTPD_STATUS_NOT_FOUND
+                           : err == EACCES                 ? FHTTPD_STATUS_FORBIDDEN
+                                                           : FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    if (!S_ISREG (st.st_mode) && !S_ISDIR (st.st_mode))
+    {
+        fhttpd_wclog_error ("'%s' is not a regular file or directory", filepath);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_FORBIDDEN;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    if ((size_t) st.st_size > max_body_len)
+    {
+        fhttpd_wclog_error ("File '%s' exceeds maximum body size of %zu bytes", filepath, max_body_len);
+        response->ready = true;
+        response->status = FHTTPD_STATUS_NOT_FOUND;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    if (access (filepath, R_OK) < 0)
+    {
+        fhttpd_wclog_error ("Access denied to file '%s': %s", filepath, strerror (errno));
+        response->ready = true;
+        response->status = FHTTPD_STATUS_FORBIDDEN;
+        response->use_builtin_error_response = true;
+        return true;
+    }
+
+    if (S_ISREG (st.st_mode))
+        return fhttpd_process_file_request (server, conn, request, response, filepath, &st);
+
+    if (S_ISDIR (st.st_mode))
+        return fhttpd_process_directory_request (server, conn, request, response, filepath, filepath_len, &st);
+
+    response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+    response->ready = true;
+    response->use_builtin_error_response = true;
+
+    return false;
+}
+
+static bool
+fhttpd_process_request (struct fhttpd_server *server, struct fhttpd_connection *conn, size_t request_index,
+                        struct fhttpd_response *response)
+{
+    struct fhttpd_request *request = &conn->requests[request_index];
+    fhttpd_wclog_info ("Processing request #%zu for connection #%lu", request_index, conn->id);
+    return fhttpd_process_static_request (server, conn, request, response);
 }
 
 static loop_op_t
@@ -398,7 +763,8 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
         }
 
         if (conn->protocol != FHTTPD_PROTOCOL_UNKNOWN)
-            fhttpd_wclog_info ("Connection #%lu: Protocol detected: %s", conn->id, fhttpd_protocol_to_string (conn->protocol));
+            fhttpd_wclog_info ("Connection #%lu: Protocol detected: %s", conn->id,
+                               fhttpd_protocol_to_string (conn->protocol));
         else
             return LOOP_OPERATION_NONE;
 
@@ -438,17 +804,19 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
                 if (!fhttpd_epoll_ctl_mod (server, conn->client_sockfd, EPOLLOUT | EPOLLHUP))
                 {
-                    fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id, strerror (errno));
+                    fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id,
+                                        strerror (errno));
                     fhttpd_server_free_connection (server, conn);
                     return LOOP_OPERATION_NONE;
                 }
 
-                struct fhttpd_request *requests = realloc (conn->requests, sizeof (struct fhttpd_request) * (conn->request_count + 1));
+                struct fhttpd_request *requests
+                    = realloc (conn->requests, sizeof (struct fhttpd_request) * (conn->request_count + 1));
 
                 if (!requests)
                 {
-                    fhttpd_wclog_error("Memory allocation failed");
-                    
+                    fhttpd_wclog_error ("Memory allocation failed");
+
                     if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
                         fhttpd_server_free_connection (server, conn);
 
@@ -464,11 +832,15 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
                 request->method = conn->http1_req_ctx.result.method;
                 request->uri = conn->http1_req_ctx.result.uri;
                 request->uri_len = conn->http1_req_ctx.result.uri_len;
+                request->qs = conn->http1_req_ctx.result.qs;
+                request->qs_len = conn->http1_req_ctx.result.qs_len;
+                request->path = conn->http1_req_ctx.result.path;
+                request->path_len = conn->http1_req_ctx.result.path_len;
                 request->headers = conn->http1_req_ctx.result.headers;
                 request->body = (uint8_t *) conn->http1_req_ctx.result.body;
                 request->body_len = conn->http1_req_ctx.result.body_len;
 
-                memcpy(conn->exact_protocol, conn->http1_req_ctx.result.version, 4);
+                memcpy (conn->exact_protocol, conn->http1_req_ctx.result.version, 4);
                 http1_parser_ctx_init (&conn->http1_req_ctx);
 
                 fhttpd_wclog_info ("Connection #%lu: Accepted request #%zu", conn->id, conn->request_count - 1);
@@ -485,12 +857,14 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
                 if (!fhttpd_epoll_ctl_mod (server, conn->client_sockfd, EPOLLOUT | EPOLLHUP))
                 {
-                    fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id, strerror (errno));
+                    fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id,
+                                        strerror (errno));
                     fhttpd_server_free_connection (server, conn);
                     return LOOP_OPERATION_NONE;
                 }
 
-                if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
+                if (!fhttpd_connection_defer_error_response (
+                        conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), FHTTPD_STATUS_BAD_REQUEST))
                     fhttpd_server_free_connection (server, conn);
 
                 return LOOP_OPERATION_NONE;
@@ -502,7 +876,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
             fhttpd_server_free_connection (server, conn);
             return LOOP_OPERATION_NONE;
     }
-    
+
     return LOOP_OPERATION_NONE;
 }
 
@@ -522,7 +896,7 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
     if (conn->protocol == FHTTPD_PROTOCOL_UNKNOWN)
     {
         fhttpd_wclog_error ("No known protocol for connection #%lu", conn->id);
-        fhttpd_server_free_connection (server, conn);        
+        fhttpd_server_free_connection (server, conn);
         return LOOP_OPERATION_NONE;
     }
 
@@ -541,9 +915,21 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
         size_t prev_response_count = conn->response_count;
         conn->response_count = conn->request_count;
 
+        if (conn->response_count > 1 && conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
+        {
+            fhttpd_wclog_error ("Connection #%lu: Multiple requests in HTTP/1.x protocol are not supported", conn->id);
+            fhttpd_server_free_connection (server, conn);
+            return LOOP_OPERATION_NONE;
+        }
+
+        memset (&conn->responses[prev_response_count], 0,
+                sizeof (struct fhttpd_response) * (conn->response_count - prev_response_count));
+
         for (size_t i = prev_response_count; i < conn->request_count; i++)
         {
-            if (!fhttpd_process_request (conn, i))
+            struct fhttpd_response *response = &conn->responses[i];
+
+            if (!fhttpd_process_request (server, conn, i, response))
             {
                 fhttpd_wclog_debug ("Connection #%lu: Failed to process request", conn->id);
                 fhttpd_server_free_connection (server, conn);
@@ -557,6 +943,12 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
         fhttpd_wclog_debug ("Connection #%lu: No responses to send", conn->id);
         fhttpd_server_free_connection (server, conn);
         return LOOP_OPERATION_NONE;
+    }
+
+    if (conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
+    {
+        memset (&conn->http1_res_ctx, 0, sizeof (conn->http1_res_ctx));
+        conn->http1_res_ctx.fd = -1;
     }
 
     bool all_responses_sent = true;
@@ -582,9 +974,10 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
             return LOOP_OPERATION_NONE;
         }
 
-        if (would_block())
+        if (would_block ())
         {
-            fhttpd_wclog_debug ("Connection #%lu: Client cannot accept data right now, waiting for next event", conn->id);
+            fhttpd_wclog_debug ("Connection #%lu: Client cannot accept data right now, waiting for next event",
+                                conn->id);
             return LOOP_OPERATION_NONE;
         }
 
@@ -696,7 +1089,8 @@ fhttpd_print_info (const struct fhttpd_master *master)
     }
 }
 
-bool fhttpd_master_start (struct fhttpd_master *master)
+bool
+fhttpd_master_start (struct fhttpd_master *master)
 {
     size_t worker_count = *(size_t *) master->config[FHTTPD_CONFIG_WORKER_COUNT];
 
@@ -709,7 +1103,7 @@ bool fhttpd_master_start (struct fhttpd_master *master)
 
     for (size_t i = 0; i < worker_count; i++)
     {
-        pid_t pid = fork();
+        pid_t pid = fork ();
 
         if (pid < 0)
             return false;
@@ -750,12 +1144,13 @@ bool fhttpd_master_start (struct fhttpd_master *master)
     fhttpd_print_info (master);
 
     for (size_t i = 0; i < worker_count; i++)
-        waitpid(master->workers[i], NULL, 0);
+        waitpid (master->workers[i], NULL, 0);
 
     return false;
 }
 
-void fhttpd_master_destroy (struct fhttpd_master *master)
+void
+fhttpd_master_destroy (struct fhttpd_master *master)
 {
     if (!master)
         return;
@@ -772,13 +1167,14 @@ void fhttpd_master_destroy (struct fhttpd_master *master)
     free (master);
 }
 
-struct fhttpd_master *fhttpd_master_create (void)
+struct fhttpd_master *
+fhttpd_master_create (void)
 {
     struct fhttpd_master *master = calloc (1, sizeof (struct fhttpd_master));
 
     if (!master)
         return NULL;
 
-    master->pid = getpid();
+    master->pid = getpid ();
     return master;
 }

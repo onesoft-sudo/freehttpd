@@ -41,6 +41,10 @@ struct http1_parser_result
     enum fhttpd_method method;
     char *uri;
     size_t uri_len;
+    char *qs;
+    size_t qs_len;
+    char *path;
+    size_t path_len;
     char version[4];
     struct fhttpd_headers headers;
     uint64_t content_length;
@@ -74,6 +78,11 @@ struct http1_response_ctx
 
     bool eos;
     bool drain_first;
+
+    fd_t fd;
+    off_t offset;
+    size_t sent_bytes;
+    bool sending_file, sending_rn;
 };
 
 void http1_parser_ctx_init (struct http1_parser_ctx *ctx);

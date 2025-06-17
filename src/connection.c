@@ -258,21 +258,96 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
     }
 
     struct http1_response_ctx *ctx = &conn->http1_res_ctx;
-    size_t sent = 0;
 
     while (true)
     {
-        if (ctx->buffer_len <= sent)
+        if (ctx->sending_rn)
         {
-            ctx->buffer_len = 0;
-            sent = 0;
+            if (ctx->sent_bytes > 2)
+            {
+                ctx->sending_file = false;
+                return false;
+            }
 
-            if (!ctx->drain_first && !http1_response_buffer (ctx, conn, response))
-                return ctx->eos;
+            ctx->offset = 0;
+
+            memcpy (ctx->buffer, ctx->sent_bytes == 1 ? "\n" : "\r\n", 2 - ctx->sent_bytes);
+            ctx->buffer_len = 2 - ctx->sent_bytes;
+
+            ssize_t bytes_sent
+                = fhttpd_connection_send (conn, ctx->buffer, ctx->buffer_len, MSG_DONTWAIT | MSG_NOSIGNAL);
+
+            if (bytes_sent < 0 && would_block ())
+                return true;
+
+            if (bytes_sent <= 0)
+            {
+                ctx->sending_file = false;
+                return false;
+            }
+
+            ctx->sent_bytes += bytes_sent;
+
+            if (ctx->sent_bytes >= 2)
+            {
+                ctx->sending_rn = false;
+                ctx->sending_file = true;
+                ctx->offset = 0;
+                ctx->sent_bytes = 0;
+
+                if (ctx->fd < 1)
+                    return ctx->eos;
+            }
+
+            continue;
         }
 
-        ssize_t bytes_sent
-            = fhttpd_connection_send (conn, ctx->buffer + sent, ctx->buffer_len - sent, MSG_DONTWAIT | MSG_NOSIGNAL);
+        if (ctx->sending_file)
+        {
+            ssize_t bytes_sent
+                = fhttpd_connection_sendfile (conn, ctx->fd, &ctx->offset, response->body_len - ctx->sent_bytes);
+
+            if (bytes_sent < 0 && would_block ())
+                return true;
+
+            if (bytes_sent <= 0)
+            {
+                ctx->sending_file = false;
+                return false;
+            }
+
+            ctx->sent_bytes += bytes_sent;
+            fhttpd_wclog_debug ("Connection #%lu: Sent %zu bytes from file", conn->id, bytes_sent);
+
+            if (ctx->sent_bytes >= response->body_len)
+            {
+                ctx->sending_file = false;
+                ctx->eos = true;
+                break;
+            }
+
+            continue;
+        }
+
+        if (ctx->buffer_len <= ctx->sent_bytes)
+        {
+            ctx->buffer_len = 0;
+            ctx->sent_bytes = 0;
+
+            if (!ctx->drain_first && !http1_response_buffer (ctx, conn, response))
+            {
+                if (!ctx->eos)
+                    return false;
+
+                ctx->fd = response->fd;
+                ctx->sending_rn = true;
+                ctx->sent_bytes = 0;
+                continue;
+            }
+        }
+
+        ssize_t bytes_sent = fhttpd_connection_send (conn, ctx->buffer + ctx->sent_bytes,
+                                                     ctx->buffer_len - ctx->sent_bytes, MSG_DONTWAIT | MSG_NOSIGNAL);
 
         if (bytes_sent < 0 && would_block ())
             return true;
@@ -280,7 +355,7 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
         if (bytes_sent == 0)
             return false;
 
-        sent += bytes_sent;
+        ctx->sent_bytes += bytes_sent;
         fhttpd_wclog_debug ("Connection #%lu: Sent %zu bytes", conn->id, bytes_sent);
     }
 

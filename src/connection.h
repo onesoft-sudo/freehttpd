@@ -1,6 +1,7 @@
 #ifndef FHTTPD_CONNECTION_H
 #define FHTTPD_CONNECTION_H
 
+#include <arpa/inet.h>
 #include <stdint.h>
 
 #include "http1.h"
@@ -40,6 +41,9 @@ struct fhttpd_connection
 
     struct fhttpd_response *responses;
     size_t response_count;
+
+    uint16_t port;
+    char host[INET_ADDRSTRLEN];
 };
 
 struct fhttpd_connection *fhttpd_connection_create (uint64_t id, fd_t client_sockfd);

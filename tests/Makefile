@@ -1,14 +1,19 @@
-TESTS = htable_test
+TESTS = path_normalize_test htable_test
 SH = sh
 
 htable_test_SOURCES = htable_test.c ../src/htable.c
-CFLAGS += -I../src
+path_normalize_test_SOURCES = path_normalize_test.c ../src/utils.c
+CFLAGS += -I../src -g
 
 .PHONY: all clean check-valgrind
 
 all: $(TESTS) clean
 
 htable_test: $(htable_test_SOURCES:.c=.o)
+	$(CC) -o $@ $^ $(LDFLAGS)
+	valgrind -s --leak-check=full ./$@
+
+path_normalize_test: $(path_normalize_test_SOURCES:.c=.o)
 	$(CC) -o $@ $^ $(LDFLAGS)
 	valgrind -s --leak-check=full ./$@
 

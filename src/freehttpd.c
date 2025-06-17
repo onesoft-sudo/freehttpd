@@ -75,6 +75,9 @@ main (void)
                               &(uint32_t) { 30000 });
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_WORKER_COUNT,
                               &(size_t) { 4 });
+    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_MAX_BODY_SIZE,
+                              &(size_t) { 1024 * 1024 * 256 }); // 256 MB
+    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_DOCROOT, "/home/rakinar2/Projects");
 
     if (!fhttpd_master_start (fhttpd))
     {

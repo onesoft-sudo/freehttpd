@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "types.h"
+
 #define H2_PREFACE "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 #define H2_PREFACE_SIZE (sizeof (H2_PREFACE) - 1)
 
@@ -42,6 +44,7 @@ enum fhttpd_status
     FHTTPD_STATUS_UNAUTHORIZED = 401,
     FHTTPD_STATUS_FORBIDDEN = 403,
     FHTTPD_STATUS_NOT_FOUND = 404,
+    FHTTPD_STATUS_METHOD_NOT_ALLOWED = 405,
     FHTTPD_STATUS_REQUEST_URI_TOO_LONG = 414,
     FHTTPD_STATUS_INTERNAL_SERVER_ERROR = 500,
     FHTTPD_STATUS_NOT_IMPLEMENTED = 501,
@@ -69,6 +72,10 @@ struct fhttpd_request
     enum fhttpd_method method;
     char *uri;
     size_t uri_len;
+    char *path;
+    size_t path_len;
+    char *qs;
+    size_t qs_len;
     struct fhttpd_headers headers;
     uint8_t *body;
     uint64_t body_len;
@@ -80,7 +87,7 @@ struct fhttpd_response
     struct fhttpd_headers headers;
     uint8_t *body;
     uint64_t body_len;
-
+    fd_t fd;
     bool set_content_length;
     bool is_deferred;
     bool use_builtin_error_response;
