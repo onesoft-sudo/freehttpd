@@ -492,20 +492,8 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
         return true;
     }
 
-    DIR *dir = opendir (filepath);
-    struct dirent *entry;
+    struct dirent **entries;
     size_t total_entries = 0;
-
-    if (!dir)
-    {
-        int err = errno;
-        fhttpd_wclog_error ("Failed to open directory '%s': %s", filepath, strerror (err));
-        response->ready = true;
-        response->status = err == EACCES ? FHTTPD_STATUS_FORBIDDEN : FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
-        response->use_builtin_error_response = true;
-        free (buf);
-        return true;
-    }
 
     bool is_root = (request->path_len == 1 && request->path[0] == '/');
 
@@ -520,10 +508,28 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
         buf_len += parent_entry_len;
     }
 
-    while ((entry = readdir (dir)) != NULL)
+    int entry_count = scandir (filepath, &entries, NULL, &versionsort);
+
+    if (entry_count < 0 || !entries)
     {
+        int err = errno;
+        fhttpd_wclog_error ("Failed to open directory '%s': %s", filepath, strerror (err));
+        response->ready = true;
+        response->status = err == EACCES ? FHTTPD_STATUS_FORBIDDEN : FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        free (buf);
+        return true;
+    }
+
+    for (int i = 0; i < entry_count; i++)
+    {
+        struct dirent *entry = entries[i];
+
         if (strcmp (entry->d_name, ".") == 0 || strcmp (entry->d_name, "..") == 0)
+        {
+            free (entry);
             continue;
+        }
 
         char fullpath[PATH_MAX + 1] = { 0 };
         snprintf (fullpath, sizeof (fullpath), "%s/%s", filepath, entry->d_name);
@@ -531,7 +537,10 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
         struct stat entry_st;
 
         if (lstat (fullpath, &entry_st) < 0)
+        {
+            free (entry);
             continue;
+        }
 
         size_t entry_name_len = strlen (entry->d_name);
 
@@ -554,8 +563,13 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
             if (!new_buf)
             {
                 fhttpd_wclog_error ("Failed to reallocate memory for directory listing buffer");
-                closedir (dir);
+
+                for (int j = i; j < entry_count; j++)
+                    free (entries[j]);
+
+                free (entries);
                 free (buf);
+
                 response->ready = true;
                 response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
                 response->use_builtin_error_response = true;
@@ -576,8 +590,13 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
         if (bytes_written < 0 || (size_t) bytes_written >= entry_str_len)
         {
             fhttpd_wclog_error ("Failed to format directory entry '%s': %s", entry->d_name, strerror (errno));
-            closedir (dir);
+
+            for (int j = i; j < entry_count; j++)
+                free (entries[j]);
+
+            free (entries);
             free (buf);
+            
             response->ready = true;
             response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
             response->use_builtin_error_response = true;
@@ -586,7 +605,12 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
 
         buf_len += bytes_written;
         total_entries++;
+
+        free (entries[i]);
+        entries[i] = NULL;
     }
+
+    free (entries);
 
     if (buf_len >= buf_size)
         buf = realloc (buf, buf_len + 1);
@@ -600,7 +624,6 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
     if (!html)
     {
         fhttpd_wclog_error ("Failed to allocate memory for directory listing HTML");
-        closedir (dir);
         free (buf);
         response->ready = true;
         response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
@@ -618,7 +641,6 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
     if (bytes_written < 0 || (size_t) bytes_written >= html_len)
     {
         fhttpd_wclog_error ("Failed to format directory listing HTML: %s", strerror (errno));
-        closedir (dir);
         free (buf);
         free (html);
         response->ready = true;
@@ -636,7 +658,6 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
     response->use_builtin_error_response = false;
 
     free (buf);
-    closedir (dir);
     return true;
 }
 
