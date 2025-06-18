@@ -1,0 +1,13 @@
+[Unit]
+Description=freehttpd HTTP Server
+
+[Service]
+Type=simple
+ExecStart=/home/rakinar2/Projects/freehttpd/bin/freehttpd
+KillMode=control-group
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=5
+Restart=no
+
+[Install]
+WantedBy=default.target
