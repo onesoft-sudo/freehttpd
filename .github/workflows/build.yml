@@ -28,8 +28,8 @@ jobs:
           make check
 
       - name: Benchmark
-			  run: |
-				  make check-benchmark
+        run: |
+          make check-benchmark
 
       - name: Valgrind Benchmark
         run: |
