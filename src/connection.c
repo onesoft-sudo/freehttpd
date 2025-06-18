@@ -165,42 +165,6 @@ fhttpd_connection_sendfile (struct fhttpd_connection *conn, int src_fd, off_t *o
     return bytes_sent;
 }
 
-#if 0
-bool
-fhttpd_connection_error_response (struct fhttpd_connection *conn, enum fhttpd_status code)
-{
-    const char headers[] = "HTTP/%s %d %s\r\n"
-                           "Server: freehttpd\r\n"
-                           "Content-Length: %zu\r\n"
-                           "Connection: close\r\n"
-                           "\r\n";
-    const size_t headers_length = sizeof (headers);
-    char format[headers_length + resource_error_html_len + 1];
-    const char *status_text = fhttpd_get_status_text (code);
-    const char *description = fhttpd_get_status_description (code);
-    const size_t content_length
-        = (strlen (status_text) * 2) + (2 * 3) + strlen (description) + resource_error_html_len - 10;
-
-    strncpy (format, headers, headers_length);
-    strncpy (format + headers_length, (const char *) resource_error_html, resource_error_html_len);
-
-    format[headers_length + resource_error_html_len] = 0;
-
-    int rc = dprintf (conn->client_sockfd, format, conn->exact_protocol[0] == 0 ? "1.1" : conn->exact_protocol, code,
-                      status_text, content_length, code, status_text, code, status_text, description);
-
-    if (rc < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return true;
-
-        return false;
-    }
-
-    return true;
-}
-#endif
-
 bool
 fhttpd_connection_defer_response (struct fhttpd_connection *conn, size_t response_index,
                                   const struct fhttpd_response *response)

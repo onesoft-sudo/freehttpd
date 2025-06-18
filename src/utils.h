@@ -4,7 +4,11 @@
 #include <stdint.h>
 #include <errno.h>
 
+#if EAGAIN == EWOULDBLOCK
+#define would_block() (errno == EAGAIN)
+#else
 #define would_block() (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
 
 uint64_t get_current_timestamp (void);
 _Noreturn void freeze (void);

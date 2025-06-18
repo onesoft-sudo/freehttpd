@@ -438,7 +438,6 @@ fhttpd_process_file_request (struct fhttpd_server *server __attribute_maybe_unus
                              const struct fhttpd_request *request, struct fhttpd_response *response,
                              const char *filepath, const struct stat *st)
 {
-
     response->status = FHTTPD_STATUS_OK;
     response->ready = true;
     response->body = NULL;
@@ -454,6 +453,20 @@ fhttpd_process_file_request (struct fhttpd_server *server __attribute_maybe_unus
         return true;
     }
 
+    char etag[128];
+    int etag_len = snprintf (etag, sizeof (etag), "\"%lx%lx-%lx\"", (unsigned long) st->st_ino, (unsigned long) st->st_mtime, (long) st->st_size);
+
+    if (etag_len < 0 || (size_t) etag_len >= sizeof (etag))
+    {
+        fhttpd_wclog_error ("Failed to generate ETag for file '%s': %s", filepath, strerror (errno));
+        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
+        response->use_builtin_error_response = true;
+        if (response->fd >= 0)
+            close (response->fd);
+        return true;
+    }
+
+    fhttpd_header_add (&response->headers, "ETag", etag, 4, (size_t) etag_len);
     return true;
 }
 
@@ -660,6 +673,7 @@ fhttpd_process_static_request (struct fhttpd_server *server, struct fhttpd_conne
         response->ready = true;
         response->status = FHTTPD_STATUS_METHOD_NOT_ALLOWED;
         response->use_builtin_error_response = true;
+        fhttpd_header_add (&response->headers, "Allow", "GET, HEAD", 5, 9);
         return true;
     }
 
