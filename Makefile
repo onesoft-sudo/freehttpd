@@ -24,7 +24,7 @@ SUBDIRS = res src
 
 export srcdir = "$(shell pwd)/src"
 
-.PHONY: all clean check check-valgrind
+.PHONY: all clean check check-valgrind-benchmark check-benchmark
 
 all:
 	@for dir in $(SUBDIRS); do \
@@ -39,10 +39,14 @@ clean:
 		$(MAKE) -C $$dir clean; \
 	done
 
+	$(MAKE) -C tests clean
 	$(RM) -r bin
 
 check: all
 	@$(MAKE) -C tests
 
-check-valgrind: all
-	@$(MAKE) -C tests check-valgrind
+check-valgrind-benchmark: all
+	@$(MAKE) -C tests check-valgrind-benchmark
+
+check-benchmark: all
+	@$(MAKE) -C tests check-benchmark

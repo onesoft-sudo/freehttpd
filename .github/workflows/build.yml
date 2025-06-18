@@ -27,9 +27,13 @@ jobs:
         run: |
           make check
 
-      - name: Valgrind
+      - name: Benchmark
+			  run: |
+				  make check-benchmark
+
+      - name: Valgrind Benchmark
         run: |
-          make check-valgrind
+          make check-valgrind-benchmark
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -37,6 +41,7 @@ jobs:
           name: build-artifacts
           path: |
             bin/
-            tests/freehttpd.log
+            tests/freehttpd-valgrind.log
+						tests/freehttpd.log
             tests/valgrind.log
             tests/vgcore.*

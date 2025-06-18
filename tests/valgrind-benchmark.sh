@@ -10,7 +10,7 @@ valgrind \
     --error-exitcode=1 \
     --log-file=valgrind.log \
     --verbose \
-    ../bin/freehttpd > freehttpd.log 2>&1 &
+    ../bin/freehttpd > freehttpd-valgrind.log 2>&1 &
 
 pid=$!
 
@@ -26,7 +26,7 @@ if [ "$c" -gt 24 ]; then
     c=16
 fi
 
-ab -c "$c" -n 16000 -m GET http://localhost:8080/
+ab -c "$c" -n 60000 -m GET http://localhost:8080/
 
 if [ $? -ne 0 ]; then
     echo "Apache Benchmark failed"

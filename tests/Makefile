@@ -5,7 +5,7 @@ itable_test_SOURCES = itable_test.c ../src/itable.c
 path_normalize_test_SOURCES = path_normalize_test.c ../src/utils.c
 CFLAGS += -I../src -g
 
-.PHONY: all clean check-valgrind
+.PHONY: all clean check-valgrind-benchmark check-benchmark
 
 all: $(TESTS) clean
 
@@ -33,6 +33,10 @@ clean:
 	rm -f vgcore.*
 	rm -f valgrind.log
 	rm -f freehttpd.log
+	rm -f freehttpd-valgrind.log
 
-check-valgrind:
-	$(SH) valgrind.sh
+check-valgrind-benchmark:
+	$(SH) valgrind-benchmark.sh
+
+check-benchmark:
+	$(SH) benchmark.sh
