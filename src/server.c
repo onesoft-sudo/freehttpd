@@ -633,7 +633,7 @@ fhttpd_process_static_request (struct fhttpd_server *server, struct fhttpd_conne
 {
     const char *docroot = (const char *) server->config[FHTTPD_CONFIG_DOCROOT];
     const size_t docroot_len = strlen (docroot);
-    const size_t max_body_len = *(const size_t *) server->config[FHTTPD_CONFIG_MAX_BODY_SIZE];
+    const size_t max_body_len = *(const size_t *) server->config[FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE];
 
     response->ready = false;
     response->fd = -1;
@@ -1285,7 +1285,7 @@ fhttpd_print_info (const struct fhttpd_master *master)
 bool
 fhttpd_master_start (struct fhttpd_master *master)
 {
-    size_t worker_count = *(size_t *) master->config[FHTTPD_CONFIG_WORKER_COUNT];
+    size_t worker_count = *(size_t *) master->config[FHTTPD_CONFIG_WORKER_PROCESS_COUNT];
 
     master->workers = calloc (worker_count, sizeof (pid_t));
 

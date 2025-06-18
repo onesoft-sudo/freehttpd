@@ -78,9 +78,9 @@ main (void)
                               &(uint32_t) { 15000 });
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
                               &(uint32_t) { 30000 });
-    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_WORKER_COUNT,
+    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_WORKER_PROCESS_COUNT,
                               &(size_t) { 4 });
-    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_MAX_BODY_SIZE,
+    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE,
                               &(size_t) { 1024 * 1024 * 256 }); // 256 MB
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_DOCROOT, "/home/rakinar2/Projects");
 
