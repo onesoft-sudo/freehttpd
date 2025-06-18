@@ -495,7 +495,7 @@ http1_parse_body (struct http1_parser_ctx *ctx)
 
     if (ctx->result.body_len >= ctx->result.content_length)
     {
-        fhttpd_wclog_debug ("Body fully received, switching to done state");
+        fhttpd_wclog_debug ("Body fully received (%zu bytes), switching to done state", ctx->result.body_len);
         ctx->state = HTTP1_STATE_DONE;
         return HTTP1_PARSER_NEXT;
     }
@@ -560,6 +560,8 @@ http1_parse_recv (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 bool
 http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 {
+    ctx->processing = true;
+    
     while (true)
     {
         short result = HTTP1_PARSER_NEXT;
@@ -595,14 +597,17 @@ http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
                 break;
 
             case HTTP1_STATE_DONE:
+                ctx->processing = false;
                 return true;
 
             case HTTP1_STATE_ERROR:
                 fhttpd_wclog_debug ("Parser error, rejecting request");
+                ctx->processing = false;
                 return false;
 
             default:
                 fhttpd_wclog_debug ("Unknown parser state: %d", ctx->state);
+                ctx->processing = false;
                 ctx->state = HTTP1_STATE_ERROR;
                 return false;
         }
@@ -615,6 +620,7 @@ http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 
         fhttpd_wclog_debug ("Invalid return value: %hd", result);
         ctx->state = HTTP1_STATE_ERROR;
+        ctx->processing = false;
         return false;
     }
 

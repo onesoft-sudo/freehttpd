@@ -64,6 +64,7 @@ struct http1_parser_ctx
     size_t last_header_name_len;
 
     struct http1_parser_result result;
+    bool processing;
 };
 
 struct http1_response_ctx

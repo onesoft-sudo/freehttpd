@@ -24,15 +24,18 @@ exit_handler (void)
 void
 signal_handler (int signum)
 {
-    fprintf (stderr, "%s, shutting down %s...\n", strsignal (signum), fhttpd->pid == getpid () ? "server" : "worker");
-
-    if (fhttpd->pid != getpid ())
+    if (fhttpd) 
     {
-        struct sigaction sa;
-        sa.sa_handler = SIG_DFL;
-        sigemptyset (&sa.sa_mask);
-        sa.sa_flags = 0;
-        sigaction (signum, &sa, NULL);
+        fprintf (stderr, "%s, shutting down %s...\n", strsignal (signum), fhttpd->pid == getpid () ? "server" : "worker");
+
+        if (fhttpd->pid != getpid ())
+        {
+            struct sigaction sa;
+            sa.sa_handler = SIG_DFL;
+            sigemptyset (&sa.sa_mask);
+            sa.sa_flags = 0;
+            sigaction (signum, &sa, NULL);
+        }
     }
 
     exit (0);
@@ -67,10 +70,12 @@ main (void)
     uint16_t ports[] = { 8080, 0 };
 
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_PORTS, ports);
-    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_CLIENT_RECV_TIMEOUT,
+    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_RECV_TIMEOUT,
+                              &(uint32_t) { 10000 });
+    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_SEND_TIMEOUT,
                               &(uint32_t) { 10000 });
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT,
-                              &(uint32_t) { 20000 });
+                              &(uint32_t) { 15000 });
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
                               &(uint32_t) { 30000 });
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_WORKER_COUNT,

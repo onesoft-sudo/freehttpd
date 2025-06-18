@@ -125,9 +125,22 @@ fhttpd_get_status_text (enum fhttpd_status code)
         case FHTTPD_STATUS_SERVICE_UNAVAILABLE:
             return "Service Unavailable";
 
+        case FHTTPD_STATUS_METHOD_NOT_ALLOWED:
+            return "Method Not Allowed";
+
+        /* Only put a default case if building in non-debug mode, so that the compiler can warn about missing
+           cases in debug mode. */
+#ifdef NDEBUG
         default:
             return "Unknown Status";
+#endif /* NDEBUG */
     }
+
+#ifndef NDEBUG
+    /* In debug mode, we want to ensure that all cases are handled, so we don't return a default case. */
+    assert (false && "Unhandled fhttpd_status code");
+    return "Unknown Status"; /* This line will never be reached, but it satisfies the compiler. */
+#endif /* NDEBUG */
 }
 
 const char *
@@ -172,9 +185,22 @@ fhttpd_get_status_description (enum fhttpd_status code)
         case FHTTPD_STATUS_SERVICE_UNAVAILABLE:
             return "The server is currently unable to handle the request due to temporary overloading or maintenance.";
 
+        case FHTTPD_STATUS_METHOD_NOT_ALLOWED:
+            return "The request method is not allowed or supported for the requested resource.";
+
+        /* Only put a default case if building in non-debug mode, so that the compiler can warn about missing
+           cases in debug mode. */
+#ifdef NDEBUG
         default:
             return "Additional information is not available for this request.";
+#endif /* NDEBUG */
     }
+
+#ifndef NDEBUG
+    /* In debug mode, we want to ensure that all cases are handled, so we don't return a default case. */
+    assert (false && "Unhandled fhttpd_status code");
+    return "Unknown Status"; /* This line will never be reached, but it satisfies the compiler. */
+#endif /* NDEBUG */
 }
 
 bool

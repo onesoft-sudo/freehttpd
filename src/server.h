@@ -10,7 +10,7 @@
 #include "error.h"
 #include "protocol.h"
 #include "types.h"
-#include "htable.h"
+#include "itable.h"
 
 #define MAX_REQUEST_THREADS 4
 
@@ -20,9 +20,10 @@ enum fhttpd_config
     FHTTPD_CONFIG_WORKER_COUNT,
     FHTTPD_CONFIG_DOCROOT,
     FHTTPD_CONFIG_MAX_CONNECTIONS,
-    FHTTPD_CONFIG_CLIENT_RECV_TIMEOUT,
     FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT,
     FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
+    FHTTPD_CONFIG_RECV_TIMEOUT,
+    FHTTPD_CONFIG_SEND_TIMEOUT,
     FHTTPD_CONFIG_LOG_LEVEL,
     FHTTPD_CONFIG_MAX_BODY_SIZE,
     FHTTPD_CONFIG_MAX
@@ -43,6 +44,7 @@ struct fhttpd_server
     pid_t pid;
 
     fd_t epoll_fd;
+    fd_t timer_fd;
 
     fd_t *listen_fds;
     size_t listen_fd_count;
@@ -50,10 +52,10 @@ struct fhttpd_server
     void *config[FHTTPD_CONFIG_MAX];
 
     /* (fd_t) => (struct fhttpd_addrinfo *) */
-    struct htable *sockaddr_in_table;
+    struct itable *sockaddr_in_table;
 
     /* (fd_t) => (struct fhttpd_connection *) */
-    struct htable *connections;
+    struct itable *connections;
     uint64_t last_connection_id;
 };
 

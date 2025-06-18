@@ -8,6 +8,13 @@
 #include "protocol.h"
 #include "types.h"
 
+enum fhttpd_connection_mode
+{
+    FHTTPD_CONNECTION_MODE_READ,
+    FHTTPD_CONNECTION_MODE_WRITE,
+    FHTTPD_CONNECTION_MODE_FULL_DUPLEX,
+};
+
 struct fhttpd_connection
 {
     uint64_t id;
@@ -18,6 +25,7 @@ struct fhttpd_connection
 
     uint64_t last_recv_timestamp;
     uint64_t last_send_timestamp;
+    uint64_t last_request_timestamp;
     uint64_t created_at;
 
     union
@@ -44,6 +52,8 @@ struct fhttpd_connection
 
     uint16_t port;
     char host[INET_ADDRSTRLEN];
+
+    enum fhttpd_connection_mode mode;
 };
 
 struct fhttpd_connection *fhttpd_connection_create (uint64_t id, fd_t client_sockfd);

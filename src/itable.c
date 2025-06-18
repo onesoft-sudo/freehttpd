@@ -4,14 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "htable.h"
+#include "itable.h"
 
-struct htable *
-htable_create (size_t capacity)
+struct itable *
+itable_create (size_t capacity)
 {
-    capacity = capacity > 0 ? capacity : HTABLE_DEFAULT_CAPACITY;
+    capacity = capacity > 0 ? capacity : ITABLE_DEFAULT_CAPACITY;
 
-    struct htable *table = calloc (1, sizeof (struct htable));
+    struct itable *table = calloc (1, sizeof (struct itable));
 
     if (!table)
         return NULL;
@@ -20,7 +20,7 @@ htable_create (size_t capacity)
     table->count = 0;
     table->head = NULL;
     table->tail = NULL;
-    table->buckets = calloc (capacity, sizeof (struct htable_entry));
+    table->buckets = calloc (capacity, sizeof (struct itable_entry));
 
     if (!table->buckets)
     {
@@ -32,7 +32,7 @@ htable_create (size_t capacity)
 }
 
 void
-htable_destroy (struct htable *table)
+itable_destroy (struct itable *table)
 {
     if (!table)
         return;
@@ -56,12 +56,12 @@ htable_hash_fnv1a (uint64_t key, size_t capacity)
 }
 
 void *
-htable_get (struct htable *table, uint64_t key)
+itable_get (struct itable *table, uint64_t key)
 {
     key = key == 0 ? UINT64_MAX : key;
 
     size_t hash = htable_hash_fnv1a (key, table->capacity);
-    struct htable_entry *entry = &table->buckets[hash];
+    struct itable_entry *entry = &table->buckets[hash];
     bool first_iteration = true;
 
     while (entry)
@@ -85,10 +85,10 @@ htable_get (struct htable *table, uint64_t key)
 }
 
 bool
-htable_set (struct htable *table, uint64_t key, void *data)
+itable_set (struct itable *table, uint64_t key, void *data)
 {
     if (table->count >= ((table->capacity * 75) / 100)
-        && !htable_resize (table, table->capacity >= 1024 * 1024
+        && !itable_resize (table, table->capacity >= 1024 * 1024
                                       ? table->capacity + 1024 * 1024
                                       : table->capacity * 2))
     {
@@ -113,7 +113,7 @@ htable_set (struct htable *table, uint64_t key, void *data)
 
     for (; hash < table->capacity; hash++)
     {
-        struct htable_entry *entry = &table->buckets[hash];
+        struct itable_entry *entry = &table->buckets[hash];
 
         if (entry->key == key)
         {
@@ -150,7 +150,7 @@ htable_set (struct htable *table, uint64_t key, void *data)
 }
 
 void *
-htable_remove (struct htable *table, uint64_t key)
+itable_remove (struct itable *table, uint64_t key)
 {
     if (table->count == 0)
         return NULL;
@@ -158,7 +158,7 @@ htable_remove (struct htable *table, uint64_t key)
     key = key == 0 ? UINT64_MAX : key;
 
     size_t hash = htable_hash_fnv1a (key, table->capacity);
-    struct htable_entry *entry = &table->buckets[hash];
+    struct itable_entry *entry = &table->buckets[hash];
     bool first_iteration = true;
 
     while (entry)
@@ -203,23 +203,23 @@ htable_remove (struct htable *table, uint64_t key)
 }
 
 bool
-htable_resize (struct htable *table, size_t new_capacity)
+itable_resize (struct itable *table, size_t new_capacity)
 {
     if (new_capacity <= table->capacity)
     {
         return false;
     }
 
-    struct htable_entry *new_buckets
-        = calloc (new_capacity, sizeof (struct htable_entry));
+    struct itable_entry *new_buckets
+        = calloc (new_capacity, sizeof (struct itable_entry));
 
     if (!new_buckets)
     {
         return false;
     }
 
-    struct htable_entry *head = table->head;
-    struct htable_entry *new_head = NULL, *new_tail = NULL;
+    struct itable_entry *head = table->head;
+    struct itable_entry *new_head = NULL, *new_tail = NULL;
 
     while (head)
     {
@@ -227,7 +227,7 @@ htable_resize (struct htable *table, size_t new_capacity)
 
         for (; new_hash < new_capacity; new_hash++)
         {
-            struct htable_entry *entry = &new_buckets[new_hash];
+            struct itable_entry *entry = &new_buckets[new_hash];
 
             if (entry->key == 0)
             {
@@ -266,7 +266,7 @@ htable_resize (struct htable *table, size_t new_capacity)
 }
 
 bool
-htable_contains (struct htable *table, uint64_t key)
+itable_contains (struct itable *table, uint64_t key)
 {
     if (!table || table->count == 0)
         return false;
@@ -274,7 +274,7 @@ htable_contains (struct htable *table, uint64_t key)
     key = key == 0 ? UINT64_MAX : key;
 
     size_t hash = htable_hash_fnv1a (key, table->capacity);
-    struct htable_entry *entry = &table->buckets[hash];
+    struct itable_entry *entry = &table->buckets[hash];
     bool first_iteration = true;
 
     while (entry)

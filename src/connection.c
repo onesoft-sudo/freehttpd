@@ -29,7 +29,9 @@ fhttpd_connection_create (uint64_t id, fd_t client_sockfd)
     conn->id = id;
     conn->client_sockfd = client_sockfd;
     conn->last_recv_timestamp = get_current_timestamp ();
+    conn->last_send_timestamp = conn->last_recv_timestamp;
     conn->created_at = conn->last_recv_timestamp;
+    conn->last_request_timestamp = conn->last_recv_timestamp;
 
     return conn;
 }
@@ -83,6 +85,8 @@ fhttpd_connection_close (struct fhttpd_connection *conn)
 ssize_t
 fhttpd_connection_recv (struct fhttpd_connection *conn, void *buf, size_t size, int flags)
 {
+    errno = 0;
+
     ssize_t bytes_read = recv (conn->client_sockfd, buf, size, flags);
 
     if (bytes_read < 0)
@@ -130,6 +134,8 @@ fhttpd_connection_detect_protocol (struct fhttpd_connection *conn)
 ssize_t
 fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t size, int flags)
 {
+    errno = 0;
+
     ssize_t bytes_sent = send (conn->client_sockfd, buf, size, flags);
 
     if (bytes_sent <= 0)
@@ -145,6 +151,8 @@ fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t 
 ssize_t
 fhttpd_connection_sendfile (struct fhttpd_connection *conn, int src_fd, off_t *offset, size_t count)
 {
+    errno = 0;
+
     ssize_t bytes_sent = sendfile (conn->client_sockfd, src_fd, offset, count);
 
     if (bytes_sent <= 0)
@@ -278,7 +286,9 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
                 = fhttpd_connection_send (conn, ctx->buffer, ctx->buffer_len, MSG_DONTWAIT | MSG_NOSIGNAL);
 
             if (bytes_sent < 0 && would_block ())
+            {
                 return true;
+            }
 
             if (bytes_sent <= 0)
             {
@@ -308,7 +318,9 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
                 = fhttpd_connection_sendfile (conn, ctx->fd, &ctx->offset, response->body_len - ctx->sent_bytes);
 
             if (bytes_sent < 0 && would_block ())
+            {
                 return true;
+            }
 
             if (bytes_sent <= 0)
             {
@@ -350,7 +362,9 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
                                                      ctx->buffer_len - ctx->sent_bytes, MSG_DONTWAIT | MSG_NOSIGNAL);
 
         if (bytes_sent < 0 && would_block ())
+        {
             return true;
+        }
 
         if (bytes_sent == 0)
             return false;

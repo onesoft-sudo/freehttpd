@@ -18,6 +18,7 @@
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/timerfd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -25,11 +26,9 @@
 
 #define FHTTPD_LOG_MODULE_NAME "server"
 
-#include "htable.h"
-#include "log.h"
-
 #include "connection.h"
-#include "htable.h"
+#include "itable.h"
+#include "log.h"
 #include "loop.h"
 #include "protocol.h"
 #include "server.h"
@@ -65,7 +64,7 @@ fhttpd_server_create (const struct fhttpd_master *master)
         return NULL;
     }
 
-    server->connections = htable_create (0);
+    server->connections = itable_create (0);
 
     if (!server->connections)
     {
@@ -74,17 +73,19 @@ fhttpd_server_create (const struct fhttpd_master *master)
         return NULL;
     }
 
-    server->sockaddr_in_table = htable_create (0);
+    server->sockaddr_in_table = itable_create (0);
 
     if (!server->sockaddr_in_table)
     {
-        htable_destroy (server->connections);
+        itable_destroy (server->connections);
         close (server->epoll_fd);
         free (server);
         return NULL;
     }
 
+    server->timer_fd = -1;
     memcpy (server->config, master->config, sizeof (server->config));
+
     return server;
 }
 
@@ -219,7 +220,7 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
         srv_addr->sockfd = sockfd;
         inet_ntop (AF_INET, &addr.sin_addr, srv_addr->host, sizeof (srv_addr->host));
 
-        if (!htable_set (server->sockaddr_in_table, sockfd, srv_addr))
+        if (!itable_set (server->sockaddr_in_table, sockfd, srv_addr))
         {
             free (srv_addr);
             close (sockfd);
@@ -244,6 +245,12 @@ fhttpd_server_destroy (struct fhttpd_server *server)
     if (!server)
         return;
 
+    if (server->timer_fd >= 0)
+    {
+        close (server->timer_fd);
+        server->timer_fd = -1;
+    }
+
     if (server->listen_fds)
     {
         for (size_t i = 0; i < server->listen_fd_count; i++)
@@ -259,7 +266,7 @@ fhttpd_server_destroy (struct fhttpd_server *server)
 
     if (server->connections)
     {
-        struct htable_entry *entry = server->connections->head;
+        struct itable_entry *entry = server->connections->head;
 
         while (entry)
         {
@@ -271,12 +278,12 @@ fhttpd_server_destroy (struct fhttpd_server *server)
             entry = entry->next;
         }
 
-        htable_destroy (server->connections);
+        itable_destroy (server->connections);
     }
 
     if (server->sockaddr_in_table)
     {
-        struct htable_entry *entry = server->sockaddr_in_table->head;
+        struct itable_entry *entry = server->sockaddr_in_table->head;
 
         while (entry)
         {
@@ -288,7 +295,7 @@ fhttpd_server_destroy (struct fhttpd_server *server)
             entry = entry->next;
         }
 
-        htable_destroy (server->sockaddr_in_table);
+        itable_destroy (server->sockaddr_in_table);
     }
 
     free (server);
@@ -302,7 +309,7 @@ fhttpd_server_new_connection (struct fhttpd_server *server, fd_t client_sockfd)
     if (!conn)
         return NULL;
 
-    if (!htable_set (server->connections, client_sockfd, conn))
+    if (!itable_set (server->connections, client_sockfd, conn))
     {
         fhttpd_connection_close (conn);
         return NULL;
@@ -317,7 +324,7 @@ fhttpd_server_free_connection (struct fhttpd_server *server, struct fhttpd_conne
 {
     fd_t fd = conn->client_sockfd;
 
-    if (htable_remove (server->connections, fd) != conn)
+    if (itable_remove (server->connections, fd) != conn)
         return false;
 
     fhttpd_wclog_debug ("Connection #%lu is being deallocated", conn->id);
@@ -352,7 +359,7 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
     if (client_sockfd < 0)
         return errno == EAGAIN || errno == EWOULDBLOCK;
 
-    struct fhttpd_addrinfo *srv_addr = htable_get (server->sockaddr_in_table, sockfd);
+    struct fhttpd_addrinfo *srv_addr = itable_get (server->sockaddr_in_table, sockfd);
 
     if (!srv_addr)
     {
@@ -454,7 +461,8 @@ static bool
 fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe_unused__,
                                   struct fhttpd_connection *conn,
                                   const struct fhttpd_request *request __attribute_maybe_unused__,
-                                  struct fhttpd_response *response, const char *filepath, size_t filepath_len,
+                                  struct fhttpd_response *response, const char *filepath,
+                                  size_t filepath_len __attribute_maybe_unused__,
                                   const struct stat *st __attribute_maybe_unused__)
 {
     fhttpd_header_add (&response->headers, "Content-Type", "text/html; charset=UTF-8", 12, 24);
@@ -484,6 +492,19 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
         response->use_builtin_error_response = true;
         free (buf);
         return true;
+    }
+
+    bool is_root = (request->path_len == 1 && request->path[0] == '/');
+
+    if (!is_root)
+    {
+        const char parent_entry[] = "<tr><td></td><td>"
+                             "<a href=\"../\">Parent Directory</a><br>\n"
+                             "</td><td></td><td></td></tr>\n";
+        const size_t parent_entry_len = sizeof (parent_entry) - 1;
+        static_assert ((sizeof (parent_entry) - 1) < 128, "Parent entry length must be less than 128 bytes");
+        memcpy (buf, parent_entry, parent_entry_len);
+        buf_len += parent_entry_len;
     }
 
     while ((entry = readdir (dir)) != NULL)
@@ -559,8 +580,8 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
 
     buf[buf_len] = 0;
 
-    size_t html_len
-        = resource_index_html_len + buf_len + 1 - 10 + (request->path_len * 2) + (conn->port / 10) + 1 + INET_ADDRSTRLEN;
+    size_t html_len = resource_index_html_len + buf_len + 1 - 10 + (request->path_len * 2) + (conn->port / 10) + 1
+                      + INET_ADDRSTRLEN;
     char *html = malloc (html_len);
 
     if (!html)
@@ -743,7 +764,7 @@ fhttpd_process_request (struct fhttpd_server *server, struct fhttpd_connection *
 static loop_op_t
 fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 {
-    struct fhttpd_connection *conn = htable_get (server->connections, client_sockfd);
+    struct fhttpd_connection *conn = itable_get (server->connections, client_sockfd);
 
     if (!conn)
     {
@@ -775,6 +796,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
                 static_assert (sizeof (conn->http1_req_ctx.buffer) >= H2_PREFACE_SIZE);
                 memcpy (conn->http1_req_ctx.buffer, conn->buffers.protobuf, H2_PREFACE_SIZE);
                 conn->http1_req_ctx.buffer_len = H2_PREFACE_SIZE;
+                conn->mode = FHTTPD_CONNECTION_MODE_READ;
                 fhttpd_wclog_info ("Connection #%lu: HTTP/1.x protocol initialized", conn->id);
                 break;
 
@@ -791,10 +813,13 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
             if (!http1_parse (conn, &conn->http1_req_ctx))
             {
                 fhttpd_wclog_error ("Connection #%lu: HTTP/1.x parsing failed", conn->id);
+                conn->mode = FHTTPD_CONNECTION_MODE_WRITE;
 
                 if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
                     fhttpd_server_free_connection (server, conn);
 
+                http1_parser_ctx_init (&conn->http1_req_ctx);
+                conn->last_request_timestamp = get_current_timestamp ();
                 return LOOP_OPERATION_NONE;
             }
 
@@ -807,8 +832,12 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
                     fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id,
                                         strerror (errno));
                     fhttpd_server_free_connection (server, conn);
+                    http1_parser_ctx_init (&conn->http1_req_ctx);
+                    conn->last_request_timestamp = get_current_timestamp ();
                     return LOOP_OPERATION_NONE;
                 }
+
+                conn->mode = FHTTPD_CONNECTION_MODE_WRITE;
 
                 struct fhttpd_request *requests
                     = realloc (conn->requests, sizeof (struct fhttpd_request) * (conn->request_count + 1));
@@ -820,6 +849,8 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
                     if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
                         fhttpd_server_free_connection (server, conn);
 
+                    http1_parser_ctx_init (&conn->http1_req_ctx);
+                    conn->last_request_timestamp = get_current_timestamp ();
                     return LOOP_OPERATION_NONE;
                 }
 
@@ -842,6 +873,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
                 memcpy (conn->exact_protocol, conn->http1_req_ctx.result.version, 4);
                 http1_parser_ctx_init (&conn->http1_req_ctx);
+                conn->last_request_timestamp = get_current_timestamp ();
 
                 fhttpd_wclog_info ("Connection #%lu: Accepted request #%zu", conn->id, conn->request_count - 1);
                 return LOOP_OPERATION_NONE;
@@ -854,12 +886,15 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
             else if (conn->http1_req_ctx.state == HTTP1_STATE_ERROR)
             {
                 fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x parser encountered an error", conn->id);
+                conn->mode = FHTTPD_CONNECTION_MODE_WRITE;
 
                 if (!fhttpd_epoll_ctl_mod (server, conn->client_sockfd, EPOLLOUT | EPOLLHUP))
                 {
                     fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id,
                                         strerror (errno));
                     fhttpd_server_free_connection (server, conn);
+                    http1_parser_ctx_init (&conn->http1_req_ctx);
+                    conn->last_request_timestamp = get_current_timestamp ();
                     return LOOP_OPERATION_NONE;
                 }
 
@@ -867,6 +902,8 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
                         conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), FHTTPD_STATUS_BAD_REQUEST))
                     fhttpd_server_free_connection (server, conn);
 
+                http1_parser_ctx_init (&conn->http1_req_ctx);
+                conn->last_request_timestamp = get_current_timestamp ();
                 return LOOP_OPERATION_NONE;
             }
             break;
@@ -883,7 +920,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 static loop_op_t
 fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
 {
-    struct fhttpd_connection *conn = htable_get (server->connections, client_sockfd);
+    struct fhttpd_connection *conn = itable_get (server->connections, client_sockfd);
 
     if (!conn)
     {
@@ -967,6 +1004,8 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
             continue;
         }
 
+        errno = 0;
+
         if (!fhttpd_connection_send_response (conn, i, response))
         {
             fhttpd_wclog_debug ("Connection #%lu: Failed to send response", conn->id);
@@ -998,7 +1037,7 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
 static loop_op_t
 fhttpd_server_on_hup (struct fhttpd_server *server, fd_t client_sockfd)
 {
-    struct fhttpd_connection *conn = htable_get (server->connections, client_sockfd);
+    struct fhttpd_connection *conn = itable_get (server->connections, client_sockfd);
 
     if (!conn)
     {
@@ -1014,10 +1053,141 @@ fhttpd_server_on_hup (struct fhttpd_server *server, fd_t client_sockfd)
     return LOOP_OPERATION_NONE;
 }
 
-void
+static bool
+fhttpd_create_timerfd (struct fhttpd_server *server, time_t interval_sec)
+{
+    int timerfd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+
+    if (timerfd < 0)
+        return false;
+
+    struct itimerspec timer_spec = { 0 };
+
+    timer_spec.it_value.tv_sec = interval_sec;
+    timer_spec.it_value.tv_nsec = 0;
+    timer_spec.it_interval.tv_sec = interval_sec;
+    timer_spec.it_interval.tv_nsec = 0;
+
+    if (timerfd_settime (timerfd, 0, &timer_spec, NULL) < 0)
+    {
+        close (timerfd);
+        return false;
+    }
+
+    if (!fhttpd_epoll_ctl_add (server, timerfd, EPOLLIN))
+    {
+        close (timerfd);
+        return false;
+    }
+
+    server->timer_fd = timerfd;
+    return true;
+}
+
+static bool
+fhttpd_server_check_connections (struct fhttpd_server *server)
+{
+    if (!server || !server->connections)
+        return false;
+
+    const uint32_t recv_timeout = *(uint32_t *) server->config[FHTTPD_CONFIG_RECV_TIMEOUT];
+    const uint32_t send_timeout = *(uint32_t *) server->config[FHTTPD_CONFIG_SEND_TIMEOUT];
+    const uint32_t header_timeout = *(uint32_t *) server->config[FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT];
+    const uint32_t body_timeout = *(uint32_t *) server->config[FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT];
+
+    struct itable_entry *entry = server->connections->head;
+    size_t count = 0;
+
+    while (entry)
+    {
+        struct fhttpd_connection *conn = entry->data;
+        uint64_t current_time = get_current_timestamp ();
+
+        if (conn)
+        {
+            fhttpd_wclog_debug ("Checking connection #%lu", conn->id);
+
+            bool is_recv_timeout = conn->last_recv_timestamp + recv_timeout < current_time;
+            bool is_send_timeout = conn->last_send_timestamp + send_timeout < current_time;
+
+            if (conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
+            {
+                fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x protocol", conn->id);
+
+                enum http1_parser_state state = conn->http1_req_ctx.state;
+
+                if (state == HTTP1_STATE_RECV)
+                    state = conn->http1_req_ctx.prev_state;
+
+                fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x parser state: %d", conn->id, state);
+                fhttpd_wclog_debug ("Connection #%lu: Last recv timestamp: %lu, Last send timestamp: %lu", conn->id,
+                                    conn->last_recv_timestamp, conn->last_send_timestamp);
+                fhttpd_wclog_debug ("Connection #%lu: Recv interval: %lu, Send interval: %lu", conn->id,
+                                    current_time - conn->last_recv_timestamp, current_time - conn->last_send_timestamp);
+                fhttpd_wclog_debug ("Connection #%lu: Total time elapsed since last valid request: %lu", conn->id,
+                                    current_time - conn->last_request_timestamp);
+
+                if (state != HTTP1_STATE_DONE && state != HTTP1_STATE_BODY
+                    && conn->last_request_timestamp + header_timeout < current_time)
+                {
+                    fhttpd_wclog_info ("Connection #%lu timed out recv: Client did not finish sending headers in time",
+                                       conn->id);
+                    goto fhttpd_server_check_connections_close_next;
+                }
+
+                if (state == HTTP1_STATE_BODY && conn->last_request_timestamp + body_timeout < current_time)
+                {
+                    fhttpd_wclog_info ("Connection #%lu timed out recv: Client did not finish sending body in time",
+                                       conn->id);
+                goto fhttpd_server_check_connections_close_next;
+                }
+            }
+
+            if (is_recv_timeout && is_send_timeout)
+            {
+                fhttpd_wclog_info ("Connection #%lu timed out due to no activity", conn->id);
+                goto fhttpd_server_check_connections_close_next;
+            }
+
+            if ((conn->mode != FHTTPD_CONNECTION_MODE_WRITE || conn->protocol == FHTTPD_PROTOCOL_UNKNOWN)
+                && is_recv_timeout)
+            {
+                fhttpd_wclog_info ("Connection #%lu timed out on recv", conn->id);
+                goto fhttpd_server_check_connections_close_next;
+            }
+
+            if (conn->mode != FHTTPD_CONNECTION_MODE_READ && is_send_timeout)
+            {
+                fhttpd_wclog_info ("Connection #%lu timed out on recv", conn->id);
+                goto fhttpd_server_check_connections_close_next;
+            }
+        }
+
+        entry = entry->next;
+        continue;
+
+    fhttpd_server_check_connections_close_next:
+        entry = entry->next;
+        fhttpd_server_free_connection (server, conn);
+        count++;
+    }
+
+    fhttpd_wclog_debug ("Closed %zu connections due to timeouts", count);
+    return true;
+}
+
+static _Noreturn void
 fhttpd_server_loop (struct fhttpd_server *server)
 {
     struct epoll_event events[MAX_EVENTS];
+
+    if (!fhttpd_create_timerfd (server, 5))
+    {
+        fhttpd_wclog_error ("Failed to create timerfd: %s", strerror (errno));
+        exit (EXIT_FAILURE);
+    }
+
+    fd_t timerfd = server->timer_fd;
 
     while (true)
     {
@@ -1031,6 +1201,29 @@ fhttpd_server_loop (struct fhttpd_server *server)
 
         for (int i = 0; i < nfds; i++)
         {
+            if (events[i].data.fd == timerfd)
+            {
+                uint64_t expirations = 0;
+                ssize_t s = read (timerfd, &expirations, sizeof (expirations));
+
+                if (s < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+                {
+                    fhttpd_wclog_error ("Failed to read from timerfd: %s", strerror (errno));
+                    continue;
+                }
+
+                if (expirations > 0 && s == sizeof (expirations))
+                {
+                    if (!fhttpd_server_check_connections (server))
+                    {
+                        fhttpd_wclog_error ("Failed to check connections: %s", strerror (errno));
+                        continue;
+                    }
+                }
+
+                continue;
+            }
+
             bool is_listen_fd = false;
 
             for (size_t j = 0; j < server->listen_fd_count; j++)
@@ -1158,9 +1351,7 @@ fhttpd_master_destroy (struct fhttpd_master *master)
     if (master->pid == getpid ())
     {
         for (size_t i = 0; i < master->worker_count; i++)
-        {
             kill (master->workers[i], SIGTERM);
-        }
     }
 
     free (master->workers);

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# This script is used to run a command under Valgrind with the appropriate
+# options for debugging memory issues. It is intended to be used in a build
+# system or testing environment.
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <command>" >&2
+    exit 1
+fi
+
+exec valgrind \
+    -s \
+    --leak-check=full \
+    --show-leak-kinds=all \
+    --track-origins=yes \
+    --error-exitcode=1 \
+    --trace-children=yes \
+    "$1"
