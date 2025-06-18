@@ -1,7 +1,7 @@
-TESTS = path_normalize_test htable_test
+TESTS = path_normalize_test itable_test
 SH = sh
 
-htable_test_SOURCES = htable_test.c ../src/htable.c
+itable_test_SOURCES = itable_test.c ../src/itable.c
 path_normalize_test_SOURCES = path_normalize_test.c ../src/utils.c
 CFLAGS += -I../src -g
 
@@ -9,7 +9,7 @@ CFLAGS += -I../src -g
 
 all: $(TESTS) clean
 
-htable_test: $(htable_test_SOURCES:.c=.o)
+itable_test: $(itable_test_SOURCES:.c=.o)
 	$(CC) -o $@ $^ $(LDFLAGS)
 	valgrind -s --leak-check=full ./$@
 
