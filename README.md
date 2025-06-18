@@ -1,5 +1,3 @@
-<h1 align="center">freehttpd</h1>
-
 <p align="center">
 <a href="https://github.com/onesoft-sudo/freehttpd" title="freehttpd">
 <img src="https://raw.githubusercontent.com/onesoft-sudo/freehttpd/refs/heads/main/res/freehttpd.png" height="152px" width="360px">
