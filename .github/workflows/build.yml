@@ -21,11 +21,13 @@ jobs:
 
       - name: Build
         run: |
-          make clean all
+          ./configure --prefix=$(pwd)/build
+          make -j$(nproc)
+          make install
 
       - name: Test
         run: |
-          make check
+          make distcheck
 
       - name: Benchmark
         run: |
@@ -40,7 +42,7 @@ jobs:
         with:
           name: build-artifacts
           path: |
-            bin/
+            build/
             tests/freehttpd-valgrind.log
             tests/freehttpd.log
             tests/valgrind.log

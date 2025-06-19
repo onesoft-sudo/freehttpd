@@ -10,7 +10,7 @@ valgrind \
     --error-exitcode=1 \
     --log-file=valgrind.log \
     --verbose \
-    ../bin/freehttpd > freehttpd-valgrind.log 2>&1 &
+    ../build/bin/freehttpd > freehttpd-valgrind.log 2>&1 &
 
 pid=$!
 

@@ -20,4 +20,10 @@ vcs-clean: clean
 			$$dir/.dirstamp; \
 	done
 
-.PHONY: vcs-clean
+check-benchmark: all
+	$(MAKE) -C tests check-benchmark
+
+check-valgrind-benchmark: all
+	$(MAKE) -C tests check-valgrind-benchmark
+
+.PHONY: vcs-clean check-benchmark check-valgrind-benchmark

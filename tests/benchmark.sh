@@ -1,6 +1,6 @@
 #!/bin/sh
 
-../bin/freehttpd > freehttpd.log 2>&1 &
+../build/bin/freehttpd > freehttpd.log 2>&1 &
 
 pid=$!
 
