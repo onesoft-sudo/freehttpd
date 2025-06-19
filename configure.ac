@@ -16,7 +16,7 @@ AC_PROG_CC
 # Check for C23 support.
 c23check_done=0
 
-AC_MSG_CHECKING([for GNU C23 support])
+AC_MSG_CHECKING([whether the compiler supports GNU C23])
 
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -std=gnu23"
@@ -33,13 +33,14 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
     AC_MSG_RESULT([yes])
     AC_SUBST([CSTD], [gnu23])
     c23check_done=1
-], [])
+], [
+    AC_MSG_RESULT([no])
+])
 
 CFLAGS="$saved_CFLAGS"
 
-
-if test "c23check_done" = "0"; then
-    AC_MSG_CHECKING([for GNU C2x support])
+if test "$c23check_done" = "0"; then
+    AC_MSG_CHECKING([whether the compiler supports GNU C2x])
 
     saved_CFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS -std=gnu2x"
@@ -57,7 +58,7 @@ if test "c23check_done" = "0"; then
         AC_SUBST([CSTD], [gnu2x])
         c23check_done=1
     ], [
-        AC_MSG_ERROR([Your compiler does not support GNU C23])
+        AC_MSG_ERROR([Your compiler does not support GNU C23/C2x. Please use a compiler that supports it, such as GCC 14 or later.])
     ])
 
     CFLAGS="$saved_CFLAGS"
