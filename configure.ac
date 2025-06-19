@@ -25,10 +25,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   #if __STDC_VERSION__ < 202301L
   #error Not C23
   #endif
-
-  #if !defined(__GNUC__)
-  #error Not GNU C
-  #endif
 ]], [[]])], [
     AC_MSG_RESULT([yes])
     AC_SUBST([CSTD], [gnu23])
@@ -48,10 +44,6 @@ if test "$c23check_done" = "0"; then
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         #if __STDC_VERSION__ < 202001L
         #error Not C2x
-        #endif
-
-        #if !defined(__GNUC__)
-        #error Not GNU C
         #endif
     ]], [[]])], [
         AC_MSG_RESULT([yes])
