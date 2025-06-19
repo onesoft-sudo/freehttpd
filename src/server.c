@@ -499,9 +499,9 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
 
     if (!is_root)
     {
-        const char parent_entry[] = "<tr><td></td><td>"
-                             "<a href=\"../\">Parent Directory</a><br>\n"
-                             "</td><td></td><td></td></tr>\n";
+        const char parent_entry[] = "<tr><td></td><td colspan=\"3\">"
+                             "<a href=\"../\">Parent Directory</a>"
+                             "</td></tr>\n";
         const size_t parent_entry_len = sizeof (parent_entry) - 1;
         static_assert ((sizeof (parent_entry) - 1) < 128, "Parent entry length must be less than 128 bytes");
         memcpy (buf, parent_entry, parent_entry_len);
@@ -580,7 +580,7 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
         }
 
         const char *format = "<tr><td></td><td>"
-                             "<a href=\"%s%s\">%s%s</a><br>\n"
+                             "<a href=\"%s%s\">%s%s</a>"
                              "</td><td>%s</td><td>%s</td></tr>\n";
 
         int bytes_written
@@ -596,7 +596,7 @@ fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe
 
             free (entries);
             free (buf);
-            
+
             response->ready = true;
             response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
             response->use_builtin_error_response = true;
