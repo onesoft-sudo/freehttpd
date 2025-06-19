@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #if EAGAIN == EWOULDBLOCK
 #define would_block() (errno == EAGAIN)
