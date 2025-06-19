@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -5,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <unistd.h>
 
 #include "utils.h"
@@ -163,4 +166,18 @@ format_size (size_t size, char buf[64], size_t *num, char unit[3])
         snprintf (buf, 64, "%zu%s", size, units[unit_index]);
 
     return true;
+}
+
+const char *
+get_file_extension (const char *filename)
+{
+    if (!filename)
+        return NULL;
+
+    const char *dot = strrchr (filename, '.');
+    
+    if (!dot || dot == filename)
+        return NULL;
+
+    return dot + 1;
 }

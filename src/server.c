@@ -34,6 +34,7 @@
 #include "server.h"
 #include "types.h"
 #include "utils.h"
+#include "autoindex.h"
 
 #ifdef HAVE_RESOURCES
 #include "resources.h"
@@ -454,7 +455,8 @@ fhttpd_process_file_request (struct fhttpd_server *server __attribute_maybe_unus
     }
 
     char etag[128];
-    int etag_len = snprintf (etag, sizeof (etag), "\"%lx%lx-%lx\"", (unsigned long) st->st_ino, (unsigned long) st->st_mtime, (long) st->st_size);
+    int etag_len = snprintf (etag, sizeof (etag), "\"%lx%lx-%lx\"", (unsigned long) st->st_ino,
+                             (unsigned long) st->st_mtime, (long) st->st_size);
 
     if (etag_len < 0 || (size_t) etag_len >= sizeof (etag))
     {
@@ -472,193 +474,13 @@ fhttpd_process_file_request (struct fhttpd_server *server __attribute_maybe_unus
 
 static bool
 fhttpd_process_directory_request (struct fhttpd_server *server __attribute_maybe_unused__,
-                                  struct fhttpd_connection *conn,
+                                  struct fhttpd_connection *conn __attribute_maybe_unused__,
                                   const struct fhttpd_request *request __attribute_maybe_unused__,
                                   struct fhttpd_response *response, const char *filepath,
-                                  size_t filepath_len __attribute_maybe_unused__,
+                                  size_t filepath_len,
                                   const struct stat *st __attribute_maybe_unused__)
 {
-    fhttpd_header_add (&response->headers, "Content-Type", "text/html; charset=UTF-8", 12, 24);
-
-    size_t buf_size = 128, buf_len = 0;
-    char *buf = malloc (buf_size);
-
-    if (!buf)
-    {
-        fhttpd_wclog_error ("Failed to allocate memory for directory listing buffer");
-        response->ready = true;
-        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
-        response->use_builtin_error_response = true;
-        return true;
-    }
-
-    struct dirent **entries;
-    size_t total_entries = 0;
-
-    bool is_root = (request->path_len == 1 && request->path[0] == '/');
-
-    if (!is_root)
-    {
-        const char parent_entry[] = "<tr><td></td><td colspan=\"3\">"
-                             "<a href=\"../\">Parent Directory</a>"
-                             "</td></tr>\n";
-        const size_t parent_entry_len = sizeof (parent_entry) - 1;
-        static_assert ((sizeof (parent_entry) - 1) < 128, "Parent entry length must be less than 128 bytes");
-        memcpy (buf, parent_entry, parent_entry_len);
-        buf_len += parent_entry_len;
-    }
-
-    int entry_count = scandir (filepath, &entries, NULL, &versionsort);
-
-    if (entry_count < 0 || !entries)
-    {
-        int err = errno;
-        fhttpd_wclog_error ("Failed to open directory '%s': %s", filepath, strerror (err));
-        response->ready = true;
-        response->status = err == EACCES ? FHTTPD_STATUS_FORBIDDEN : FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
-        response->use_builtin_error_response = true;
-        free (buf);
-        return true;
-    }
-
-    for (int i = 0; i < entry_count; i++)
-    {
-        struct dirent *entry = entries[i];
-
-        if (strcmp (entry->d_name, ".") == 0 || strcmp (entry->d_name, "..") == 0)
-        {
-            free (entry);
-            continue;
-        }
-
-        char fullpath[PATH_MAX + 1] = { 0 };
-        snprintf (fullpath, sizeof (fullpath), "%s/%s", filepath, entry->d_name);
-
-        struct stat entry_st;
-
-        if (lstat (fullpath, &entry_st) < 0)
-        {
-            free (entry);
-            continue;
-        }
-
-        size_t entry_name_len = strlen (entry->d_name);
-
-        char size_buf[64];
-        char lastmod_buf[64];
-
-        strftime (lastmod_buf, sizeof (lastmod_buf), "%Y-%m-%d %H:%M:%S", localtime (&entry_st.st_mtime));
-
-        if (entry->d_type != DT_REG || !format_size (entry_st.st_size, size_buf, NULL, NULL))
-            strcpy (size_buf, "-");
-
-        size_t entry_str_len
-            = (entry_name_len * 2) + 80 + (entry->d_type == DT_DIR ? 2 : 0) + strlen (size_buf) + strlen (lastmod_buf);
-
-        if (buf_len + entry_str_len >= buf_size)
-        {
-            buf_size += entry_str_len >= 128 ? entry_str_len : 128;
-            char *new_buf = realloc (buf, buf_size);
-
-            if (!new_buf)
-            {
-                fhttpd_wclog_error ("Failed to reallocate memory for directory listing buffer");
-
-                for (int j = i; j < entry_count; j++)
-                    free (entries[j]);
-
-                free (entries);
-                free (buf);
-
-                response->ready = true;
-                response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
-                response->use_builtin_error_response = true;
-                return true;
-            }
-
-            buf = new_buf;
-        }
-
-        const char *format = "<tr><td></td><td>"
-                             "<a href=\"%s%s\">%s%s</a>"
-                             "</td><td>%s</td><td>%s</td></tr>\n";
-
-        int bytes_written
-            = snprintf (buf + buf_len, entry_str_len, format, entry->d_name, entry->d_type == DT_DIR ? "/" : "",
-                        entry->d_name, entry->d_type == DT_DIR ? "/" : "", size_buf, lastmod_buf);
-
-        if (bytes_written < 0 || (size_t) bytes_written >= entry_str_len)
-        {
-            fhttpd_wclog_error ("Failed to format directory entry '%s': %s", entry->d_name, strerror (errno));
-
-            for (int j = i; j < entry_count; j++)
-                free (entries[j]);
-
-            free (entries);
-            free (buf);
-
-            response->ready = true;
-            response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
-            response->use_builtin_error_response = true;
-            return true;
-        }
-
-        buf_len += bytes_written;
-        total_entries++;
-
-        free (entries[i]);
-        entries[i] = NULL;
-    }
-
-    free (entries);
-
-    if (buf_len >= buf_size)
-        buf = realloc (buf, buf_len + 1);
-
-    buf[buf_len] = 0;
-
-    size_t html_len = resource_index_html_len + buf_len + 1 - 10 + (request->path_len * 2) + (conn->port / 10) + 1
-                      + INET_ADDRSTRLEN;
-    char *html = malloc (html_len);
-
-    if (!html)
-    {
-        fhttpd_wclog_error ("Failed to allocate memory for directory listing HTML");
-        free (buf);
-        response->ready = true;
-        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
-        response->use_builtin_error_response = true;
-        return true;
-    }
-
-    char format[resource_index_html_len + 1];
-    strncpy (format, resource_index_html, resource_index_html_len);
-    format[resource_index_html_len] = 0;
-
-    int bytes_written
-        = snprintf (html, html_len - 1, format, request->path, request->path, buf, conn->host, conn->port);
-
-    if (bytes_written < 0 || (size_t) bytes_written >= html_len)
-    {
-        fhttpd_wclog_error ("Failed to format directory listing HTML: %s", strerror (errno));
-        free (buf);
-        free (html);
-        response->ready = true;
-        response->status = FHTTPD_STATUS_INTERNAL_SERVER_ERROR;
-        response->use_builtin_error_response = true;
-        return true;
-    }
-
-    response->status = FHTTPD_STATUS_OK;
-    response->ready = true;
-    response->body = (uint8_t *) html;
-    response->body_len = (size_t) bytes_written;
-    response->fd = -1;
-    response->set_content_length = true;
-    response->use_builtin_error_response = false;
-
-    free (buf);
-    return true;
+    return fhttpd_autoindex (request, response, filepath, filepath_len);
 }
 
 static bool
@@ -715,7 +537,7 @@ fhttpd_process_static_request (struct fhttpd_server *server, struct fhttpd_conne
     memcpy (filepath, docroot, docroot_len);
     memcpy (filepath + docroot_len, request->path, request->path_len);
 
-    if (!path_normalize (filepath, filepath, &filepath_len))
+    if (filepath[PATH_MAX] != 0 || !path_normalize (filepath, filepath, &filepath_len))
     {
         fhttpd_wclog_error ("Failed to normalize file path: '%s'", filepath);
         response->ready = true;
@@ -1174,7 +996,7 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
                 {
                     fhttpd_wclog_info ("Connection #%lu timed out recv: Client did not finish sending body in time",
                                        conn->id);
-                goto fhttpd_server_check_connections_close_next;
+                    goto fhttpd_server_check_connections_close_next;
                 }
             }
 

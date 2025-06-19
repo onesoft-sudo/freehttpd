@@ -68,6 +68,10 @@ main (void)
         }
 
     uint16_t ports[] = { 8080, 0 };
+    const char *docroot = getenv ("FHTTPD_DOCROOT");
+
+    if (!docroot)
+        docroot = "/var/www/html";
 
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_PORTS, ports);
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_RECV_TIMEOUT,
@@ -82,7 +86,7 @@ main (void)
                               &(size_t) { 4 });
     fhttpd_set_config (fhttpd, FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE,
                               &(size_t) { 1024 * 1024 * 256 }); // 256 MB
-    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_DOCROOT, "/home/rakinar2/Projects");
+    fhttpd_set_config (fhttpd, FHTTPD_CONFIG_DOCROOT, (void *) docroot);
 
     if (!fhttpd_master_start (fhttpd))
     {

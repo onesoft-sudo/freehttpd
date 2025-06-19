@@ -178,6 +178,13 @@ http1_parse_uri (struct http1_parser_ctx *ctx)
     ctx->result.uri[uri_len] = 0;
     ctx->result.uri_len = uri_len;
 
+    if (ctx->result.uri[0] != '/')
+    {
+        fhttpd_wclog_error ("Invalid path: %s, relative paths are not allowed", ctx->result.uri);
+        ctx->state = HTTP1_STATE_ERROR;
+        return HTTP1_PARSER_RETURN (false);
+    }
+
     fhttpd_wclog_debug ("URI: |%.*s|", (int) uri_len, ctx->result.uri);
 
     char *qs_start = memchr (ctx->result.uri, '?', uri_len);
