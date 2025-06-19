@@ -2,6 +2,14 @@ RESOURCES = index.html error.html
 CLEANFILE = resources.c resources.h
 BUILT_SOURCES = resources.c resources.h
 
+EXTRA_DIST = \
+	$(RESOURCES) \
+	freehttpd.png \
+	freehttpd_pb.png \
+	icons/file.png \
+	icons/folder.png \
+	icons/text.png
+
 noinst_LIBRARIES = libresources.a
 libresources_a_SOURCES = resources.c resources.h
 

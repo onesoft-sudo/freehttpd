@@ -3,12 +3,6 @@
 # This script is used to bootstrap the environment for the project.
 # It sets up the necessary directories and files.
 
-if [ -n "$GNULIB_TOOL" ]; then
-    $GNULIB_TOOL --update
-elif [ ! -f gnulib/Makefile.am ]; then
-    echo "" > gnulib/Makefile.am
-fi
-
 set -ex
 
 mkdir -p m4
