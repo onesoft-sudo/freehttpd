@@ -1,6 +1,6 @@
 <p align="center">
 <a href="https://github.com/onesoft-sudo/freehttpd" title="freehttpd">
-<img src="https://raw.githubusercontent.com/onesoft-sudo/freehttpd/refs/heads/main/res/freehttpd.png" height="152px" width="360px">
+<img src="https://raw.githubusercontent.com/onesoft-sudo/freehttpd/refs/heads/main/res/freehttpd_http.png" height="152px" width="360px">
 </a> 
 </p>
 

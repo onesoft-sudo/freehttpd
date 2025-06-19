@@ -6,6 +6,8 @@ EXTRA_DIST = \
 	$(RESOURCES) \
 	freehttpd.png \
 	freehttpd_pb.png \
+	freehttpd_web.png \
+	freehttpd_http.png \
 	icons/file.png \
 	icons/folder.png \
 	icons/text.png
