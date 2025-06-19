@@ -18,11 +18,12 @@ jobs:
           sudo apt update
           sudo apt install -y xxd valgrind apache2-utils gcc-14 build-essential
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 500
+          gcc --version
 
       - name: Build
         run: |
           ./bootstrap
-          ./configure --prefix=$(pwd)/build
+          ./configure CC=/usr/bin/gcc-14 --prefix=$(pwd)/build --disable-silent-rules
           make -j$(nproc)
           make install
 

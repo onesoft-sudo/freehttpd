@@ -58,6 +58,7 @@ if test "$c23check_done" = "0"; then
         AC_SUBST([CSTD], [gnu2x])
         c23check_done=1
     ], [
+        AC_MSG_RESULT([no])
         AC_MSG_ERROR([Your compiler does not support GNU C23/C2x. Please use a compiler that supports it, such as GCC 14 or later.])
     ])
 
