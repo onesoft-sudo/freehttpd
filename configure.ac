@@ -22,11 +22,11 @@ saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -std=gnu23"
 
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-  #if __STDC_VERSION__ < 202311L
+  #if __STDC_VERSION__ < 202301L
   #error Not C23
   #endif
 
-  #if !defined(__GNUC__) || !defined(__GNUC_MINOR__) || !defined(__GNUC_PATCHLEVEL__)
+  #if !defined(__GNUC__)
   #error Not GNU C
   #endif
 ]], [[]])], [
@@ -46,11 +46,11 @@ if test "$c23check_done" = "0"; then
     CFLAGS="$CFLAGS -std=gnu2x"
 
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-        #if __STDC_VERSION__ < 202301L
+        #if __STDC_VERSION__ < 202001L
         #error Not C2x
         #endif
 
-        #if !defined(__GNUC__) || !defined(__GNUC_MINOR__) || !defined(__GNUC_PATCHLEVEL__)
+        #if !defined(__GNUC__)
         #error Not GNU C
         #endif
     ]], [[]])], [
