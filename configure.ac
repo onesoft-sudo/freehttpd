@@ -12,7 +12,6 @@ AM_SILENT_RULES([yes])
 
 # Checks for programs.
 AC_PROG_CC
-gl_EARLY
 
 # Check for C23 support.
 c23check_done=0
@@ -67,8 +66,6 @@ fi
 AM_PROG_AR
 AC_PROG_RANLIB
 
-gl_INIT
-
 # Checks for libraries.
 
 # Checks for header files.
@@ -93,7 +90,6 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
 
 AC_CONFIG_FILES([Makefile
-                 gnulib/Makefile
                  res/Makefile
                  src/Makefile
                  tests/Makefile])

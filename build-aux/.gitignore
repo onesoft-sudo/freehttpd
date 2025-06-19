@@ -1,4 +1,4 @@
 *
 !.gitignore
 !valgrind
-/gitlog-to-changelog
+!gitlog-to-changelog
