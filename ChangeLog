@@ -1,0 +1,105 @@
+2025-06-19  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	chore: restructure project to use gnu autotools
+
+	chore: add icons and switch to new logo
+
+	feat(autoindex): separate module, determine icons by extensions
+
+	feat: finalize auto index page
+
+	chore: update readme
+
+	chore: add logo to readme
+
+	feat(autoindex): use scandir() with versionsort()
+
+	feat: etags
+
+2025-06-18  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	chore: add powered by logo
+
+	chore: systemd unit file
+
+	ci: non-valgrind benchmarks
+
+	ci: non-valgrind benchmarks
+
+	ci: non-valgrind benchmarks
+
+	test: update itable suites
+
+	refactor: more clear config option names
+
+	feat: flow control, timeouts
+
+	ci: fix codeql workflow
+
+	feat: static file serving and directory indexing
+
+2025-06-17  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	chore: remove resources
+
+	chore: remove resources
+
+2025-06-16  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	Merge branch 'main' of github.com:onesoft-sudo/freehttpd
+
+	feat: better request processing
+
+	ci: add permissions to workflows
+
+	ci: add codeql
+
+	chore: add readme
+
+	ci: artifacts
+
+	ci: prepare tests
+
+2025-06-15  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	chore: add license
+
+	feat: basic responses
+
+	feat: full http1.x parsing, basic response sending
+
+2025-06-14  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	refactor: rewrite
+
+2025-06-12  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	feat: epoll usage improvements and timeouts
+
+	feat: initial implmentation of streamed request parsing
+
+2025-06-11  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	refactor: organize event handlers
+
+	feat: use epoll
+
+2025-06-09  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	feat: header parsing
+
+	feat(h2): multiple streams and correct parsing of settings and other frames
+
+2025-06-08  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	chore: add todos
+
+	feat: h2
+
+	feat!: restructure the project
+
+2025-05-10  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	feat(server): preforking
+
+	feat: initial commit

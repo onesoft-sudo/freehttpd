@@ -6,13 +6,18 @@ AC_INIT([freehttpd], [1.0.0-alpha.2], [bug-freehttpd@lists.onesoftnet.eu.org])
 AC_CONFIG_SRCDIR([src/freehttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall gnu 1.11 subdir-objects])
 AM_SILENT_RULES([yes])
 
 # Checks for programs.
 AC_PROG_CC
+gl_EARLY
+
 AM_PROG_AR
 AC_PROG_RANLIB
+
+gl_INIT
 
 # Checks for libraries.
 
@@ -38,6 +43,7 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
 
 AC_CONFIG_FILES([Makefile
+                 gnulib/Makefile
                  res/Makefile
                  src/Makefile
                  tests/Makefile])
