@@ -1,5 +1,4 @@
 SUBDIRS = res src tests
-ACLOCAL_AMFLAGS = -I m4
 
 vcs-clean: clean
 	for dir in $(SUBDIRS) .; do \

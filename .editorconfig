@@ -1,6 +1,6 @@
 [*]
 indent_size = 4
-indent_style = space
+indent_style = tab
 end_of_line = lf
 charset = utf-8
 trim_trailing_whitespace = true

@@ -14,6 +14,7 @@ freehttpd_SOURCES = \
 	protocol.c \
 	server.c \
 	utils.c \
+	conf.c \
 	autoindex.h \
 	http1.h \
 	connection.h \
@@ -23,6 +24,7 @@ freehttpd_SOURCES = \
 	server.h \
 	utils.h \
 	types.h \
+	conf.h \
 	loop.h
 
 freehttpd_LDADD = ../res/libresources.a

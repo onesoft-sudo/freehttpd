@@ -1,6 +1,7 @@
 SpaceAfterCStyleCast: true
 IndentWidth: 4
-UseTab: Never
+UseTab: Always
+TabWidth: 4
 BreakBeforeBraces: Allman
 IndentCaseLabels: true
 AllowShortBlocksOnASingleLine: false
