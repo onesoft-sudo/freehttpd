@@ -16,11 +16,12 @@ jobs:
       - name: Install Tools
         run: |
           sudo apt update
-          sudo apt install -y xxd valgrind apache2-utils gcc-14
+          sudo apt install -y xxd valgrind apache2-utils gcc-14 build-essential
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 500
 
       - name: Build
         run: |
+          ./bootstrap
           ./configure --prefix=$(pwd)/build
           make -j$(nproc)
           make install
