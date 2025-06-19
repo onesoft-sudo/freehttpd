@@ -1,6 +1,6 @@
 bin_PROGRAMS = freehttpd
 
-AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu23 -D_POSIX_C_SOURCE=202009L
+AM_CFLAGS = -Wall -Wextra -pedantic -std=@CSTD@ -D_POSIX_C_SOURCE=202009L
 AM_LDFLAGS = -g
 AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES
 

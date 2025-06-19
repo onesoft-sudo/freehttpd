@@ -14,6 +14,56 @@ AM_SILENT_RULES([yes])
 AC_PROG_CC
 gl_EARLY
 
+# Check for C23 support.
+c23check_done=0
+
+AC_MSG_CHECKING([for GNU C23 support])
+
+saved_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS -std=gnu23"
+
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+  #if __STDC_VERSION__ < 202311L
+  #error Not C23
+  #endif
+
+  #if !defined(__GNUC__) || !defined(__GNUC_MINOR__) || !defined(__GNUC_PATCHLEVEL__)
+  #error Not GNU C
+  #endif
+]], [[]])], [
+    AC_MSG_RESULT([yes])
+    AC_SUBST([CSTD], [gnu23])
+    c23check_done=1
+], [])
+
+CFLAGS="$saved_CFLAGS"
+
+
+if test "c23check_done" = "0"; then
+    AC_MSG_CHECKING([for GNU C2x support])
+
+    saved_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS -std=gnu2x"
+
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+        #if __STDC_VERSION__ < 202301L
+        #error Not C2x
+        #endif
+
+        #if !defined(__GNUC__) || !defined(__GNUC_MINOR__) || !defined(__GNUC_PATCHLEVEL__)
+        #error Not GNU C
+        #endif
+    ]], [[]])], [
+        AC_MSG_RESULT([yes])
+        AC_SUBST([CSTD], [gnu2x])
+        c23check_done=1
+    ], [
+        AC_MSG_ERROR([Your compiler does not support GNU C23])
+    ])
+
+    CFLAGS="$saved_CFLAGS"
+fi
+
 AM_PROG_AR
 AC_PROG_RANLIB
 
