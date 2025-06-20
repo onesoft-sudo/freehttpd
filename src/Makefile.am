@@ -5,7 +5,7 @@ AM_LDFLAGS = -g
 AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES
 
 freehttpd_SOURCES = \
-	freehttpd.c \
+	fhttpd.c \
 	autoindex.c \
 	http1.c \
 	connection.c \
@@ -25,7 +25,9 @@ freehttpd_SOURCES = \
 	utils.h \
 	types.h \
 	conf.h \
-	loop.h
+	loop.h \
+	master.c \
+	master.h
 
 freehttpd_LDADD = ../res/libresources.a
 

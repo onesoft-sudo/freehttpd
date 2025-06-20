@@ -16,7 +16,7 @@ noinst_LIBRARIES = libresources.a
 libresources_a_SOURCES = resources.c resources.h
 
 resources.c: $(RESOURCES) resources.h
-	@echo "  GEN  resources.c" && echo '#include "resources.h"' > $@; \
+	@echo "  GEN      resources.c" && echo '#include "resources.h"' > $@; \
 	echo '#include <stddef.h>' >> $@; \
 	echo '#include <stdint.h>' >> $@; \
 	for res in $(RESOURCES); do \
@@ -34,7 +34,7 @@ resources.c: $(RESOURCES) resources.h
 	echo '__attribute__((section(".rodata"))) const size_t global_resources_size = sizeof(global_resources) / sizeof(global_resources[0]);' >> $@;
 
 resources.h: $(RESOURCES)
-	@echo "  GEN  resources.h" && echo '#ifndef GENERATED_RESOURCE_H' > $@; \
+	@echo "  GEN      resources.h" && echo '#ifndef GENERATED_RESOURCE_H' > $@; \
 	echo '#define GENERATED_RESOURCE_H' >> $@; \
 	echo '#include <stddef.h>' >> $@; \
 	echo 'struct resource_file {' >> $@; \

@@ -43,10 +43,7 @@
 #define FHTTPD_DEFAULT_BACKLOG SOMAXCONN
 #define MAX_EVENTS 64
 
-/* Only used by the worker processes */
-static struct fhttpd_server *local_server = NULL;
-
-static struct fhttpd_server *
+struct fhttpd_server *
 fhttpd_server_create (const struct fhttpd_master *master)
 {
     struct fhttpd_server *server = calloc (1, sizeof (struct fhttpd_server));
@@ -234,7 +231,7 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
     return true;
 }
 
-static bool
+bool
 fhttpd_server_prepare (struct fhttpd_server *server)
 {
     return fhttpd_server_create_sockets (server);
@@ -1033,7 +1030,7 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
     return true;
 }
 
-static _Noreturn void
+_Noreturn void
 fhttpd_server_loop (struct fhttpd_server *server)
 {
     struct epoll_event events[MAX_EVENTS];
@@ -1118,111 +1115,4 @@ fhttpd_server_loop (struct fhttpd_server *server)
             }
         }
     }
-}
-
-static void
-fhttpd_worker_exit_handler (void)
-{
-    if (local_server)
-        fhttpd_server_destroy (local_server);
-}
-
-static void
-fhttpd_print_info (const struct fhttpd_master *master)
-{
-    uint16_t *ports = (uint16_t *) master->config[FHTTPD_CONFIG_PORTS];
-
-    while (*ports)
-    {
-        fhttpd_log_info ("Listening on port %d", *ports);
-        ports++;
-    }
-}
-
-bool
-fhttpd_master_start (struct fhttpd_master *master)
-{
-    size_t worker_count = *(size_t *) master->config[FHTTPD_CONFIG_WORKER_PROCESS_COUNT];
-
-    master->workers = calloc (worker_count, sizeof (pid_t));
-
-    if (!master->workers)
-        return false;
-
-    master->worker_count = worker_count;
-
-    for (size_t i = 0; i < worker_count; i++)
-    {
-        pid_t pid = fork ();
-
-        if (pid < 0)
-            return false;
-
-        if (pid == 0)
-        {
-            atexit (&fhttpd_worker_exit_handler);
-
-            struct fhttpd_server *server = fhttpd_server_create (master);
-
-            if (!server)
-            {
-                fhttpd_wclog_error ("Failed to create server: %s\n", strerror (errno));
-                exit (EXIT_FAILURE);
-            }
-
-            local_server = server;
-
-            if (!fhttpd_server_prepare (server))
-            {
-                fhttpd_wclog_error ("Failed to prepare server: %s\n", strerror (errno));
-                exit (EXIT_FAILURE);
-            }
-
-            fhttpd_server_loop (server);
-            fhttpd_server_destroy (server);
-
-            local_server = NULL;
-            exit (EXIT_FAILURE);
-        }
-        else
-        {
-            master->workers[i] = pid;
-            fhttpd_log_info ("Started worker process: %d", pid);
-        }
-    }
-
-    fhttpd_print_info (master);
-
-    for (size_t i = 0; i < worker_count; i++)
-        waitpid (master->workers[i], NULL, 0);
-
-    return false;
-}
-
-void
-fhttpd_master_destroy (struct fhttpd_master *master)
-{
-    if (!master)
-        return;
-
-    if (master->pid == getpid ())
-    {
-        for (size_t i = 0; i < master->worker_count; i++)
-            kill (master->workers[i], SIGTERM);
-    }
-
-    free (master->workers);
-    free (master);
-}
-
-struct fhttpd_master *
-fhttpd_master_create (void)
-{
-    struct fhttpd_master *master = calloc (1, sizeof (struct fhttpd_master));
-
-    if (!master)
-        return NULL;
-
-    master->pid = getpid ();
-    return master;
 }

@@ -11,22 +11,10 @@
 #include "protocol.h"
 #include "types.h"
 #include "itable.h"
+#include "conf.h"
+#include "master.h"
 
 #define MAX_REQUEST_THREADS 4
-
-enum fhttpd_config
-{
-    FHTTPD_CONFIG_PORTS,
-    FHTTPD_CONFIG_WORKER_PROCESS_COUNT,
-    FHTTPD_CONFIG_DOCROOT,
-    FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT,
-    FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
-    FHTTPD_CONFIG_RECV_TIMEOUT,
-    FHTTPD_CONFIG_SEND_TIMEOUT,
-    FHTTPD_CONFIG_LOG_LEVEL,
-    FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE,
-    FHTTPD_CONFIG_MAX
-};
 
 struct fhttpd_addrinfo
 {
@@ -58,17 +46,11 @@ struct fhttpd_server
     uint64_t last_connection_id;
 };
 
-struct fhttpd_master
-{
-    pid_t pid;
-    pid_t *workers;
-    size_t worker_count;
-    void *config[FHTTPD_CONFIG_MAX];
-};
+_Noreturn void fhttpd_server_loop (struct fhttpd_server *server);
 
-struct fhttpd_master *fhttpd_master_create (void);
-bool fhttpd_master_start (struct fhttpd_master *master);
-void fhttpd_master_destroy (struct fhttpd_master *master);
+struct fhttpd_server *fhttpd_server_create (const struct fhttpd_master *master);
+bool fhttpd_server_prepare (struct fhttpd_server *server);
+void fhttpd_server_destroy (struct fhttpd_server *server);
 
 void *fhttpd_get_config (struct fhttpd_master *master,
                                 enum fhttpd_config config);

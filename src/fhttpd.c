@@ -15,31 +15,31 @@ static struct fhttpd_master *fhttpd = NULL;
 void
 exit_handler (void)
 {
-	if (fhttpd)
-	{
-		fhttpd_master_destroy (fhttpd);
-		fhttpd = NULL;
-	}
+	if (!fhttpd)
+		return;
+	
+	fhttpd_master_destroy (fhttpd);
+	fhttpd = NULL;
 }
 
 void
 signal_handler (int signum)
 {
-	if (fhttpd)
+	if (!fhttpd)
+		exit (0);
+
+	fprintf (stderr, "%s, shutting down %s...\n", strsignal (signum),
+				fhttpd->pid == getpid () ? "server" : "worker");
+
+	if (fhttpd->pid != getpid ())
 	{
-		fprintf (stderr, "%s, shutting down %s...\n", strsignal (signum),
-				 fhttpd->pid == getpid () ? "server" : "worker");
-
-		if (fhttpd->pid != getpid ())
-		{
-			struct sigaction sa;
-			sa.sa_handler = SIG_DFL;
-			sigemptyset (&sa.sa_mask);
-			sa.sa_flags = 0;
-			sigaction (signum, &sa, NULL);
-		}
+		struct sigaction sa;
+		sa.sa_handler = SIG_DFL;
+		sigemptyset (&sa.sa_mask);
+		sa.sa_flags = 0;
+		sigaction (signum, &sa, NULL);
 	}
-
+	
 	exit (0);
 }
 
