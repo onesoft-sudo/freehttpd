@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.61])
 AC_INIT([freehttpd], [1.0.0-alpha.2], [bug-freehttpd@lists.onesoftnet.eu.org])
-AC_CONFIG_SRCDIR([src/freehttpd.c])
+AC_CONFIG_SRCDIR([src/fhttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall gnu 1.11 subdir-objects])
