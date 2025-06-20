@@ -12,6 +12,13 @@
         "type_traits": "c",
         "queue": "c",
         "vector": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "charconv": "c",
+        "ranges": "c",
+        "ratio": "c",
+        "array": "c",
+        "functional": "c",
+        "tuple": "c",
+        "utility": "c"
     }
 }

@@ -17,7 +17,7 @@ exit_handler (void)
 {
 	if (!fhttpd)
 		return;
-	
+
 	fhttpd_master_destroy (fhttpd);
 	fhttpd = NULL;
 }
@@ -28,8 +28,7 @@ signal_handler (int signum)
 	if (!fhttpd)
 		exit (0);
 
-	fprintf (stderr, "%s, shutting down %s...\n", strsignal (signum),
-				fhttpd->pid == getpid () ? "server" : "worker");
+	fprintf (stderr, "%s, shutting down %s...\n", strsignal (signum), fhttpd->pid == getpid () ? "server" : "worker");
 
 	if (fhttpd->pid != getpid ())
 	{
@@ -39,7 +38,7 @@ signal_handler (int signum)
 		sa.sa_flags = 0;
 		sigaction (signum, &sa, NULL);
 	}
-	
+
 	exit (0);
 }
 
@@ -49,37 +48,41 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 	atexit (&exit_handler);
 	fhttpd_log_set_output (stderr, stdout);
 
-	// struct fhttpd_conf_parser *conf_parser = fhttpd_conf_parser_create ("conf/fhttpd.conf");
-	// int rc;
+	struct fhttpd_conf_parser *conf_parser = fhttpd_conf_parser_create ("conf/fhttpd.conf");
+	int rc;
 
-	// if (!conf_parser)
-	// {
-	// 	fprintf (stderr, "%s: Failed to create configuration parser: %s\n", argv[0], strerror (errno));
-	// 	return 1;
-	// }
+	if (!conf_parser)
+	{
+		fprintf (stderr, "%s: Failed to create configuration parser: %s\n", argv[0], strerror (errno));
+		return 1;
+	}
 
-	// if ((rc = fhttpd_conf_parser_read (conf_parser)) != 0)
-	// {
-	// 	fprintf (stderr, "%s: Failed to read configuration file: %s\n", argv[0], strerror (rc));
-	// 	fhttpd_conf_parser_destroy (conf_parser);
-	// 	return 1;
-	// }
+	if ((rc = fhttpd_conf_parser_read (conf_parser)) != 0)
+	{
+		fprintf (stderr, "%s: Failed to read configuration file: %s\n", argv[0], strerror (rc));
+		fhttpd_conf_parser_destroy (conf_parser);
+		return 1;
+	}
 
-	// if ((rc = fhttpd_conf_parser_tokenize (conf_parser)) != CONF_PARSER_ERROR_NONE)
-	// {
-	// 	if (rc == CONF_PARSER_ERROR_SYNTAX_ERROR)
-	// 		fhttpd_conf_parser_print_error (conf_parser);
-	// 	else
-	// 		fprintf (stderr, "%s: Failed to tokenize configuration file: %s\n", argv[0],
-	// 				 fhttpd_conf_parser_strerror (rc));
-        
-	// 	fhttpd_conf_parser_destroy (conf_parser);
-	// 	return 1;
-	// }
+	struct fhttpd_config *config = fhttpd_conf_process (conf_parser);
 
-	// fhttpd_conf_parser_print_tokens (conf_parser);
-	// fhttpd_conf_parser_destroy (conf_parser);
-	// exit (0);
+	if (!config)
+	{
+		auto rc = fhttpd_conf_parser_last_error (conf_parser);
+
+		if (rc == CONF_PARSER_ERROR_SYNTAX_ERROR || rc == CONF_PARSER_ERROR_INVALID_CONFIG)
+			fhttpd_conf_parser_print_error (conf_parser);
+		else
+			fprintf (stderr, "%s: Failed to parse configuration file: %s\n", argv[0], fhttpd_conf_parser_strerror (rc));
+	}
+	else
+	{
+		fhttpd_conf_print_config (config);
+		fhttpd_conf_free_config (config);
+	}
+
+	fhttpd_conf_parser_destroy (conf_parser);
+	exit (0);
 
 	fhttpd = fhttpd_master_create ();
 

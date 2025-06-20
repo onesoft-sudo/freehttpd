@@ -88,7 +88,7 @@ fhttpd_server_create (const struct fhttpd_master *master)
 }
 
 void *
-fhttpd_get_config (struct fhttpd_master *master, enum fhttpd_config config)
+fhttpd_get_config (struct fhttpd_master *master, enum fhttpd_config_key config)
 {
     if (config < 0 || config >= FHTTPD_CONFIG_MAX)
         return NULL;
@@ -97,7 +97,7 @@ fhttpd_get_config (struct fhttpd_master *master, enum fhttpd_config config)
 }
 
 void
-fhttpd_set_config (struct fhttpd_master *master, enum fhttpd_config config, void *value_ptr)
+fhttpd_set_config (struct fhttpd_master *master, enum fhttpd_config_key config, void *value_ptr)
 {
     if (config < 0 || config >= FHTTPD_CONFIG_MAX)
         return;

@@ -53,8 +53,8 @@ bool fhttpd_server_prepare (struct fhttpd_server *server);
 void fhttpd_server_destroy (struct fhttpd_server *server);
 
 void *fhttpd_get_config (struct fhttpd_master *master,
-                                enum fhttpd_config config);
+                                enum fhttpd_config_key config);
 void fhttpd_set_config (struct fhttpd_master *master,
-                               enum fhttpd_config config, void *value);
+                               enum fhttpd_config_key config, void *value);
 
 #endif /* FHTTPD_SERVER_H */

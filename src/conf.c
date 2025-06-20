@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -18,6 +19,8 @@ enum conf_token_type
 	CONF_TOKEN_FLOAT,
 	CONF_TOKEN_BOOLEAN,
 	CONF_TOKEN_IDENTIFIER,
+	CONF_TOKEN_OPEN_BRACKET,
+	CONF_TOKEN_CLOSE_BRACKET,
 	CONF_TOKEN_OPEN_BRACE,
 	CONF_TOKEN_CLOSE_BRACE,
 	CONF_TOKEN_OPEN_PARENTHESIS,
@@ -26,6 +29,7 @@ enum conf_token_type
 	CONF_TOKEN_SEMICOLON,
 	CONF_TOKEN_EQUALS,
 	CONF_TOKEN_COLON,
+	CONF_TOKEN_NULL,
 	CONF_TOKEN_EOF
 };
 
@@ -38,15 +42,110 @@ struct conf_token
 	size_t column;
 };
 
+enum conf_node_type
+{
+	CONF_NODE_INVALID = 0,
+	CONF_NODE_ROOT,
+	CONF_NODE_ASSIGNMENT,
+	CONF_NODE_BLOCK,
+	CONF_NODE_ARRAY,
+	CONF_NODE_IDENTIFIER,
+	CONF_NODE_LITERAL,
+	CONF_NODE_FUNCTION_CALL,
+};
+
+enum conf_literal_kind
+{
+	CONF_LITERAL_INT,
+	CONF_LITERAL_FLOAT,
+	CONF_LITERAL_STRING,
+	CONF_LITERAL_BOOLEAN
+};
+
+struct conf_node
+{
+	enum conf_node_type type;
+	struct conf_node *parent;
+	size_t line;
+	size_t column;
+
+	union
+	{
+		struct
+		{
+			enum conf_literal_kind kind;
+
+			union
+			{
+				int64_t int_value;
+				double float_value;
+				bool bool_value;
+
+				struct
+				{
+					char *str_value;
+					size_t str_length;
+				};
+			};
+		} literal;
+
+		struct
+		{
+			char *identifier;
+			size_t identifier_length;
+		} identifier;
+
+		struct
+		{
+			struct conf_node *name;
+			struct conf_node **children;
+			size_t child_count;
+			size_t child_capacity;
+		} block;
+
+		struct
+		{
+			struct conf_node **children;
+			size_t child_count;
+			size_t child_capacity;
+		} root;
+
+		struct
+		{
+			struct conf_node *left;
+			struct conf_node *right;
+		} assignment;
+
+		struct
+		{
+			struct conf_node **elements;
+			size_t element_count;
+			size_t element_capacity;
+		} array;
+
+		struct
+		{
+			char *function_name;
+			size_t function_name_length;
+			struct conf_node **arguments;
+			size_t argument_count;
+			size_t argument_capacity;
+		} function_call;
+	};
+};
+
 struct fhttpd_conf_parser
 {
 	const char *filename;
 	char *source;
 	size_t source_len;
-	size_t line, column;
+
 	struct conf_token *tokens;
-	size_t token_count;
+	size_t token_count, token_index;
+
 	char *last_error;
+	enum conf_parser_error last_error_code;
+	size_t error_line, error_column;
 };
 
 struct fhttpd_conf_parser *
@@ -58,8 +157,8 @@ fhttpd_conf_parser_create (const char *filename)
 		return NULL;
 
 	parser->filename = filename;
-	parser->line = 1;
-	parser->column = 1;
+	parser->error_line = 0;
+	parser->error_column = 0;
 
 	return parser;
 }
@@ -106,7 +205,8 @@ fhttpd_conf_parser_read (struct fhttpd_conf_parser *parser)
 
 	while (parser->source_len < (size_t) file_size && !feof (file))
 	{
-		size_t bytes_read = fread (parser->source + parser->source_len, 1, (size_t) file_size - parser->source_len, file);
+		size_t bytes_read
+			= fread (parser->source + parser->source_len, 1, (size_t) file_size - parser->source_len, file);
 
 		if (bytes_read == 0)
 			break;
@@ -138,12 +238,16 @@ fhttpd_conf_parser_free_token (struct conf_token *token)
 }
 
 static void
-fhttpd_conf_parser_error (struct fhttpd_conf_parser *parser, const char *message, ...)
+fhttpd_conf_parser_error (struct fhttpd_conf_parser *parser, enum conf_parser_error code, size_t line, size_t column,
+						  const char *message, ...)
 {
 	if (parser->last_error)
 		free (parser->last_error);
 
 	parser->last_error = NULL;
+	parser->last_error_code = code;
+	parser->error_line = line;
+	parser->error_column = column;
 
 	va_list args;
 	va_start (args, message);
@@ -152,23 +256,24 @@ fhttpd_conf_parser_error (struct fhttpd_conf_parser *parser, const char *message
 }
 
 static enum conf_parser_error
-fhttpd_conf_parser_add_token (struct fhttpd_conf_parser *parser, enum conf_token_type type, const char *value,
-							  size_t length)
+fhttpd_conf_parser_add_token (struct fhttpd_conf_parser *parser, size_t line, size_t column, enum conf_token_type type,
+							  const char *value, size_t length)
 {
 	struct conf_token *tokens = realloc (parser->tokens, sizeof (struct conf_token) * (parser->token_count + 1));
 
 	if (!tokens)
 	{
-		fhttpd_conf_parser_error (parser, "Failed to allocate memory for tokens");
-		return CONF_PARSER_ERROR_MEMORY_ALLOCATION;
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, line, column,
+								  "Failed to allocate memory for tokens");
+		return CONF_PARSER_ERROR_MEMORY;
 	}
 
 	parser->tokens = tokens;
 	parser->tokens[parser->token_count].type = type;
 	parser->tokens[parser->token_count].value = strndup (value, length);
 	parser->tokens[parser->token_count].length = length;
-	parser->tokens[parser->token_count].line = parser->line;
-	parser->tokens[parser->token_count].column = parser->column;
+	parser->tokens[parser->token_count].line = line;
+	parser->tokens[parser->token_count].column = column;
 	parser->token_count++;
 
 	return CONF_PARSER_ERROR_NONE;
@@ -195,11 +300,12 @@ fhttpd_conf_parser_destroy (struct fhttpd_conf_parser *parser)
 	free (parser);
 }
 
-enum conf_parser_error
+static enum conf_parser_error
 fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 {
 	size_t i = 0;
 	int rc;
+	size_t line = 1, column = 1;
 
 	while (i < parser->source_len)
 	{
@@ -209,15 +315,33 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 		{
 			if (c == '\n')
 			{
-				parser->line++;
-				parser->column = 1;
+				line++;
+				column = 1;
 			}
 			else
 			{
-				parser->column++;
+				column++;
 			}
 
 			i++;
+			continue;
+		}
+
+		if (c == '#')
+		{
+			while (i < parser->source_len && parser->source[i] != '\n')
+			{
+				i++;
+				column++;
+			}
+
+			if (i < parser->source_len && parser->source[i] == '\n')
+			{
+				line++;
+				column = 1;
+				i++;
+			}
+
 			continue;
 		}
 
@@ -241,6 +365,14 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 				token_type = CONF_TOKEN_CLOSE_PARENTHESIS;
 				break;
 
+			case '[':
+				token_type = CONF_TOKEN_OPEN_BRACKET;
+				break;
+
+			case ']':
+				token_type = CONF_TOKEN_CLOSE_BRACKET;
+				break;
+
 			case ',':
 				token_type = CONF_TOKEN_COMMA;
 				break;
@@ -259,10 +391,10 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 
 		if (token_type != CONF_TOKEN_INVALID)
 		{
-			if ((rc = fhttpd_conf_parser_add_token (parser, token_type, &c, 1)) != CONF_PARSER_ERROR_NONE)
+			if ((rc = fhttpd_conf_parser_add_token (parser, line, column, token_type, &c, 1)) != CONF_PARSER_ERROR_NONE)
 				return rc;
 
-			parser->column++;
+			column++;
 			i++;
 			continue;
 		}
@@ -270,20 +402,21 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 		if (c == '"' || c == '\"')
 		{
 			char quote = c;
-			size_t start = i;
+			size_t start = i + 1;
+			size_t start_line = line, start_column = column;
 			i++;
-			parser->column++;
+			column++;
 
 			while (i < parser->source_len && parser->source[i] != '"' && parser->source[i] != '\"')
 			{
 				if (parser->source[i] == '\n')
 				{
-					parser->line++;
-					parser->column = 1;
+					line++;
+					column = 1;
 				}
 				else
 				{
-					parser->column++;
+					column++;
 				}
 
 				i++;
@@ -291,17 +424,19 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 
 			if (i >= parser->source_len || parser->source[i] != quote)
 			{
-				fhttpd_conf_parser_error (parser, "Unterminated string literal");
+				fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, line, column,
+										  "Unterminated string literal");
 				return CONF_PARSER_ERROR_SYNTAX_ERROR;
 			}
 
-			size_t length = i - start + 1;
+			size_t length = i - start;
 
-			if ((rc = fhttpd_conf_parser_add_token (parser, CONF_TOKEN_STRING, &parser->source[start], length))
+			if ((rc = fhttpd_conf_parser_add_token (parser, start_line, start_column, CONF_TOKEN_STRING,
+													&parser->source[start], length))
 				!= CONF_PARSER_ERROR_NONE)
 				return rc;
 
-			parser->column += length;
+			column++;
 			i++;
 			continue;
 		}
@@ -310,18 +445,19 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 		{
 			size_t start = i;
 			bool is_float = false;
+			size_t start_line = line, start_column = column;
 
 			while (i < parser->source_len
 				   && (isdigit (parser->source[i]) || parser->source[i] == '.' || parser->source[i] == '-'))
 			{
 				if (parser->source[i] == '\n')
 				{
-					parser->line++;
-					parser->column = 1;
+					line++;
+					column = 1;
 				}
 				else
 				{
-					parser->column++;
+					column++;
 				}
 
 				switch (parser->source[i])
@@ -329,7 +465,8 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 					case '.':
 						if (is_float)
 						{
-							fhttpd_conf_parser_error (parser, "Multiple decimal points in number");
+							fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, line, column,
+													  "Multiple decimal points in number");
 							return CONF_PARSER_ERROR_SYNTAX_ERROR;
 						}
 
@@ -339,7 +476,8 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 					case '-':
 						if (i != start)
 						{
-							fhttpd_conf_parser_error (parser, "Unexpected '-' in number");
+							fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, line, column,
+													  "Unexpected '-' in number");
 							return CONF_PARSER_ERROR_SYNTAX_ERROR;
 						}
 
@@ -354,7 +492,8 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 
 			size_t length = i - start;
 
-			if ((rc = fhttpd_conf_parser_add_token (parser, is_float ? CONF_TOKEN_FLOAT : CONF_TOKEN_INT,
+			if ((rc = fhttpd_conf_parser_add_token (parser, start_line, start_column,
+													is_float ? CONF_TOKEN_FLOAT : CONF_TOKEN_INT,
 													&parser->source[start], length))
 				!= CONF_PARSER_ERROR_NONE)
 				return rc;
@@ -365,42 +504,55 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 		if (isalpha (c) || c == '_')
 		{
 			size_t start = i;
+			size_t start_line = line, start_column = column;
 
 			while (i < parser->source_len && (isalnum (parser->source[i]) || parser->source[i] == '_'))
 			{
 				if (parser->source[i] == '\n')
 				{
-					parser->line++;
-					parser->column = 1;
+					line++;
+					column = 1;
 				}
 				else
 				{
-					parser->column++;
+					column++;
 				}
 
 				i++;
 			}
 
 			size_t length = i - start;
+			enum conf_token_type token_type = CONF_TOKEN_IDENTIFIER;
 
-			if ((rc = fhttpd_conf_parser_add_token (parser, CONF_TOKEN_IDENTIFIER, &parser->source[start], length))
+			if (strncmp (&parser->source[start], "true", length) == 0
+				|| strncmp (&parser->source[start], "yes", length) == 0)
+				token_type = CONF_TOKEN_BOOLEAN;
+			else if (strncmp (&parser->source[start], "false", length) == 0
+					 || strncmp (&parser->source[start], "no", length) == 0)
+				token_type = CONF_TOKEN_BOOLEAN;
+			else if (strncmp (&parser->source[start], "null", length) == 0)
+				token_type = CONF_TOKEN_NULL;
+
+			if ((rc = fhttpd_conf_parser_add_token (parser, start_line, start_column, token_type,
+													&parser->source[start], length))
 				!= CONF_PARSER_ERROR_NONE)
 				return rc;
 
 			continue;
 		}
 
-		fhttpd_conf_parser_error (parser, "Unexpected character '%c'", c);
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, line, column, "Unexpected character '%c'", c);
 		return CONF_PARSER_ERROR_SYNTAX_ERROR;
 	}
 
-	if ((rc = fhttpd_conf_parser_add_token (parser, CONF_TOKEN_IDENTIFIER, "[EOF]", 5)) != CONF_PARSER_ERROR_NONE)
+	if ((rc = fhttpd_conf_parser_add_token (parser, line, column, CONF_TOKEN_EOF, "[EOF]", 5))
+		!= CONF_PARSER_ERROR_NONE)
 		return rc;
 
 	return CONF_PARSER_ERROR_NONE;
 }
 
-void
+static void
 fhttpd_conf_parser_print_tokens (struct fhttpd_conf_parser *parser)
 {
 	for (size_t i = 0; i < parser->token_count; i++)
@@ -412,11 +564,18 @@ fhttpd_conf_parser_print_tokens (struct fhttpd_conf_parser *parser)
 	}
 }
 
+enum conf_parser_error
+fhttpd_conf_parser_last_error (struct fhttpd_conf_parser *parser)
+{
+	return parser->last_error_code;
+}
+
 bool
 fhttpd_conf_parser_print_error (struct fhttpd_conf_parser *parser)
 {
 	if (parser->last_error)
-		fprintf (stderr, "%s:%zu:%zu: %s\n", parser->filename, parser->line, parser->column, parser->last_error);
+		fprintf (stderr, "%s:%zu:%zu: %s\n", parser->filename, parser->error_line, parser->error_column,
+				 parser->last_error);
 
 	return parser->last_error != NULL;
 }
@@ -430,9 +589,1076 @@ fhttpd_conf_parser_strerror (enum conf_parser_error error)
 			return "No error";
 		case CONF_PARSER_ERROR_SYNTAX_ERROR:
 			return "Syntax error in configuration file";
-		case CONF_PARSER_ERROR_MEMORY_ALLOCATION:
+		case CONF_PARSER_ERROR_MEMORY:
 			return "Memory allocation error";
+		case CONF_PARSER_ERROR_INVALID_CONFIG:
+			return "Invalid configuration";
 		default:
 			return "Unknown error";
 	}
+}
+
+static const char *
+fhttpd_conf_strtoken (enum conf_token_type type)
+{
+	switch (type)
+	{
+		case CONF_TOKEN_INVALID:
+			return "INVALID";
+		case CONF_TOKEN_STRING:
+			return "STRING";
+		case CONF_TOKEN_INT:
+			return "INT";
+		case CONF_TOKEN_FLOAT:
+			return "FLOAT";
+		case CONF_TOKEN_BOOLEAN:
+			return "BOOLEAN";
+		case CONF_TOKEN_IDENTIFIER:
+			return "IDENTIFIER";
+		case CONF_TOKEN_OPEN_BRACE:
+			return "OPEN_BRACE";
+		case CONF_TOKEN_CLOSE_BRACE:
+			return "CLOSE_BRACE";
+		case CONF_TOKEN_OPEN_PARENTHESIS:
+			return "OPEN_PARENTHESIS";
+		case CONF_TOKEN_CLOSE_PARENTHESIS:
+			return "CLOSE_PARENTHESIS";
+		case CONF_TOKEN_COMMA:
+			return "COMMA";
+		case CONF_TOKEN_SEMICOLON:
+			return "SEMICOLON";
+		case CONF_TOKEN_EQUALS:
+			return "EQUALS";
+		case CONF_TOKEN_COLON:
+			return "COLON";
+		case CONF_TOKEN_EOF:
+			return "EOF";
+		default:
+			return "UNKNOWN";
+	}
+}
+
+static struct conf_node *
+fhttpd_conf_new_node (enum conf_node_type type, size_t line, size_t column)
+{
+	struct conf_node *node = calloc (1, sizeof (*node));
+
+	if (!node)
+		return NULL;
+
+	node->type = type;
+	node->line = line;
+	node->column = column;
+
+	return node;
+}
+
+static void
+fhttpd_conf_free_node (struct conf_node *node)
+{
+	if (!node)
+		return;
+
+	switch (node->type)
+	{
+		case CONF_NODE_ROOT:
+			for (size_t i = 0; i < node->root.child_count; i++)
+			{
+				fhttpd_conf_free_node (node->root.children[i]);
+			}
+
+			free (node->root.children);
+			break;
+
+		case CONF_NODE_ASSIGNMENT:
+			fhttpd_conf_free_node (node->assignment.left);
+			fhttpd_conf_free_node (node->assignment.right);
+			break;
+
+		case CONF_NODE_BLOCK:
+			for (size_t i = 0; i < node->block.child_count; i++)
+			{
+				fhttpd_conf_free_node (node->block.children[i]);
+			}
+
+			fhttpd_conf_free_node (node->block.name);
+			free (node->block.children);
+			break;
+
+		case CONF_NODE_ARRAY:
+			for (size_t i = 0; i < node->array.element_count; i++)
+			{
+				fhttpd_conf_free_node (node->array.elements[i]);
+			}
+
+			free (node->array.elements);
+			break;
+
+		case CONF_NODE_IDENTIFIER:
+			free (node->identifier.identifier);
+			break;
+
+		case CONF_NODE_LITERAL:
+			if (node->literal.kind == CONF_LITERAL_STRING)
+				free (node->literal.str_value);
+
+			break;
+
+		case CONF_NODE_FUNCTION_CALL:
+			free (node->function_call.function_name);
+
+			for (size_t i = 0; i < node->function_call.argument_count; i++)
+			{
+				fhttpd_conf_free_node (node->function_call.arguments[i]);
+			}
+
+			free (node->function_call.arguments);
+			break;
+
+		default:
+			break;
+	}
+
+	free (node);
+}
+
+static inline bool
+fhttpd_conf_is_eof (struct fhttpd_conf_parser *parser)
+{
+	return parser->token_index >= parser->token_count || parser->tokens[parser->token_index].type == CONF_TOKEN_EOF;
+}
+
+static inline struct conf_token *
+fhttpd_conf_peek_token (struct fhttpd_conf_parser *parser, size_t offset)
+{
+	if (parser->token_index + offset >= parser->token_count)
+		return NULL;
+
+	return &parser->tokens[parser->token_index + offset];
+}
+
+static inline struct conf_token *
+fhttpd_conf_consume_token (struct fhttpd_conf_parser *parser)
+{
+	if (parser->token_index >= parser->token_count)
+		return NULL;
+
+	return &parser->tokens[parser->token_index++];
+}
+
+static struct conf_token *
+fhttpd_conf_expect_token (struct fhttpd_conf_parser *parser, enum conf_token_type expected_type)
+{
+	if (fhttpd_conf_is_eof (parser))
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, fhttpd_conf_peek_token (parser, 0)->line,
+								  fhttpd_conf_peek_token (parser, 0)->column, "Unexpected end of file");
+		return NULL;
+	}
+
+	struct conf_token *token = fhttpd_conf_peek_token (parser, 0);
+
+	if (token->type != expected_type)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, token->line, token->column,
+								  "Unexpected token '%s', expected %s", token->value,
+								  fhttpd_conf_strtoken (expected_type));
+		return NULL;
+	}
+
+	return fhttpd_conf_consume_token (parser);
+}
+
+static struct conf_node *fhttpd_conf_parse_statement (struct fhttpd_conf_parser *parser);
+static struct conf_node *fhttpd_conf_parse_expr (struct fhttpd_conf_parser *parser);
+
+static struct conf_node *
+fhttpd_conf_parse_literal (struct fhttpd_conf_parser *parser)
+{
+	struct conf_token *token = fhttpd_conf_consume_token (parser);
+
+	if (token->type != CONF_TOKEN_STRING && token->type != CONF_TOKEN_INT && token->type != CONF_TOKEN_FLOAT
+		&& token->type != CONF_TOKEN_BOOLEAN)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, token->line, token->column,
+								  "Expected a literal value, got '%s'", token->value);
+		return NULL;
+	}
+
+	struct conf_node *node = fhttpd_conf_new_node (CONF_NODE_LITERAL, token->line, token->column);
+
+	if (!node)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, token->line, token->column,
+								  "Failed to allocate memory for literal node");
+		return NULL;
+	}
+
+	node->literal.kind = token->type == CONF_TOKEN_STRING  ? CONF_LITERAL_STRING
+						 : token->type == CONF_TOKEN_INT   ? CONF_LITERAL_INT
+						 : token->type == CONF_TOKEN_FLOAT ? CONF_LITERAL_FLOAT
+														   : CONF_LITERAL_BOOLEAN;
+
+	switch (node->literal.kind)
+	{
+		case CONF_LITERAL_STRING:
+			node->literal.str_value = strndup (token->value, token->length);
+			node->literal.str_length = token->length;
+
+			if (!node->literal.str_value)
+			{
+				fhttpd_conf_free_node (node);
+				fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, token->line, token->column,
+										  "Failed to allocate memory for string literal");
+				return NULL;
+			}
+			break;
+
+		case CONF_LITERAL_INT:
+			{
+				char *endptr;
+				node->literal.int_value = strtoll (token->value, &endptr, 10);
+
+				if (*endptr != 0)
+				{
+					fhttpd_conf_free_node (node);
+					fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, token->line, token->column,
+											  "Invalid integer literal '%s'", token->value);
+					return NULL;
+				}
+			}
+
+			break;
+
+		case CONF_LITERAL_FLOAT:
+			{
+				char *endptr;
+				node->literal.float_value = strtod (token->value, &endptr);
+
+				if (*endptr != 0)
+				{
+					fhttpd_conf_free_node (node);
+					fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, token->line, token->column,
+											  "Invalid float literal '%s'", token->value);
+					return NULL;
+				}
+			}
+
+			break;
+
+		case CONF_LITERAL_BOOLEAN:
+			if (strcmp (token->value, "true") == 0 || strcmp (token->value, "yes") == 0)
+			{
+				node->literal.bool_value = true;
+			}
+			else if (strcmp (token->value, "false") == 0 || strcmp (token->value, "no") == 0)
+			{
+				node->literal.bool_value = false;
+			}
+			else
+			{
+				fhttpd_conf_free_node (node);
+				fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, token->line, token->column,
+										  "Invalid boolean literal '%s'", token->value);
+				return NULL;
+			}
+
+			break;
+
+		default:
+			fhttpd_conf_free_node (node);
+			fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, token->line, token->column,
+									  "Unexpected literal type '%s'", fhttpd_conf_strtoken (token->type));
+			return NULL;
+	}
+
+	return node;
+}
+
+static struct conf_node *
+fhttpd_conf_parse_array (struct fhttpd_conf_parser *parser)
+{
+	struct conf_token *token = fhttpd_conf_expect_token (parser, CONF_TOKEN_OPEN_BRACKET);
+
+	if (!token)
+		return NULL;
+
+	struct conf_node *node = fhttpd_conf_new_node (CONF_NODE_ARRAY, token->line, token->column);
+
+	if (!node)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, token->line, token->column,
+								  "Failed to allocate memory for array node");
+		return NULL;
+	}
+
+	node->array.elements = NULL;
+	node->array.element_count = 0;
+	node->array.element_capacity = 0;
+
+	while (!fhttpd_conf_is_eof (parser) && fhttpd_conf_peek_token (parser, 0)->type != CONF_TOKEN_CLOSE_BRACKET)
+	{
+		struct conf_node *element = fhttpd_conf_parse_expr (parser);
+
+		if (!element)
+		{
+			fhttpd_conf_free_node (node);
+			return NULL;
+		}
+
+		if (node->array.element_count >= node->array.element_capacity)
+		{
+			size_t new_capacity = node->array.element_capacity ? node->array.element_capacity * 2 : 4;
+			struct conf_node **new_elements
+				= realloc (node->array.elements, sizeof (struct conf_node *) * new_capacity);
+
+			if (!new_elements)
+			{
+				fhttpd_conf_free_node (element);
+				fhttpd_conf_free_node (node);
+				fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, token->line, token->column,
+										  "Failed to allocate memory for array elements");
+				return NULL;
+			}
+
+			node->array.elements = new_elements;
+			node->array.element_capacity = new_capacity;
+		}
+
+		node->array.elements[node->array.element_count++] = element;
+		element->parent = node;
+
+		if (!fhttpd_conf_is_eof (parser) && fhttpd_conf_peek_token (parser, 0)->type == CONF_TOKEN_CLOSE_BRACKET)
+			break;
+
+		fhttpd_conf_expect_token (parser, CONF_TOKEN_COMMA);
+	}
+
+	if (!fhttpd_conf_expect_token (parser, CONF_TOKEN_CLOSE_BRACKET))
+	{
+		fhttpd_conf_free_node (node);
+		return NULL;
+	}
+
+	return node;
+}
+
+static struct conf_node *
+fhttpd_conf_parse_expr (struct fhttpd_conf_parser *parser)
+{
+	struct conf_token *token = fhttpd_conf_peek_token (parser, 0);
+
+	switch (token->type)
+	{
+		case CONF_TOKEN_STRING:
+		case CONF_TOKEN_INT:
+		case CONF_TOKEN_FLOAT:
+		case CONF_TOKEN_BOOLEAN:
+			return fhttpd_conf_parse_literal (parser);
+
+		case CONF_TOKEN_OPEN_BRACKET:
+			return fhttpd_conf_parse_array (parser);
+
+		default:
+			fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_SYNTAX_ERROR, token->line, token->column,
+									  "Expected an expression, got '%s'", token->value);
+			return NULL;
+	}
+}
+
+static struct conf_node *
+fhttpd_conf_parse_identifier (struct fhttpd_conf_parser *parser)
+{
+	struct conf_token *token = fhttpd_conf_expect_token (parser, CONF_TOKEN_IDENTIFIER);
+
+	if (!token)
+		return NULL;
+
+	struct conf_node *node = fhttpd_conf_new_node (CONF_NODE_IDENTIFIER, token->line, token->column);
+
+	if (!node)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, token->line, token->column,
+								  "Failed to allocate memory for identifier node");
+		return NULL;
+	}
+
+	node->identifier.identifier = strndup (token->value, token->length);
+
+	if (!node->identifier.identifier)
+	{
+		fhttpd_conf_free_node (node);
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, token->line, token->column,
+								  "Failed to allocate memory for identifier string");
+		return NULL;
+	}
+
+	node->identifier.identifier_length = token->length;
+	node->parent = NULL;
+
+	return node;
+}
+
+static struct conf_node *
+fhttpd_conf_parse_assignment (struct fhttpd_conf_parser *parser)
+{
+	struct conf_node *identifier = fhttpd_conf_parse_identifier (parser);
+
+	if (!identifier)
+		return NULL;
+
+	if (!fhttpd_conf_expect_token (parser, CONF_TOKEN_EQUALS))
+		return NULL;
+
+	struct conf_node *right = fhttpd_conf_parse_expr (parser);
+
+	if (!right)
+		return NULL;
+
+	struct conf_node *node = fhttpd_conf_new_node (CONF_NODE_ASSIGNMENT, identifier->line, identifier->column);
+
+	if (!node)
+	{
+		fhttpd_conf_free_node (right);
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, identifier->line, identifier->column,
+								  "Failed to allocate memory for assignment node");
+		return NULL;
+	}
+
+	node->assignment.left = identifier;
+	node->assignment.right = right;
+
+	return node;
+}
+
+static struct conf_node *
+fhttpd_conf_parse_block (struct fhttpd_conf_parser *parser)
+{
+	struct conf_node *identifier = fhttpd_conf_parse_identifier (parser);
+
+	if (!identifier)
+		return NULL;
+
+	if (!fhttpd_conf_expect_token (parser, CONF_TOKEN_OPEN_BRACE))
+		return NULL;
+
+	struct conf_node *block_node = fhttpd_conf_new_node (CONF_NODE_BLOCK, identifier->line, identifier->column);
+
+	if (!block_node)
+	{
+		fhttpd_conf_free_node (identifier);
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, identifier->line, identifier->column,
+								  "Failed to allocate memory for block node");
+		return NULL;
+	}
+
+	block_node->block.name = identifier;
+	block_node->block.children = NULL;
+	block_node->block.child_count = 0;
+	block_node->block.child_capacity = 0;
+
+	while (!fhttpd_conf_is_eof (parser) && fhttpd_conf_peek_token (parser, 0)->type != CONF_TOKEN_CLOSE_BRACE)
+	{
+		struct conf_node *child = fhttpd_conf_parse_statement (parser);
+
+		if (!child)
+		{
+			fhttpd_conf_free_node (block_node);
+			return NULL;
+		}
+
+		if (block_node->block.child_count >= block_node->block.child_capacity)
+		{
+			size_t new_capacity = block_node->block.child_capacity ? block_node->block.child_capacity * 2 : 4;
+			struct conf_node **new_children
+				= realloc (block_node->block.children, sizeof (struct conf_node *) * new_capacity);
+
+			if (!new_children)
+			{
+				fhttpd_conf_free_node (child);
+				fhttpd_conf_free_node (block_node);
+				fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, identifier->line, identifier->column,
+										  "Failed to allocate memory for block children");
+				return NULL;
+			}
+
+			block_node->block.children = new_children;
+			block_node->block.child_capacity = new_capacity;
+		}
+
+		block_node->block.children[block_node->block.child_count++] = child;
+		child->parent = block_node;
+	}
+
+	if (!fhttpd_conf_expect_token (parser, CONF_TOKEN_CLOSE_BRACE))
+	{
+		fhttpd_conf_free_node (block_node);
+		return NULL;
+	}
+
+	return block_node;
+}
+
+static struct conf_node *
+fhttpd_conf_parse_statement (struct fhttpd_conf_parser *parser)
+{
+	struct conf_node *node;
+
+	if (parser->token_index + 1 < parser->token_count
+		&& parser->tokens[parser->token_index + 1].type == CONF_TOKEN_EQUALS)
+	{
+		node = fhttpd_conf_parse_assignment (parser);
+	}
+
+	else if (parser->token_index + 1 < parser->token_count
+			 && fhttpd_conf_peek_token (parser, 0)->type == CONF_TOKEN_IDENTIFIER
+			 && fhttpd_conf_peek_token (parser, 1)->type == CONF_TOKEN_OPEN_BRACE)
+	{
+		node = fhttpd_conf_parse_block (parser);
+	}
+	else
+	{
+		node = fhttpd_conf_parse_expr (parser);
+	}
+
+	while (!fhttpd_conf_is_eof (parser) && fhttpd_conf_peek_token (parser, 0)->type == CONF_TOKEN_SEMICOLON)
+		fhttpd_conf_consume_token (parser);
+
+	return node;
+}
+
+static struct conf_node *
+fhttpd_conf_parse (struct fhttpd_conf_parser *parser)
+{
+	enum conf_parser_error rc;
+
+	parser->last_error_code = CONF_PARSER_ERROR_NONE;
+
+	if (!parser->tokens && (rc = fhttpd_conf_parser_tokenize (parser)) != CONF_PARSER_ERROR_NONE)
+	{
+		parser->last_error_code = rc;
+		return NULL;
+	}
+
+	struct conf_node *root = fhttpd_conf_new_node (CONF_NODE_ROOT, 1, 1);
+
+	if (!root)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, 1, 1, "Failed to allocate memory for root node");
+		return NULL;
+	}
+
+	while (!fhttpd_conf_is_eof (parser))
+	{
+		struct conf_node *node = fhttpd_conf_parse_statement (parser);
+
+		if (!node)
+		{
+			fhttpd_conf_free_node (root);
+			return NULL;
+		}
+
+		struct conf_node **new_children
+			= realloc (root->root.children, sizeof (struct conf_node *) * (root->root.child_count + 1));
+
+		if (!new_children)
+		{
+			fhttpd_conf_free_node (node);
+			fhttpd_conf_free_node (root);
+			fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, 1, 1,
+									  "Failed to allocate memory for root children");
+			return NULL;
+		}
+
+		root->root.children = new_children;
+		root->root.children[root->root.child_count] = node;
+		root->root.child_count++;
+	}
+
+	if (parser->last_error_code != CONF_PARSER_ERROR_NONE)
+	{
+		fhttpd_conf_free_node (root);
+		return NULL;
+	}
+
+	return root;
+}
+
+static void
+fhttpd_conf_print_node (struct conf_node *node, int indent)
+{
+	printf ("%*s<%p> ", indent, "", (void *) node);
+
+	switch (node->type)
+	{
+		case CONF_NODE_ROOT:
+			printf ("[Root Node]:\n");
+			for (size_t i = 0; i < node->root.child_count; i++)
+			{
+				fhttpd_conf_print_node (node->root.children[i], indent + 2);
+			}
+			break;
+
+		case CONF_NODE_ASSIGNMENT:
+			printf ("[Assignment]: %s = ", node->assignment.left->identifier.identifier);
+			fhttpd_conf_print_node (node->assignment.right, 0);
+			break;
+
+		case CONF_NODE_BLOCK:
+			printf ("[Block]: %s [Parent <%p>]\n", node->block.name->identifier.identifier, (void *) node->parent);
+
+			for (size_t i = 0; i < node->block.child_count; i++)
+			{
+				fhttpd_conf_print_node (node->block.children[i], indent + 2);
+			}
+			break;
+
+		case CONF_NODE_ARRAY:
+			printf ("[Array]:\n");
+
+			for (size_t i = 0; i < node->array.element_count; i++)
+			{
+				fhttpd_conf_print_node (node->array.elements[i], indent + 2);
+			}
+			break;
+
+		case CONF_NODE_IDENTIFIER:
+			printf ("[Identifier]: %.*s\n", (int) node->identifier.identifier_length, node->identifier.identifier);
+			break;
+
+		case CONF_NODE_LITERAL:
+			switch (node->literal.kind)
+			{
+				case CONF_LITERAL_INT:
+					printf ("[Literal Int]: %ld\n", node->literal.int_value);
+					break;
+				case CONF_LITERAL_FLOAT:
+					printf ("[Literal Float]: %f\n", node->literal.float_value);
+					break;
+				case CONF_LITERAL_STRING:
+					printf ("[Literal String]: \"%.*s\"\n", (int) node->literal.str_length, node->literal.str_value);
+					break;
+				case CONF_LITERAL_BOOLEAN:
+					printf ("[Literal Boolean]: %s\n", node->literal.bool_value ? "true" : "false");
+					break;
+				default:
+					printf ("[Literal: Unknown kind]\n");
+					break;
+			}
+
+			break;
+		case CONF_NODE_FUNCTION_CALL:
+			printf ("[Function Call]: %.*s(", (int) node->function_call.function_name_length,
+					node->function_call.function_name);
+
+			for (size_t i = 0; i < node->function_call.argument_count; i++)
+			{
+				if (i > 0)
+					printf (", ");
+				fhttpd_conf_print_node (node->function_call.arguments[i], 0);
+			}
+
+			printf (")\n");
+			break;
+		default:
+			printf ("[Unknown Node Type]: %d\n", node->type);
+			break;
+	}
+}
+
+enum conf_value_type
+{
+	CONF_VALUE_TYPE_STRING,
+	CONF_VALUE_TYPE_INT,
+	CONF_VALUE_TYPE_FLOAT,
+	CONF_VALUE_TYPE_BOOLEAN,
+	CONF_VALUE_TYPE_NULL,
+	CONF_VALUE_TYPE_ARRAY,
+};
+
+struct fhttpd_config_property
+{
+	const char *name;
+	enum conf_value_type type;
+	bool (*validator) (struct fhttpd_conf_parser *parser,
+					   const struct conf_node *value); /* Optional validator function */
+	bool (*setter) (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+					const struct conf_node *value); /* Setter function */
+};
+
+static const char *valid_blocks[] = { "logging", NULL };
+
+#define PROP_STRING_MUST_NOT_BE_EMPTY(prop, value)                                                                     \
+	if ((value)->literal.str_length == 0)                                                                              \
+	{                                                                                                                  \
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,                \
+								  "'" prop "' property cannot be an empty string");                                    \
+		return false;                                                                                                  \
+	}
+
+static bool
+fhttpd_prop_set_root (struct fhttpd_conf_parser *parser, struct fhttpd_config *config, const struct conf_node *value)
+{
+	PROP_STRING_MUST_NOT_BE_EMPTY ("root", value);
+
+	if (value->literal.str_value[0] != '/')
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "'root' property must be a valid absolute path starting with '/'");
+		return false;
+	}
+
+	config->srv_root = strndup (value->literal.str_value, value->literal.str_length);
+
+	if (!config->srv_root)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, value->line, value->column,
+								  "Failed to allocate memory for 'root' property");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+fhttpd_prop_set_logging_min_level (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+								   const struct conf_node *value)
+{
+	PROP_STRING_MUST_NOT_BE_EMPTY ("logging.min_level", value);
+
+	int level = strcasecmp (value->literal.str_value, "debug") == 0	  ? FHTTPD_LOG_LEVEL_DEBUG
+				: strcasecmp (value->literal.str_value, "info") == 0  ? FHTTPD_LOG_LEVEL_INFO
+				: strcasecmp (value->literal.str_value, "warn") == 0  ? FHTTPD_LOG_LEVEL_WARNING
+				: strcasecmp (value->literal.str_value, "error") == 0 ? FHTTPD_LOG_LEVEL_ERROR
+																	  : -1;
+
+	if (level < 0)
+	{
+		fhttpd_conf_parser_error (
+			parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+			"Invalid value for logging.min_level: '%.*s', expected one of: debug, info, warn, error",
+			(int) value->literal.str_length, value->literal.str_value);
+		return false;
+	}
+
+	config->logging_min_level = level;
+	return true;
+}
+
+static bool
+fhttpd_prop_set_logging_file (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+							  const struct conf_node *value)
+{
+	PROP_STRING_MUST_NOT_BE_EMPTY ("logging.file", value);
+
+	config->logging_file = strndup (value->literal.str_value, value->literal.str_length);
+
+	if (!config->logging_file)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, value->line, value->column,
+								  "Failed to allocate memory for 'logging.file' property");
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+fhttpd_prop_set_logging_error_file (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+									const struct conf_node *value)
+{
+	PROP_STRING_MUST_NOT_BE_EMPTY ("logging.error_file", value);
+
+	config->logging_error_file = strndup (value->literal.str_value, value->literal.str_length);
+
+	if (!config->logging_error_file)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, value->line, value->column,
+								  "Failed to allocate memory for 'logging.error_file' property");
+		return false;
+	}
+
+	return true;
+}
+
+static struct fhttpd_config_property const properties[] = {
+	{
+		"root",
+		CONF_VALUE_TYPE_STRING,
+		NULL,
+		&fhttpd_prop_set_root,
+	},
+	{
+		"logging.min_level",
+		CONF_VALUE_TYPE_STRING,
+		NULL,
+		&fhttpd_prop_set_logging_min_level,
+	},
+	{
+		"logging.file",
+		CONF_VALUE_TYPE_STRING,
+		NULL,
+		&fhttpd_prop_set_logging_file,
+	},
+	{
+		"logging.error_file",
+		CONF_VALUE_TYPE_STRING,
+		NULL,
+		&fhttpd_prop_set_logging_error_file,
+	},
+	{
+		NULL,
+		0,
+		NULL,
+		NULL,
+	},
+};
+
+static const char *
+fhttpd_conf_strtype (enum conf_value_type type)
+{
+	switch (type)
+	{
+		case CONF_VALUE_TYPE_STRING:
+			return "string";
+		case CONF_VALUE_TYPE_INT:
+			return "int";
+		case CONF_VALUE_TYPE_FLOAT:
+			return "float";
+		case CONF_VALUE_TYPE_BOOLEAN:
+			return "boolean";
+		case CONF_VALUE_TYPE_NULL:
+			return "null";
+		case CONF_VALUE_TYPE_ARRAY:
+			return "array";
+		default:
+			return "unknown";
+	}
+}
+
+static enum conf_value_type
+fhttpd_conf_typeof (const struct conf_node *value)
+{
+	switch (value->type)
+	{
+		case CONF_NODE_LITERAL:
+			switch (value->literal.kind)
+			{
+				case CONF_LITERAL_STRING:
+					return CONF_VALUE_TYPE_STRING;
+				case CONF_LITERAL_INT:
+					return CONF_VALUE_TYPE_INT;
+				case CONF_LITERAL_FLOAT:
+					return CONF_VALUE_TYPE_FLOAT;
+				case CONF_LITERAL_BOOLEAN:
+					return CONF_VALUE_TYPE_BOOLEAN;
+				default:
+					return CONF_VALUE_TYPE_NULL;
+			}
+
+		case CONF_NODE_ARRAY:
+			return CONF_VALUE_TYPE_ARRAY;
+
+		default:
+			assert (false && "Unexpected node type in fhttpd_conf_typeof");
+			return CONF_VALUE_TYPE_NULL;
+	}
+}
+
+static bool
+fhttpd_conf_expect_property (struct fhttpd_conf_parser *parser, const struct fhttpd_config_property *descriptor,
+							 const char *block, enum conf_value_type type, const struct conf_node *value)
+{
+	if (fhttpd_conf_typeof (value) != type)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Expected property '%s' in block context '%s' to be of type '%s', got '%s'\n",
+								  descriptor->name, block, fhttpd_conf_strtype (type),
+								  fhttpd_conf_strtype (fhttpd_conf_typeof (value)));
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+fhttpd_conf_node_walk_assignment (struct fhttpd_conf_parser *parser, const struct conf_node *node,
+								  struct fhttpd_config *config)
+{
+	assert (node != NULL);
+	assert (node->assignment.left != NULL && node->assignment.left->type == CONF_NODE_IDENTIFIER);
+	assert (node->assignment.right != NULL);
+
+	const char *identifier = node->assignment.left->identifier.identifier;
+	const char *block = NULL;
+	bool valid_block = false, is_root_block = false;
+
+	if (!node->parent)
+	{
+		block = "root";
+		valid_block = true;
+		is_root_block = true;
+	}
+	else if (node->parent->type != CONF_NODE_BLOCK)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, node->line, node->column,
+								  "Assignment outside of a block context\n");
+		return false;
+	}
+	else
+	{
+		block = node->parent->block.name->identifier.identifier;
+	}
+
+	if (!valid_block)
+	{
+		for (size_t i = 0; valid_blocks[i]; i++)
+		{
+			if (strcmp (valid_blocks[i], block) == 0)
+			{
+				valid_block = true;
+				break;
+			}
+		}
+	}
+
+	if (!valid_block)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, node->line, node->column,
+								  "Invalid block context '%s' for assignment of '%s'\n", block, identifier);
+		return false;
+	}
+
+	bool valid_property = false;
+	char property_name[256] = { 0 };
+
+	if (strlen (identifier) >= sizeof (property_name))
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, node->line, node->column,
+								  "Unknown property '%s' in block context '%s'\n", identifier, block);
+		return false;
+	}
+
+	if (!is_root_block)
+		snprintf (property_name, sizeof (property_name), "%.64s.%.128s", block, identifier);
+	else
+		strncpy (property_name, identifier, sizeof (property_name) - 1);
+
+	for (size_t i = 0; properties[i].name; i++)
+	{
+		if (!strcmp (properties[i].name, property_name))
+		{
+			if (!fhttpd_conf_expect_property (parser, &properties[i], block, properties[i].type,
+											  node->assignment.right))
+				return false;
+
+			if (properties[i].validator && !properties[i].validator (parser, node->assignment.right))
+				return false;
+
+			if (!properties[i].setter (parser, config, node->assignment.right))
+				return false;
+
+			valid_property = true;
+		}
+	}
+
+	if (!valid_property)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, node->line, node->column,
+								  "Unknown property '%s' in block context '%s'\n", identifier, block);
+		return false;
+	}
+
+	return true;
+}
+
+static bool
+fhttpd_conf_node_walk (struct fhttpd_conf_parser *parser, const struct conf_node *node, struct fhttpd_config *config)
+{
+	assert (node != NULL);
+
+	switch (node->type)
+	{
+		case CONF_NODE_ROOT:
+			for (size_t i = 0; i < node->root.child_count; i++)
+			{
+				if (!fhttpd_conf_node_walk (parser, node->root.children[i], config))
+					return false;
+			}
+
+			break;
+
+		case CONF_NODE_ASSIGNMENT:
+			if (!fhttpd_conf_node_walk (parser, node->assignment.right, config)
+				|| !fhttpd_conf_node_walk_assignment (parser, node, config))
+				return false;
+
+			break;
+
+		case CONF_NODE_BLOCK:
+			for (size_t i = 0; i < node->block.child_count; i++)
+			{
+				if (!fhttpd_conf_node_walk (parser, node->block.children[i], config))
+					return false;
+			}
+
+			break;
+
+		default:
+			break;
+	}
+
+	return true;
+}
+
+void
+fhttpd_conf_free_config (struct fhttpd_config *config)
+{
+	if (!config)
+		return;
+
+	free (config->srv_root);
+	free (config->logging_file);
+	free (config->logging_error_file);
+	free (config);
+}
+
+struct fhttpd_config *
+fhttpd_conf_process (struct fhttpd_conf_parser *parser)
+{
+	struct conf_node *root = fhttpd_conf_parse (parser);
+
+	if (!root)
+		return NULL;
+
+	struct fhttpd_config *config = calloc (1, sizeof (*config));
+
+	if (!config)
+	{
+		fhttpd_conf_free_node (root);
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, 1, 1, "Failed to allocate memory for config");
+		return NULL;
+	}
+
+	if (!fhttpd_conf_node_walk (parser, root, config))
+	{
+		fhttpd_conf_free_node (root);
+		fhttpd_conf_free_config (config);
+		return NULL;
+	}
+
+	fhttpd_conf_free_node (root);
+	return config;
+}
+
+void
+fhttpd_conf_print_config (const struct fhttpd_config *config)
+{
+	printf ("Configuration <%p>:\n", (void *) config);
+
+	printf ("srv_root: %s\n", config->srv_root ? config->srv_root : "(null)");
+
+	printf ("logging.min_level: %d\n", config->logging_min_level);
+	printf ("logging.file: %s\n", config->logging_file ? config->logging_file : "(null)");
+	printf ("logging.error_file: %s\n", config->logging_error_file ? config->logging_error_file : "(null)");
 }
