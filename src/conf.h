@@ -36,14 +36,13 @@ struct fhttpd_config_server
 
 struct fhttpd_config
 {
-    char *srv_root;
+    char *conf_root;
     enum fhttpd_log_level logging_min_level;
     char *logging_file;
     char *logging_error_file;
 };
 
 struct fhttpd_conf_parser;
-struct conf_node;
 
 struct fhttpd_conf_parser *fhttpd_conf_parser_create (const char *filename);
 int fhttpd_conf_parser_read (struct fhttpd_conf_parser *parser);
