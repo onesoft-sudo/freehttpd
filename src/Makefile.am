@@ -27,7 +27,9 @@ freehttpd_SOURCES = \
 	conf.h \
 	loop.h \
 	master.c \
-	master.h
+	master.h \
+	strutils.c \
+	strutils.h
 
 freehttpd_LDADD = ../res/libresources.a
 

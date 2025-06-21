@@ -5,6 +5,8 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#include "strutils.h"
+
 #if EAGAIN == EWOULDBLOCK
 #define would_block() (errno == EAGAIN)
 #else
