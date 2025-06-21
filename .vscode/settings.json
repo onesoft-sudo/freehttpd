@@ -21,6 +21,8 @@
         "tuple": "c",
         "utility": "c",
         "algorithm": "c",
-        "format": "c"
+        "format": "c",
+        "string": "c",
+        "span": "c"
     }
 }

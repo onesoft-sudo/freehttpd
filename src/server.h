@@ -11,6 +11,7 @@
 #include "protocol.h"
 #include "types.h"
 #include "itable.h"
+#include "strtable.h"
 #include "conf.h"
 #include "master.h"
 
@@ -36,7 +37,10 @@ struct fhttpd_server
     fd_t *listen_fds;
     size_t listen_fd_count;
 
-    void *config[FHTTPD_CONFIG_MAX];
+    struct fhttpd_config *config;
+
+    /* (const char *) => (struct fhttpd_config_host *) */
+    struct strtable *host_config_table;
 
     /* (fd_t) => (struct fhttpd_addrinfo *) */
     struct itable *sockaddr_in_table;
@@ -48,13 +52,8 @@ struct fhttpd_server
 
 _Noreturn void fhttpd_server_loop (struct fhttpd_server *server);
 
-struct fhttpd_server *fhttpd_server_create (const struct fhttpd_master *master);
+struct fhttpd_server *fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *config);
 bool fhttpd_server_prepare (struct fhttpd_server *server);
 void fhttpd_server_destroy (struct fhttpd_server *server);
-
-void *fhttpd_get_config (struct fhttpd_master *master,
-                                enum fhttpd_config_key config);
-void fhttpd_set_config (struct fhttpd_master *master,
-                               enum fhttpd_config_key config, void *value);
 
 #endif /* FHTTPD_SERVER_H */

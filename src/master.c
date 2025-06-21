@@ -44,7 +44,7 @@ fhttpd_worker_start (struct fhttpd_master *master)
 
 	atexit (&fhttpd_worker_exit_handler);
 
-	struct fhttpd_server *server = fhttpd_server_create (master);
+	struct fhttpd_server *server = fhttpd_server_create (master, master->config);
 
 	if (!server)
 	{
@@ -67,22 +67,53 @@ fhttpd_worker_start (struct fhttpd_master *master)
 	exit (EXIT_FAILURE);
 }
 
-static void
-fhttpd_print_info (const struct fhttpd_master *master)
+bool
+fhttpd_master_prepare (struct fhttpd_master *master)
 {
-	uint16_t *ports = (uint16_t *) master->config[FHTTPD_CONFIG_PORTS];
+	struct fhttpd_conf_parser *parser = fhttpd_conf_parser_create ("conf/fhttpd.conf");
 
-	while (*ports)
+	if (!parser)
 	{
-		fhttpd_log_info ("Listening on port %d", *ports);
-		ports++;
+		fhttpd_log_error ("Failed to parse config file: %s: %s", "conf/fhttpd.conf", strerror (errno));
+		return false;
 	}
+
+	int rc;
+
+	if ((rc = fhttpd_conf_parser_read (parser)) < 0)
+	{
+		fhttpd_log_error ("Failed to read config file: %s: %s", "conf/fhttpd.conf", strerror (errno));
+		fhttpd_conf_parser_destroy (parser);
+		return false;
+	}
+
+	struct fhttpd_config *config = fhttpd_conf_process (parser);
+
+	if (!config)
+	{
+		auto rc = fhttpd_conf_parser_last_error (parser);
+
+		if (rc == CONF_PARSER_ERROR_SYNTAX_ERROR || rc == CONF_PARSER_ERROR_INVALID_CONFIG)
+			fhttpd_conf_parser_print_error (parser);
+		else
+			fhttpd_log_error ("Failed to parse configuration file: %s\n", fhttpd_conf_parser_strerror (rc));
+
+		fhttpd_conf_parser_destroy (parser);
+		return false;
+	}
+
+	fhttpd_conf_print_config (config, 0);
+	fhttpd_conf_parser_destroy (parser);
+
+	master->config = config;
+	return true;
 }
 
 bool
 fhttpd_master_start (struct fhttpd_master *master)
 {
-	size_t worker_count = *(size_t *) master->config[FHTTPD_CONFIG_WORKER_PROCESS_COUNT];
+	/** FIXME: Hardcoded value */
+	size_t worker_count = 4;
 
 	master->workers = calloc (worker_count, sizeof (pid_t));
 
@@ -109,8 +140,6 @@ fhttpd_master_start (struct fhttpd_master *master)
 		}
 	}
 
-	fhttpd_print_info (master);
-
 	for (size_t i = 0; i < worker_count; i++)
 		waitpid (master->workers[i], NULL, 0);
 
@@ -127,8 +156,11 @@ fhttpd_master_destroy (struct fhttpd_master *master)
 	{
 		for (size_t i = 0; i < master->worker_count; i++)
 			kill (master->workers[i], SIGTERM);
-	}
 
+		if (master->config)
+			fhttpd_conf_free_config (master->config);
+	}
+	
 	free (master->workers);
 	free (master);
 }

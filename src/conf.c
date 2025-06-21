@@ -1552,8 +1552,30 @@ fhttpd_prop_set_logging_error_file (struct fhttpd_conf_parser *parser, struct fh
 	return true;
 }
 
+static bool
+fhttpd_prop_set_host_docroot (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+									const struct conf_node *value)
+{
+	PROP_STRING_MUST_NOT_BE_EMPTY ("host.docroot", value);
+
+	if (config->docroot)
+		free (config->docroot);
+
+	config->docroot = strndup (value->literal.str_value, value->literal.str_length);
+
+	if (!config->docroot)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_MEMORY, value->line, value->column,
+								  "Failed to allocate memory for 'host.docroot' property");
+		return false;
+	}
+
+	return true;
+}
+
 static const char *valid_blocks[] = { "logging", "host", NULL };
 
+/* Property descriptor, validator and handler definitions */
 static struct fhttpd_config_property const properties[] = {
 	{
 		"root",
@@ -1578,6 +1600,12 @@ static struct fhttpd_config_property const properties[] = {
 		CONF_VALUE_TYPE_STRING,
 		NULL,
 		&fhttpd_prop_set_logging_error_file,
+	},
+	{
+		"host.docroot",
+		CONF_VALUE_TYPE_STRING,
+		NULL,
+		&fhttpd_prop_set_host_docroot,
 	},
 	{
 		NULL,
@@ -2172,6 +2200,7 @@ fhttpd_conf_free_config (struct fhttpd_config *config)
 		}
 	}
 
+	free (config->docroot);
 	free (config->hosts);
 	free (config->conf_root);
 	free (config->logging_file);
@@ -2213,6 +2242,7 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 	printf ("%*sConfiguration <%p>:\n", (int) indent, "", (void *) config);
 
 	printf ("%*ssrv_root: %s\n", (int) indent, "", config->conf_root ? config->conf_root : "(null)");
+	printf ("%*sdocroot: %s\n", (int) indent, "", config->docroot ? config->docroot : "(null)");
 
 	printf ("%*slogging.min_level: %d\n", (int) indent, "", config->logging_min_level);
 	printf ("%*slogging.file: %s\n", (int) indent, "", config->logging_file ? config->logging_file : "(null)");
@@ -2234,4 +2264,16 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 		fhttpd_conf_print_config (host->host_config, indent + 4);
 		printf ("\n");
 	}
+}
+
+void
+fhttpd_conf_serialize (const struct fhttpd_config *config, uint8_t *outp, size_t *sizep)
+{
+
+}
+
+void
+fhttpd_conf_deserialize (const struct fhttpd_config *config, uint8_t *outp, size_t *sizep)
+{
+	
 }

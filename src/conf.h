@@ -5,20 +5,6 @@
 
 #include "log.h"
 
-enum fhttpd_config_key
-{
-    FHTTPD_CONFIG_PORTS,
-    FHTTPD_CONFIG_WORKER_PROCESS_COUNT,
-    FHTTPD_CONFIG_DOCROOT,
-    FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT,
-    FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT,
-    FHTTPD_CONFIG_RECV_TIMEOUT,
-    FHTTPD_CONFIG_SEND_TIMEOUT,
-    FHTTPD_CONFIG_LOG_LEVEL,
-    FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE,
-    FHTTPD_CONFIG_MAX
-};
-
 enum conf_parser_error
 {
 	CONF_PARSER_ERROR_NONE = 0,
@@ -48,6 +34,7 @@ struct fhttpd_config
     char *logging_error_file;
     struct fhttpd_config_host *hosts;
     size_t host_count;
+    char *docroot;
 };
 
 struct fhttpd_conf_parser;

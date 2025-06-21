@@ -49,6 +49,44 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 	atexit (&exit_handler);
 	fhttpd_log_set_output (stderr, stdout);
 
+#if 0
+	struct fhttpd_conf_parser *conf_parser = fhttpd_conf_parser_create ("conf/fhttpd.conf");
+	int rc;
+
+	if (!conf_parser)
+	{
+		fprintf (stderr, "%s: Failed to create configuration parser: %s\n", argv[0], strerror (errno));
+		return 1;
+	}
+
+	if ((rc = fhttpd_conf_parser_read (conf_parser)) != 0)
+	{
+		fprintf (stderr, "%s: Failed to read configuration file: %s\n", argv[0], strerror (rc));
+		fhttpd_conf_parser_destroy (conf_parser);
+		return 1;
+	}
+
+	struct fhttpd_config *config = fhttpd_conf_process (conf_parser);
+
+	if (!config)
+	{
+		auto rc = fhttpd_conf_parser_last_error (conf_parser);
+
+		if (rc == CONF_PARSER_ERROR_SYNTAX_ERROR || rc == CONF_PARSER_ERROR_INVALID_CONFIG)
+			fhttpd_conf_parser_print_error (conf_parser);
+		else
+			fprintf (stderr, "%s: Failed to parse configuration file: %s\n", argv[0], fhttpd_conf_parser_strerror (rc));
+	}
+	else
+	{
+		fhttpd_conf_print_config (config, 0);
+		fhttpd_conf_free_config (config);
+	}
+
+	fhttpd_conf_parser_destroy (conf_parser);
+	exit (0);
+#endif
+
 	fhttpd = fhttpd_master_create ();
 
 	if (!fhttpd)
@@ -56,7 +94,6 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 		fprintf (stderr, "Failed to create server\n");
 		return 1;
 	}
-
 	struct sigaction sa;
 
 	sa.sa_handler = &signal_handler;
@@ -69,20 +106,8 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 		return 1;
 	}
 
-	uint16_t ports[] = { 8080, 0 };
-	const char *docroot = getenv ("FHTTPD_DOCROOT");
-
-	if (!docroot)
-		docroot = "/var/www/html";
-
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_PORTS, ports);
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_RECV_TIMEOUT, &(uint32_t) { 10000 });
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_SEND_TIMEOUT, &(uint32_t) { 10000 });
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_CLIENT_HEADER_TIMEOUT, &(uint32_t) { 15000 });
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_CLIENT_BODY_TIMEOUT, &(uint32_t) { 30000 });
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_WORKER_PROCESS_COUNT, &(size_t) { 4 });
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE, &(size_t) { 1024 * 1024 * 256 }); // 256 MB
-	fhttpd_set_config (fhttpd, FHTTPD_CONFIG_DOCROOT, (void *) docroot);
+	if (!fhttpd_master_prepare (fhttpd))
+		return 1;
 
 	if (!fhttpd_master_start (fhttpd))
 	{
