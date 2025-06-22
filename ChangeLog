@@ -1,4 +1,56 @@
+2025-06-22  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	feat(core): complete vhost support
+
+	chore: update .gitignore
+
+	feat(config): integrate into the server [1/2]
+
+	feat(config): finalize config parser and validator
+
+2025-06-20  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	build: update source file names
+
+	feat(config): glob includes
+
+	feat(config): complete parsing and partial option loading
+
+	refactor: organize code
+
+	feat(config): tokenizer
+
 2025-06-19  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	chore: update readme logo
+
+	fix: missing include of <stdbool.h>
+
+	build: include resources in EXTRA_DIST
+
+	build: fix autoconf issues
+
+	build: fix autoconf issues
+
+	build: fix autoconf issues
+
+	build: fix autoconf issues
+
+	ci: build workflow fix
+
+	build: fix autoconf issues
+
+	build: remove gnulib
+
+	build: fix autoconf
+
+	ci: fix build workflow
+
+	build: add support for `-std=gnu2x` standard
+
+	ci: update build workflow
+
+	build: integrate gnulib
 
 	chore: restructure project to use gnu autotools
 
