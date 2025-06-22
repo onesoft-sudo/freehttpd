@@ -23,7 +23,7 @@ jobs:
       - name: Build
         run: |
           ./bootstrap
-          ./configure CC=/usr/bin/gcc-14 --prefix=$(pwd)/build --disable-silent-rules
+          ./configure CC=/usr/bin/gcc-14 --prefix=$(pwd)/build --with-config-file=$(pwd)/conf/fhttpd.conf --disable-silent-rules
           make -j$(nproc)
           make install
 

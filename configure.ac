@@ -11,13 +11,18 @@ AM_SILENT_RULES([yes])
 
 AC_ARG_ENABLE([systemd],
               [AS_HELP_STRING([--enable-systemd], [Enable systemd support (default: no)])],
-              [enable_systemd=$enableval],
+              [enable_systemd="$enableval"],
               [enable_systemd=no])
 
 AC_ARG_WITH([systemd-unitdir],
-            [AS_HELP_STRING([--with-systemd-unitdir=DIR], [Directory for systemd unit files (default: /lib/systemd/system)])],
-            [systemd_unitdir=$withval],
-            [systemd_unitdir="/lib/systemd/system"])
+            [AS_HELP_STRING([--with-systemd-unitdir=DIR], [Directory for systemd unit files (default: $libdir/systemd/system)])],
+            [systemd_unitdir="$withval"],
+            [systemd_unitdir="$libdir/systemd/system"])
+
+AC_ARG_WITH([config-file], 
+            [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
+            [fhttpd_config_file="$withval"],
+            [fhttpd_config_file="$sysconfdir/freehttpd/fhttpd.conf"])
 
 # Checks for programs.
 AC_PROG_CC
@@ -28,10 +33,13 @@ AC_PROG_RANLIB
 # Checks for libraries.
 
 if test "x$enable_systemd" = "xyes"; then
-  PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [], [
-    AC_MSG_ERROR([libsystemd is required for systemd support. Please install it or disable systemd support with --disable-systemd.])
-  ])
+    PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [], [
+        AC_MSG_ERROR([libsystemd is required for systemd support. Please install it or disable systemd support with --disable-systemd.])
+    ])
 fi
+
+# Define macros
+AC_DEFINE_UNQUOTED([FHTTPD_MAIN_CONFIG_FILE], ["$fhttpd_config_file"], [Path to the configuration file])
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
@@ -68,6 +76,7 @@ AC_MSG_NOTICE([Configuration summary:
   Libraries: $LIBS
   Header files: $CPPFLAGS
   Installation prefix: $prefix
-  Systemd support: $enable_systemd
-  Systemd unit directory: $systemd_unitdir
+  systemd support: $enable_systemd
+  systemd unit directory: $systemd_unitdir
+  Configuration file: $fhttpd_config_file
 ])

@@ -7,6 +7,10 @@
 #include "log.h"
 #include "server.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /* Only used by the worker processes */
 static struct fhttpd_server *local_server = NULL;
 
@@ -70,11 +74,17 @@ fhttpd_worker_start (struct fhttpd_master *master)
 bool
 fhttpd_master_prepare (struct fhttpd_master *master)
 {
-	struct fhttpd_conf_parser *parser = fhttpd_conf_parser_create ("conf/fhttpd.conf");
+#ifdef FHTTPD_MAIN_CONFIG_FILE
+	const char *confpath = FHTTPD_MAIN_CONFIG_FILE;
+#else
+	const char *confpath = "/etc/freehttpd/fhttpd.conf";
+#endif
+
+	struct fhttpd_conf_parser *parser = fhttpd_conf_parser_create (confpath);
 
 	if (!parser)
 	{
-		fhttpd_log_error ("Failed to parse config file: %s: %s", "conf/fhttpd.conf", strerror (errno));
+		fhttpd_log_error ("Failed to parse config file: %s: %s", confpath, strerror (errno));
 		return false;
 	}
 
@@ -82,7 +92,7 @@ fhttpd_master_prepare (struct fhttpd_master *master)
 
 	if ((rc = fhttpd_conf_parser_read (parser)) < 0)
 	{
-		fhttpd_log_error ("Failed to read config file: %s: %s", "conf/fhttpd.conf", strerror (errno));
+		fhttpd_log_error ("Failed to read config file: %s: %s", confpath, strerror (errno));
 		fhttpd_conf_parser_destroy (parser);
 		return false;
 	}
