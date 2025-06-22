@@ -21,7 +21,7 @@ struct fhttpd_addrinfo
 {
     struct sockaddr_in addr;
     socklen_t addr_len;
-    char host[INET_ADDRSTRLEN];
+    char host_addr[INET_ADDRSTRLEN];
     uint16_t port;
     fd_t sockfd;
 };

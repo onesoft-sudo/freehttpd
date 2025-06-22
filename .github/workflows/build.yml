@@ -33,11 +33,11 @@ jobs:
 
       - name: Benchmark
         run: |
-          make check-benchmark
+          make check-benchmark || (cat tests/freehttpd.log && exit 1)
 
       - name: Valgrind Benchmark
         run: |
-          make check-valgrind-benchmark
+          make check-valgrind-benchmark || (cat tests/freehttpd-valgrind.log && exit 1)
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

@@ -432,6 +432,35 @@ http1_parse_header_value (struct http1_parser_ctx *ctx)
 
         ctx->result.content_length = content_length;
     }
+    else if (strcasecmp (hname_str, "Host") == 0)
+    {
+        uint16_t host_port = 80; /** FIXME: TLS */
+        char *colon = memchr (hvalue_str, ':', hvalue_str_len);
+        char *endptr = NULL;
+
+        if (!colon) 
+        {
+            ctx->result.host = strndup (hvalue_str, hvalue_str_len);
+            ctx->result.host_len = hvalue_str_len;
+            ctx->result.host_port = host_port;
+        }
+        else
+        {
+            ctx->result.host_len = colon - hvalue_str;
+            ctx->result.host = NULL;
+            host_port = (uint16_t) strtoul (colon + 1, &endptr, 10);
+
+            if (*endptr)
+            {
+                fhttpd_wclog_debug ("Invalid Host header value: %s", hvalue_str);
+                ctx->state = HTTP1_STATE_ERROR;
+                return HTTP1_PARSER_RETURN (false);
+            }
+
+            ctx->result.host = strndup (hvalue_str, ctx->result.host_len);
+            ctx->result.host_port = host_port;
+        }
+    }
 
     fhttpd_wclog_debug ("Header value: |%.*s|", (int) hvalue_str_len, hvalue_str);
     buffer_shift (ctx, hvalue_len + 2);
@@ -732,7 +761,7 @@ http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection 
         if (response->use_builtin_error_response)
         {
             uint16_t port = conn->port;
-            const char *host = conn->host;
+            const char *host = conn->hostname ? conn->hostname : "0.0.0.0";
             size_t host_len = strlen (host);
             size_t port_width = port >= 10000 ? 5 : port >= 1000 ? 4 : port >= 100 ? 3 : port >= 10 ? 2 : 1;
 

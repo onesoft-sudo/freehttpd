@@ -39,8 +39,11 @@ struct http1_parser_result
 {
     bool used;
     enum fhttpd_method method;
+    char *host;
+    size_t host_len;
     char *uri;
     size_t uri_len;
+    uint16_t host_port;
     char *qs;
     size_t qs_len;
     char *path;
@@ -54,7 +57,6 @@ struct http1_parser_result
 
 struct http1_parser_ctx
 {
-    /** TODO: Use a preallocated shared heap memory per worker */
     char buffer[HTTP1_PARSER_BUFFER_SIZE];
     size_t buffer_len;
     enum http1_parser_state state;

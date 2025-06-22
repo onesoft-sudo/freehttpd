@@ -248,7 +248,7 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
 		srv_addr->addr_len = sizeof (addr);
 		srv_addr->port = port;
 		srv_addr->sockfd = sockfd;
-		inet_ntop (AF_INET, &addr.sin_addr, srv_addr->host, sizeof (srv_addr->host));
+		inet_ntop (AF_INET, &addr.sin_addr, srv_addr->host_addr, sizeof (srv_addr->host_addr));
 
 		if (!itable_set (server->sockaddr_in_table, sockfd, srv_addr))
 		{
@@ -442,8 +442,6 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
 	}
 
 	conn->port = srv_addr->port;
-	memcpy (conn->host, srv_addr->host, INET_ADDRSTRLEN);
-
 	fhttpd_wclog_info ("Connection established with %s:%d [ID #%lu]", ip, ntohs (client_addr.sin_port), conn->id);
 	return true;
 }
@@ -662,34 +660,7 @@ fhttpd_process_request (struct fhttpd_server *server, struct fhttpd_connection *
 {
 	struct fhttpd_request *request = &conn->requests[request_index];
 	fhttpd_wclog_info ("Processing request #%zu for connection #%lu", request_index, conn->id);
-
-	/** FIXME: Use a Hash table */
-	const char *host = NULL;
-	size_t hostlen = 0;
-
-	for (size_t i = 0; i < request->headers.count; i++)
-	{
-		if (!strncmp (request->headers.list[i].name, "Host", request->headers.list[i].name_length))
-		{
-			host = request->headers.list[i].value;
-			hostlen = request->headers.list[i].value_length;
-		}
-	}
-
-	if (!host || hostlen >= 512)
-	{
-		response->ready = true;
-		response->status = FHTTPD_STATUS_BAD_REQUEST;
-		response->use_builtin_error_response = true;
-		return true;
-	}
-
-	const char *colon = strchr (host, ':');
-	char hostname[512] = { 0 };
-
-	strncpy (hostname, host, colon - host);
-
-	struct fhttpd_config_host *config = strtable_get (server->host_config_table, hostname);
+	struct fhttpd_config_host *config = strtable_get (server->host_config_table, conn->hostname);
 
 	if (!config)
 		config = server->host_config_table->head->data;
@@ -741,6 +712,8 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				memcpy (conn->http1_req_ctx.buffer, conn->buffers.protobuf, H2_PREFACE_SIZE);
 				conn->http1_req_ctx.buffer_len = H2_PREFACE_SIZE;
 				conn->mode = FHTTPD_CONNECTION_MODE_READ;
+				conn->hostname = server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname;
+				conn->hostname_len = server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname_len;
 				fhttpd_wclog_info ("Connection #%lu: HTTP/1.x protocol initialized", conn->id);
 				break;
 
@@ -761,9 +734,12 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 				if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
 					fhttpd_server_free_connection (server, conn);
+				else
+				{
+					http1_parser_ctx_init (&conn->http1_req_ctx);
+					conn->last_request_timestamp = get_current_timestamp ();
+				}
 
-				http1_parser_ctx_init (&conn->http1_req_ctx);
-				conn->last_request_timestamp = get_current_timestamp ();
 				return LOOP_OPERATION_NONE;
 			}
 
@@ -776,8 +752,6 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 					fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id,
 										strerror (errno));
 					fhttpd_server_free_connection (server, conn);
-					http1_parser_ctx_init (&conn->http1_req_ctx);
-					conn->last_request_timestamp = get_current_timestamp ();
 					return LOOP_OPERATION_NONE;
 				}
 
@@ -792,9 +766,12 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 					if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
 						fhttpd_server_free_connection (server, conn);
+					else
+					{
+						http1_parser_ctx_init (&conn->http1_req_ctx);
+						conn->last_request_timestamp = get_current_timestamp ();
+					}
 
-					http1_parser_ctx_init (&conn->http1_req_ctx);
-					conn->last_request_timestamp = get_current_timestamp ();
 					return LOOP_OPERATION_NONE;
 				}
 
@@ -807,6 +784,9 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				request->method = conn->http1_req_ctx.result.method;
 				request->uri = conn->http1_req_ctx.result.uri;
 				request->uri_len = conn->http1_req_ctx.result.uri_len;
+				request->host = conn->http1_req_ctx.result.host;
+				request->host_len = conn->http1_req_ctx.result.host_len;
+				request->host_port = conn->http1_req_ctx.result.host_port;
 				request->qs = conn->http1_req_ctx.result.qs;
 				request->qs_len = conn->http1_req_ctx.result.qs_len;
 				request->path = conn->http1_req_ctx.result.path;
@@ -818,6 +798,52 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				memcpy (conn->exact_protocol, conn->http1_req_ctx.result.version, 4);
 				http1_parser_ctx_init (&conn->http1_req_ctx);
 				conn->last_request_timestamp = get_current_timestamp ();
+
+				if (conn->request_count == 1)
+				{
+					struct fhttpd_config_host *host_config = strtable_get (server->host_config_table, request->host);
+					bool known_host = host_config != NULL && conn->port == request->host_port;
+
+					if (known_host)
+					{
+						known_host = false;
+
+						for (size_t i = 0; i < host_config->bound_addr_count; i++)
+						{
+							if (host_config->bound_addrs[i].port == request->host_port)
+							{
+								known_host = true;
+								break;
+							}
+						}
+					}
+
+					fhttpd_wclog_debug ("%s is%s a known host", request->host, known_host ? "" : " not");
+
+					conn->hostname
+						= known_host ? request->host
+									 : server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname;
+					conn->hostname_len
+						= known_host
+							  ? request->host_len
+							  : server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname_len;
+				}
+				else if (strcmp (conn->hostname, request->host) || conn->port != request->host_port)
+				{
+					fhttpd_wclog_debug (
+						"Connection #%lu: Request #%zu: Host '%s' doesn't match with initial connection host '%s'",
+						conn->id, conn->request_count - 1, request->host, conn->hostname);
+
+					if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
+						fhttpd_server_free_connection (server, conn);
+					else
+					{
+						http1_parser_ctx_init (&conn->http1_req_ctx);
+						conn->last_request_timestamp = get_current_timestamp ();
+					}
+
+					return LOOP_OPERATION_NONE;
+				}
 
 				fhttpd_wclog_info ("Connection #%lu: Accepted request #%zu", conn->id, conn->request_count - 1);
 				return LOOP_OPERATION_NONE;
@@ -837,17 +863,18 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 					fhttpd_wclog_error ("Connection #%lu: Failed to modify epoll events: %s", conn->id,
 										strerror (errno));
 					fhttpd_server_free_connection (server, conn);
-					http1_parser_ctx_init (&conn->http1_req_ctx);
-					conn->last_request_timestamp = get_current_timestamp ();
 					return LOOP_OPERATION_NONE;
 				}
 
 				if (!fhttpd_connection_defer_error_response (
 						conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), FHTTPD_STATUS_BAD_REQUEST))
 					fhttpd_server_free_connection (server, conn);
+				else
+				{
+					http1_parser_ctx_init (&conn->http1_req_ctx);
+					conn->last_request_timestamp = get_current_timestamp ();
+				}
 
-				http1_parser_ctx_init (&conn->http1_req_ctx);
-				conn->last_request_timestamp = get_current_timestamp ();
 				return LOOP_OPERATION_NONE;
 			}
 			break;

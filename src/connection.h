@@ -51,9 +51,12 @@ struct fhttpd_connection
     size_t response_count;
 
     uint16_t port;
-    char host[INET_ADDRSTRLEN];
+    const char *hostname;
+    size_t hostname_len;
 
     enum fhttpd_connection_mode mode;
+
+    struct fhttpd_config_host *config;
 };
 
 struct fhttpd_connection *fhttpd_connection_create (uint64_t id, fd_t client_sockfd);

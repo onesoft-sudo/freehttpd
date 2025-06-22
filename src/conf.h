@@ -16,6 +16,7 @@ enum conf_parser_error
 struct fhttpd_bound_addr
 {
     char *hostname;
+    size_t hostname_len;
     uint16_t port;
 };
 
@@ -34,6 +35,7 @@ struct fhttpd_config
     char *logging_error_file;
     struct fhttpd_config_host *hosts;
     size_t host_count;
+    ssize_t default_host_index;
     char *docroot;
 };
 

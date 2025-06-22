@@ -70,6 +70,9 @@ struct fhttpd_request
     struct fhttpd_connection *conn;
     protocol_t protocol;
     enum fhttpd_method method;
+    char *host;
+    size_t host_len;
+    uint16_t host_port;
     char *uri;
     size_t uri_len;
     char *path;
@@ -106,6 +109,8 @@ const char *fhttpd_get_status_description (enum fhttpd_status code);
 
 bool fhttpd_header_add (struct fhttpd_headers *headers, const char *name, const char *value, size_t name_length, size_t value_length);
 bool fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const char *name, const char *value, size_t name_length, size_t value_length);
+bool fhttpd_header_add_noalloc_printf (struct fhttpd_headers *headers, size_t index, const char *name, size_t name_length, const char *value_format, ...);
+bool fhttpd_header_add_printf (struct fhttpd_headers *headers, const char *name, size_t name_length, const char *value_format, ...);
 
 void fhttpd_request_free (struct fhttpd_request *request, bool inner_only);
 

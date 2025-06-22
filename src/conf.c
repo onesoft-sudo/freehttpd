@@ -616,7 +616,7 @@ fhttpd_conf_parser_tokenize (struct fhttpd_conf_parser *parser)
 	return CONF_PARSER_ERROR_NONE;
 }
 
-static void
+static void __attribute_maybe_unused__
 fhttpd_conf_parser_print_tokens (struct fhttpd_conf_parser *parser)
 {
 	for (size_t i = 0; i < parser->token_count; i++)
@@ -662,7 +662,7 @@ fhttpd_conf_parser_strerror (enum conf_parser_error error)
 	}
 }
 
-static const char *
+__attribute_maybe_unused__ static const char *
 fhttpd_conf_strtoken (enum conf_token_type type)
 {
 	switch (type)
@@ -1348,7 +1348,7 @@ fhttpd_conf_parse (struct fhttpd_conf_parser *parser)
 	return root;
 }
 
-static void
+static void __attribute_maybe_unused__
 fhttpd_conf_print_node (struct conf_node *node, int indent)
 {
 	printf ("%*s<%p> ", indent, "", (void *) node);
@@ -1470,6 +1470,13 @@ fhttpd_prop_set_root (struct fhttpd_conf_parser *parser, struct fhttpd_config *c
 		return false;
 	}
 
+	if (access (value->literal.str_value, R_OK))
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid root: %s: %s", value->literal.str_value, strerror (errno));
+		return false;
+	}
+
 	if (config->conf_root)
 		free (config->conf_root);
 
@@ -1554,7 +1561,7 @@ fhttpd_prop_set_logging_error_file (struct fhttpd_conf_parser *parser, struct fh
 
 static bool
 fhttpd_prop_set_host_docroot (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
-									const struct conf_node *value)
+							  const struct conf_node *value)
 {
 	PROP_STRING_MUST_NOT_BE_EMPTY ("host.docroot", value);
 
@@ -1569,6 +1576,18 @@ fhttpd_prop_set_host_docroot (struct fhttpd_conf_parser *parser, struct fhttpd_c
 								  "Failed to allocate memory for 'host.docroot' property");
 		return false;
 	}
+
+	return true;
+}
+
+static struct fhttpd_config *dfl_host_config_ptr = NULL;
+
+static bool
+fhttpd_prop_set_host_is_default (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+								   struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.bool_value)
+		dfl_host_config_ptr = config;
 
 	return true;
 }
@@ -1606,6 +1625,12 @@ static struct fhttpd_config_property const properties[] = {
 		CONF_VALUE_TYPE_STRING,
 		NULL,
 		&fhttpd_prop_set_host_docroot,
+	},
+	{
+		"host.is_default",
+		CONF_VALUE_TYPE_BOOLEAN,
+		NULL,
+		&fhttpd_prop_set_host_is_default,
 	},
 	{
 		NULL,
@@ -1933,6 +1958,13 @@ static bool
 fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct conf_node *block,
 							   struct fhttpd_config *config)
 {
+	if (block->block.argc == 0)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, block->line, block->column,
+								  "host (...) {...} expects at least 1 argument, but none given");
+		return false;
+	}
+
 	struct fhttpd_config_host *hosts = realloc (config->hosts, sizeof (*hosts) * (config->host_count + 1));
 
 	if (!hosts)
@@ -2038,6 +2070,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 				struct fhttpd_bound_addr addr = { 0 };
 
 				addr.hostname = strdup (host_entry);
+				addr.hostname_len = strlen (host_entry);
 				addr.port = (uint16_t) port;
 
 				addrs[addr_index++] = addr;
@@ -2088,6 +2121,8 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 		return false;
 	}
 
+	local_config->default_host_index = -1;
+
 	for (size_t i = 0; i < block->block.child_count; i++)
 	{
 		if (!fhttpd_conf_walk (parser, block->block.children[i], local_config))
@@ -2095,6 +2130,20 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 	}
 
 	host->host_config = local_config;
+
+	if (local_config == dfl_host_config_ptr && dfl_host_config_ptr)
+	{
+		if (config->default_host_index != -1)
+		{
+			fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, block->line, block->column,
+									  "A root host (%s) is already set, cannot set multiple root hosts",
+									  config->hosts[config->default_host_index].bound_addrs[0].hostname);
+			return false;
+		}
+
+		config->default_host_index = config->host_count - 1;
+	}
+
 	return true;
 }
 
@@ -2225,10 +2274,21 @@ fhttpd_conf_process (struct fhttpd_conf_parser *parser)
 		return NULL;
 	}
 
+	config->default_host_index = -1;
+
 	if (!fhttpd_conf_walk (parser, root, config))
 	{
 		fhttpd_conf_free_node (root);
 		fhttpd_conf_free_config (config);
+		return NULL;
+	}
+
+	if (config->default_host_index == -1)
+	{
+		fhttpd_conf_free_config (config);
+		fhttpd_conf_free_node (root);
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, 1, 1,
+								  "At least one root host (...) {...} definition is required");
 		return NULL;
 	}
 
@@ -2252,7 +2312,8 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 	for (size_t i = 0; i < config->host_count; i++)
 	{
 		const struct fhttpd_config_host *host = &config->hosts[i];
-		printf ("%*sHost [%p]:\n", (int) indent, "", (void *) host);
+		printf ("%*sHost [%p]%s:\n", (int) indent, "", (void *) host,
+				config->default_host_index >= 0 && i == (size_t) config->default_host_index ? " [ROOT]" : "");
 
 		for (size_t j = 0; j < host->bound_addr_count; j++)
 		{
@@ -2266,14 +2327,14 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 	}
 }
 
+#if 0
 void
 fhttpd_conf_serialize (const struct fhttpd_config *config, uint8_t *outp, size_t *sizep)
 {
-
 }
 
 void
 fhttpd_conf_deserialize (const struct fhttpd_config *config, uint8_t *outp, size_t *sizep)
 {
-	
 }
+#endif
