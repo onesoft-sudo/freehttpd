@@ -45,6 +45,23 @@ AC_DEFINE_UNQUOTED([FHTTPD_MAIN_CONFIG_FILE], ["$fhttpd_config_file"], [Path to 
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
+AC_MSG_CHECKING([whether the compiler supports VLAs])
+
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM(
+    [[
+      #ifdef __STDC_NO_VLA__
+      #error "No VLA support"
+      #endif
+    ]]
+  )],
+  [AC_MSG_RESULT([yes])],
+  [
+    AC_MSG_RESULT([no])
+    AC_MSG_ERROR([The compiler does not support VLAs (variable-length arrays)])
+  ]
+)
+
 AC_CHECK_HEADER_STDBOOL
 AC_TYPE_OFF_T
 AC_TYPE_PID_T

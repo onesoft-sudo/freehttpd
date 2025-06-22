@@ -26,3 +26,5 @@ Makefile
 /config.status
 /aclocal.m4
 vgcore.*
+.dirstamp
+*.trs
