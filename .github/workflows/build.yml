@@ -22,7 +22,7 @@ jobs:
 
       - name: Generate Configuration Files
         run: |
-          echo 'root = "/home/rakinar2/Projects/freehttpd/conf";' > conf/fhttpd.conf
+          echo 'root = "'$(pwd)'/conf";' > conf/fhttpd.conf
           echo '' >> conf/fhttpd.conf
           echo 'include_optional "conf.d/*.conf";' >> conf/fhttpd.conf
           echo 'include_optional "hosts.d/*.conf";' >> conf/fhttpd.conf
