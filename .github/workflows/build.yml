@@ -20,6 +20,13 @@ jobs:
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 500
           gcc --version
 
+      - name: Generate Configuration Files
+        run: |
+          echo 'root = "/home/rakinar2/Projects/freehttpd/conf";' > conf/fhttpd.conf
+          echo '' >> conf/fhttpd.conf
+          echo 'include_optional "conf.d/*.conf";' >> conf/fhttpd.conf
+          echo 'include_optional "hosts.d/*.conf";' >> conf/fhttpd.conf
+
       - name: Build
         run: |
           ./bootstrap
