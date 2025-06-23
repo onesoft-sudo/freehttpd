@@ -14,3 +14,5 @@ SortIncludes: true
 BasedOnStyle: GNU
 IndentGotoLabels: true
 IndentCaseBlocks: true
+InsertNewlineAtEOF: true
+IndentPPDirectives: AfterHash

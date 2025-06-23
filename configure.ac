@@ -9,6 +9,11 @@ AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall gnu 1.11 subdir-objects])
 AM_SILENT_RULES([yes])
 
+AC_ARG_ENABLE([debug],
+              [AS_HELP_STRING([--enable-debug], [Enable debug build mode (default: no)])],
+              [build_type=debug],
+              [build_type=release])
+
 AC_ARG_ENABLE([systemd],
               [AS_HELP_STRING([--enable-systemd], [Enable systemd support (default: no)])],
               [enable_systemd="$enableval"],
@@ -43,6 +48,7 @@ AC_DEFINE_UNQUOTED([FHTTPD_MAIN_CONFIG_FILE], ["$fhttpd_config_file"], [Path to 
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
+AC_CHECK_HEADERS([stdnoreturn.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_MSG_CHECKING([whether the compiler supports VLAs])

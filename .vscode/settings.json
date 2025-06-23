@@ -23,6 +23,16 @@
         "algorithm": "c",
         "format": "c",
         "string": "c",
-        "span": "c"
+        "span": "c",
+        "atomic": "c",
+        "bit": "c",
+        "memory_resource": "c",
+        "numeric": "c",
+        "optional": "c",
+        "random": "c",
+        "cmath": "c",
+        "istream": "c",
+        "new": "c",
+        "variant": "c"
     }
 }

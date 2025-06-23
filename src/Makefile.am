@@ -1,7 +1,6 @@
 bin_PROGRAMS = freehttpd
 
-AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu23 -D_POSIX_C_SOURCE=202009L
-AM_LDFLAGS = -g
+AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99 -D_POSIX_C_SOURCE=202009L -Wno-gnu-zero-variadic-macro-arguments
 AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES
 
 freehttpd_SOURCES = \
@@ -33,7 +32,8 @@ freehttpd_SOURCES = \
 	strtable.c \
 	strtable.h \
 	bitmap.c \
-	bitmap.h
+	bitmap.h \
+	compat.h
 
 freehttpd_LDADD = ../res/libresources.a
 
