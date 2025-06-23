@@ -45,6 +45,7 @@ struct fhttpd_config
     char *docroot;
 
     size_t sec_max_response_body_size;
+    size_t sec_max_connections;
     uint32_t sec_recv_timeout;
     uint32_t sec_send_timeout;
     uint32_t sec_header_timeout;

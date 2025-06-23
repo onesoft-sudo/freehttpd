@@ -1611,7 +1611,7 @@ static bool
 fhttpd_prop_set_worker_count (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
 							  struct fhttpd_config *config, const struct conf_node *value)
 {
-	if (value->literal.int_value <= 0)
+	if (value->literal.int_value <= 0 || value->literal.int_value >= SIZE_MAX)
 	{
 		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
 								  "Invalid negative/zero value for worker_count");
@@ -1679,6 +1679,21 @@ fhttpd_prop_set_security_body_timeout (struct fhttpd_conf_parser *parser __attri
 	}
 
 	config->sec_body_timeout = (uint32_t) value->literal.int_value;
+	return true;
+}
+
+static bool
+fhttpd_prop_set_security_max_connections (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+									   struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.int_value < 0 || value->literal.int_value >= SIZE_MAX)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid negative/zero value for security.max_connections");
+		return false;
+	}
+
+	config->sec_max_connections = (size_t) value->literal.int_value;
 	return true;
 }
 
@@ -1757,6 +1772,12 @@ static struct fhttpd_config_property const properties[] = {
 		CONF_VALUE_TYPE_INT,
 		NULL,
 		&fhttpd_prop_set_security_body_timeout,
+	},
+	{
+		"security.max_connections",
+		CONF_VALUE_TYPE_INT,
+		NULL,
+		&fhttpd_prop_set_security_max_connections,
 	},
 	{
 		NULL,
@@ -2087,10 +2108,11 @@ fhttpd_conf_init (struct fhttpd_config *config)
 	config->worker_count = 4;
 	config->conf_root = strdup ("/etc/freehttpd");
 	config->sec_max_response_body_size = 256UL * 1024UL * 1024UL; /* 256 MiB */
-	config->sec_body_timeout = 25000;   /* 25s */
-	config->sec_header_timeout = 15000; /* 15s */
-	config->sec_recv_timeout = 8000;    /* 8s  */
-	config->sec_send_timeout = 8000;    /* 8s  */
+	config->sec_body_timeout = 25000;   /* 25s      */
+	config->sec_header_timeout = 15000; /* 15s      */
+	config->sec_recv_timeout = 8000;    /* 8s       */
+	config->sec_send_timeout = 8000;    /* 8s       */
+	config->sec_max_connections = 0;    /* No limit */
 }
 
 static void
@@ -2504,6 +2526,7 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 	printf ("%*ssecurity.header_timeout: %u\n", (int) indent, "", config->sec_header_timeout);
 	printf ("%*ssecurity.body_timeout: %u\n", (int) indent, "", config->sec_body_timeout);
 	printf ("%*ssecurity.max_response_body_size: %zu\n", (int) indent, "", config->sec_max_response_body_size);
+	printf ("%*ssecurity.sec_max_connections: %zu\n", (int) indent, "", config->sec_max_connections);
 
 	for (size_t i = 0; i < config->host_count; i++)
 	{

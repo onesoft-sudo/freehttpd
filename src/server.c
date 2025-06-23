@@ -384,9 +384,9 @@ fhttpd_server_free_connection (struct fhttpd_server *server, struct fhttpd_conne
 static bool
 fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
 {
-	if (fd_index >= server->listen_fd_count)
+	if (server->config->sec_max_connections > 0 && server->connections->count >= server->config->sec_max_connections)
 	{
-		errno = EINVAL;
+		errno = EAGAIN;
 		return false;
 	}
 
@@ -1180,7 +1180,12 @@ fhttpd_server_loop (struct fhttpd_server *server)
 				if (server->listen_fds[j] == events[i].data.fd)
 				{
 					if (!fhttpd_server_accept (server, j))
-						fhttpd_wclog_error ("Error accepting new connection: %s", strerror (errno));
+					{
+						if (errno == EAGAIN)
+							fhttpd_wclog_error ("Max connections reached, cannot accept any new connection");
+						else
+							fhttpd_wclog_error ("Error accepting new connection: %s", strerror (errno));
+					}
 
 					is_listen_fd = true;
 					break;
