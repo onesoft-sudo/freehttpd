@@ -14,6 +14,7 @@
 #define would_block() (errno == EAGAIN || errno == EWOULDBLOCK)
 #endif
 
+bool fd_set_nonblocking (int fd);
 uint64_t get_current_timestamp (void);
 __noreturn void freeze (void);
 char *str_trim_whitespace (const char *str, size_t len, size_t *out_len);

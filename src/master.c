@@ -2,7 +2,9 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/wait.h>
+#include <sys/shm.h>
 
 #define FHTTPD_LOG_MODULE_NAME "master"
 
@@ -10,13 +12,16 @@
 #include "log.h"
 #include "server.h"
 #include "worker.h"
+#include "utils.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
+static struct fhttpd_master *local_master = NULL;
+
 bool
-fhttpd_master_prepare (struct fhttpd_master *master)
+fhttpd_master_load_config (struct fhttpd_master *master)
 {
 #ifdef FHTTPD_MAIN_CONFIG_FILE
 	const char *confpath = FHTTPD_MAIN_CONFIG_FILE;
@@ -64,19 +69,83 @@ fhttpd_master_prepare (struct fhttpd_master *master)
 }
 
 bool
+fhttpd_master_reload_config (struct fhttpd_master *master)
+{
+	struct fhttpd_config *prev_config = master->config;
+
+	if (!fhttpd_master_load_config (master))
+		return false;
+
+	fhttpd_conf_free_config (prev_config);
+	return true;
+}
+
+static void
+fhttpd_master_term_handler (int _signal __attribute_maybe_unused__)
+{
+	if (local_master)
+		fhttpd_master_destroy (local_master);
+
+	exit (0);
+}
+
+static void
+fhttpd_master_hup_handler (int _signal __attribute_maybe_unused__)
+{
+	if (!fhttpd_master_reload_config (local_master))
+		return;
+
+	for (size_t i = 0; i < local_master->worker_count; i++)
+	{
+		pid_t worker_pid = local_master->workers[i];
+		fd_t out_fd = local_master->worker_pipes[i][1];
+		uint8_t buf[] = { FHTTPD_IPC_RELOAD_CONFIG };
+		write (out_fd, buf, sizeof buf);
+		kill (worker_pid, SIGHUP);
+	}
+}
+
+bool
+fhttpd_master_prepare (struct fhttpd_master *master)
+{
+	struct sigaction sa = {0};
+
+	sa.sa_flags = SA_RESTART;
+	sa.sa_handler = &fhttpd_master_term_handler;
+
+	if (sigaction (SIGTERM, &sa, NULL) < 0 || sigaction (SIGINT, &sa, NULL) < 0)
+		return false;
+
+	memset (&sa, 0, sizeof sa);
+	sa.sa_flags = SA_RESTART;
+	sa.sa_handler = &fhttpd_master_hup_handler;
+
+	if (sigaction (SIGHUP, &sa, NULL) < 0)
+		return false;
+
+	return fhttpd_master_load_config (master);
+}
+
+bool
 fhttpd_master_start (struct fhttpd_master *master)
 {
 	size_t worker_count = master->config->worker_count;
 
 	master->workers = calloc (worker_count, sizeof (pid_t));
+	master->worker_pipes = calloc (worker_count, sizeof (fd_t [2]));
 
-	if (!master->workers)
+	if (!master->workers || !master->worker_pipes)
 		return false;
 
 	master->worker_count = worker_count;
 
 	for (size_t i = 0; i < worker_count; i++)
 	{
+		fd_t pipe_fd[2];
+
+		if (pipe (pipe_fd) < 0)
+			return false;
+
 		pid_t pid = fork ();
 
 		if (pid < 0)
@@ -84,11 +153,15 @@ fhttpd_master_start (struct fhttpd_master *master)
 
 		if (pid == 0)
 		{
-			fhttpd_worker_start (master);
+			fhttpd_worker_start (master, pipe_fd);
+			_exit (1);
 		}
 		else
 		{
+			fd_set_nonblocking (pipe_fd[0]);
+			fd_set_nonblocking (pipe_fd[1]);
 			master->workers[i] = pid;
+			memcpy (master->worker_pipes[i], pipe_fd, sizeof pipe_fd);
 			fhttpd_log_info ("Started worker process: %d", pid);
 		}
 	}
@@ -114,6 +187,7 @@ fhttpd_master_destroy (struct fhttpd_master *master)
 			fhttpd_conf_free_config (master->config);
 	}
 
+	free (master->worker_pipes);
 	free (master->workers);
 	free (master);
 }
@@ -127,5 +201,7 @@ fhttpd_master_create (void)
 		return NULL;
 
 	master->pid = getpid ();
+	local_master = master;
+
 	return master;
 }

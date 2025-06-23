@@ -38,19 +38,24 @@
 #include "utils.h"
 
 #ifdef HAVE_RESOURCES
-#include "resources.h"
+#	include "resources.h"
 #endif
 
 #define FHTTPD_DEFAULT_BACKLOG SOMAXCONN
 #define MAX_EVENTS 64
 
 struct fhttpd_server *
-fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *config)
+fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *config, fd_t pipe_fd[static 2])
 {
 	struct fhttpd_server *server = calloc (1, sizeof (struct fhttpd_server));
 
 	if (!server)
 		return NULL;
+
+	memcpy (server->pipe_fd, pipe_fd, sizeof server->pipe_fd);
+
+	fd_set_nonblocking (pipe_fd[0]);
+	fd_set_nonblocking (pipe_fd[1]);
 
 	server->master_pid = master->pid;
 	server->pid = getpid ();
@@ -97,20 +102,6 @@ fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *
 	server->config = config;
 
 	return server;
-}
-
-static bool
-fhttpd_fd_set_nonblocking (int fd)
-{
-	int flags = fcntl (fd, F_GETFL);
-
-	if (flags < 0)
-		return false;
-
-	if (fcntl (fd, F_SETFL, flags | O_NONBLOCK) < 0)
-		return false;
-
-	return true;
 }
 
 static bool
@@ -217,7 +208,7 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
 			return false;
 		}
 
-		fhttpd_fd_set_nonblocking (sockfd);
+		fd_set_nonblocking (sockfd);
 		server->listen_fds = realloc (server->listen_fds, sizeof (fd_t) * ++server->listen_fd_count);
 
 		if (!server->listen_fds)
@@ -264,10 +255,9 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
 	return true;
 }
 
-bool
-fhttpd_server_prepare (struct fhttpd_server *server)
+void
+fhttpd_server_config_host_map (struct fhttpd_server *server)
 {
-
 	for (size_t i = 0; i < server->config->host_count; i++)
 	{
 		struct fhttpd_config_host *host = &server->config->hosts[i];
@@ -277,6 +267,12 @@ fhttpd_server_prepare (struct fhttpd_server *server)
 	}
 
 	fhttpd_wclog_debug ("Mapped all host configs");
+}
+
+bool
+fhttpd_server_prepare (struct fhttpd_server *server)
+{
+	fhttpd_server_config_host_map (server);
 	return fhttpd_server_create_sockets (server);
 }
 
@@ -285,6 +281,9 @@ fhttpd_server_destroy (struct fhttpd_server *server)
 {
 	if (!server)
 		return;
+
+	close (server->pipe_fd[0]);
+	close (server->pipe_fd[1]);
 
 	if (server->host_config_table)
 		strtable_destroy (server->host_config_table);
@@ -418,7 +417,7 @@ fhttpd_server_accept (struct fhttpd_server *server, size_t fd_index)
 	fhttpd_wclog_info ("Accepted connection from %s:%d", ip, ntohs (client_addr.sin_port));
 
 #if !defined(__linux__) && !defined(__FreeBSD__)
-	if (!fhttpd_fd_set_nonblocking (client_sockfd))
+	if (!fd_set_nonblocking (client_sockfd))
 	{
 		close (client_sockfd);
 		return false;

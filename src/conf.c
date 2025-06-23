@@ -2553,15 +2553,3 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 		printf ("\n");
 	}
 }
-
-#if 0
-void
-fhttpd_conf_serialize (const struct fhttpd_config *config, uint8_t *outp, size_t *sizep)
-{
-}
-
-void
-fhttpd_conf_deserialize (const struct fhttpd_config *config, uint8_t *outp, size_t *sizep)
-{
-}
-#endif

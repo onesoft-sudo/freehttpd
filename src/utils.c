@@ -7,10 +7,26 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 #include "compat.h"
 #include "utils.h"
+
+bool
+fd_set_nonblocking (int fd)
+{
+	int flags = fcntl (fd, F_GETFL);
+
+	if (flags < 0)
+		return false;
+
+	if (fcntl (fd, F_SETFL, flags | O_NONBLOCK) < 0)
+		return false;
+
+	return true;
+}
+
 
 uint64_t
 get_current_timestamp (void)

@@ -1,6 +1,6 @@
 bin_PROGRAMS = freehttpd
 
-AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99 -Wno-gnu-zero-variadic-macro-arguments
+AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99
 AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES
 
 freehttpd_SOURCES = \

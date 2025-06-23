@@ -49,12 +49,15 @@ struct fhttpd_server
 	/* (fd_t) => (struct fhttpd_connection *) */
 	struct itable *connections;
 	uint64_t last_connection_id;
+
+	fd_t pipe_fd[2];
 };
 
 __noreturn void fhttpd_server_loop (struct fhttpd_server *server);
 
-struct fhttpd_server *fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *config);
+struct fhttpd_server *fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *config, fd_t pipe_fd[static 2]);
 bool fhttpd_server_prepare (struct fhttpd_server *server);
 void fhttpd_server_destroy (struct fhttpd_server *server);
+void fhttpd_server_config_host_map (struct fhttpd_server *server);
 
 #endif /* FHTTPD_SERVER_H */
