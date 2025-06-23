@@ -234,6 +234,7 @@ fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const c
 void
 fhttpd_request_free (struct fhttpd_request *request, bool inner_only)
 {
+	free (request->full_host);
 	free (request->path);
 	free (request->qs);
 	free (request->uri);

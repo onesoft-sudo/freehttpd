@@ -272,9 +272,7 @@ fhttpd_server_prepare (struct fhttpd_server *server)
 		auto host = &server->config->hosts[i];
 
 		for (size_t j = 0; j < host->bound_addr_count; j++)
-		{
-			strtable_set (server->host_config_table, host->bound_addrs[j].hostname, host);
-		}
+			strtable_set (server->host_config_table, host->bound_addrs[j].full_hostname, host);
 	}
 
 	fhttpd_wclog_debug ("Mapped all host configs");
@@ -531,10 +529,7 @@ fhttpd_process_static_request (struct fhttpd_server *server, const struct fhttpd
 {
 	const char *docroot = config->host_config->docroot;
 	const size_t docroot_len = strlen (docroot);
-
-	/** FIXME: Hardcoded value */
-	const size_t __TODO_FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE = 128 * 1024 * 1024;
-	const size_t max_body_len = __TODO_FHTTPD_CONFIG_MAX_RESPONSE_BODY_SIZE;
+	const size_t max_body_len = config->host_config->sec_max_response_body_size;
 
 	response->ready = false;
 	response->fd = -1;
@@ -660,10 +655,11 @@ fhttpd_process_request (struct fhttpd_server *server, struct fhttpd_connection *
 {
 	struct fhttpd_request *request = &conn->requests[request_index];
 	fhttpd_wclog_info ("Processing request #%zu for connection #%lu", request_index, conn->id);
-	struct fhttpd_config_host *config = strtable_get (server->host_config_table, conn->hostname);
+	struct fhttpd_config_host *config = strtable_get (server->host_config_table, conn->full_hostname);
 
 	if (!config)
-		config = server->host_config_table->head->data;
+		config = strtable_get (server->host_config_table,
+							   server->config->hosts[server->config->default_host_index].bound_addrs[0].full_hostname);
 
 	if (!config || !config->host_config)
 	{
@@ -704,6 +700,8 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 		else
 			return LOOP_OPERATION_NONE;
 
+		struct fhttpd_bound_addr *dfl_addr = &server->config->hosts[server->config->default_host_index].bound_addrs[0];
+
 		switch (conn->protocol)
 		{
 			case FHTTPD_PROTOCOL_HTTP1x:
@@ -712,8 +710,10 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				memcpy (conn->http1_req_ctx.buffer, conn->buffers.protobuf, H2_PREFACE_SIZE);
 				conn->http1_req_ctx.buffer_len = H2_PREFACE_SIZE;
 				conn->mode = FHTTPD_CONNECTION_MODE_READ;
-				conn->hostname = server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname;
-				conn->hostname_len = server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname_len;
+				conn->hostname = dfl_addr->hostname;
+				conn->hostname_len = dfl_addr->hostname_len;
+				conn->full_hostname = dfl_addr->full_hostname;
+				conn->full_hostname_len = dfl_addr->full_hostname_len;
 				fhttpd_wclog_info ("Connection #%lu: HTTP/1.x protocol initialized", conn->id);
 				break;
 
@@ -732,14 +732,10 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				fhttpd_wclog_error ("Connection #%lu: HTTP/1.x parsing failed", conn->id);
 				conn->mode = FHTTPD_CONNECTION_MODE_WRITE;
 
-				if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
-					fhttpd_server_free_connection (server, conn);
-				else
-				{
-					http1_parser_ctx_init (&conn->http1_req_ctx);
-					conn->last_request_timestamp = get_current_timestamp ();
-				}
-
+				if (fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
+					fhttpd_connection_send_response (conn, 0, NULL);
+				
+				fhttpd_server_free_connection (server, conn);
 				return LOOP_OPERATION_NONE;
 			}
 
@@ -764,14 +760,10 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				{
 					fhttpd_wclog_error ("Memory allocation failed");
 
-					if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
-						fhttpd_server_free_connection (server, conn);
-					else
-					{
-						http1_parser_ctx_init (&conn->http1_req_ctx);
-						conn->last_request_timestamp = get_current_timestamp ();
-					}
-
+					if (fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
+						fhttpd_connection_send_response (conn, 0, NULL);
+					
+					fhttpd_server_free_connection (server, conn);
 					return LOOP_OPERATION_NONE;
 				}
 
@@ -786,6 +778,8 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				request->uri_len = conn->http1_req_ctx.result.uri_len;
 				request->host = conn->http1_req_ctx.result.host;
 				request->host_len = conn->http1_req_ctx.result.host_len;
+				request->full_host = conn->http1_req_ctx.result.full_host;
+				request->full_host_len = conn->http1_req_ctx.result.full_host_len;
 				request->host_port = conn->http1_req_ctx.result.host_port;
 				request->qs = conn->http1_req_ctx.result.qs;
 				request->qs_len = conn->http1_req_ctx.result.qs_len;
@@ -801,47 +795,28 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 				if (conn->request_count == 1)
 				{
-					struct fhttpd_config_host *host_config = strtable_get (server->host_config_table, request->host);
+					struct fhttpd_config_host *host_config
+						= strtable_get (server->host_config_table, request->full_host);
+					struct fhttpd_bound_addr *dfl_addr
+						= &server->config->hosts[server->config->default_host_index].bound_addrs[0];
 					bool known_host = host_config != NULL && conn->port == request->host_port;
+					fhttpd_wclog_debug ("%s is%s a known host", request->full_host, known_host ? "" : " not");
 
-					if (known_host)
-					{
-						known_host = false;
-
-						for (size_t i = 0; i < host_config->bound_addr_count; i++)
-						{
-							if (host_config->bound_addrs[i].port == request->host_port)
-							{
-								known_host = true;
-								break;
-							}
-						}
-					}
-
-					fhttpd_wclog_debug ("%s is%s a known host", request->host, known_host ? "" : " not");
-
-					conn->hostname
-						= known_host ? request->host
-									 : server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname;
-					conn->hostname_len
-						= known_host
-							  ? request->host_len
-							  : server->config->hosts[server->config->default_host_index].bound_addrs[0].hostname_len;
+					conn->hostname = known_host ? request->host : dfl_addr->hostname;
+					conn->hostname_len = known_host ? request->host_len : dfl_addr->hostname_len;
+					conn->full_hostname = known_host ? request->full_host : dfl_addr->full_hostname;
+					conn->full_hostname_len = known_host ? request->full_host_len : dfl_addr->full_hostname_len;
 				}
-				else if (strcmp (conn->hostname, request->host) || conn->port != request->host_port)
+				else if (strcmp (conn->full_hostname, request->full_host) || conn->port != request->host_port)
 				{
 					fhttpd_wclog_debug (
 						"Connection #%lu: Request #%zu: Host '%s' doesn't match with initial connection host '%s'",
-						conn->id, conn->request_count - 1, request->host, conn->hostname);
+						conn->id, conn->request_count - 1, request->full_host, conn->full_hostname);
 
-					if (!fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
-						fhttpd_server_free_connection (server, conn);
-					else
-					{
-						http1_parser_ctx_init (&conn->http1_req_ctx);
-						conn->last_request_timestamp = get_current_timestamp ();
-					}
-
+					if (fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
+						fhttpd_connection_send_response (conn, 0, NULL);
+					
+					fhttpd_server_free_connection (server, conn);
 					return LOOP_OPERATION_NONE;
 				}
 
@@ -866,15 +841,10 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 					return LOOP_OPERATION_NONE;
 				}
 
-				if (!fhttpd_connection_defer_error_response (
-						conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), FHTTPD_STATUS_BAD_REQUEST))
-					fhttpd_server_free_connection (server, conn);
-				else
-				{
-					http1_parser_ctx_init (&conn->http1_req_ctx);
-					conn->last_request_timestamp = get_current_timestamp ();
-				}
-
+				if (fhttpd_connection_defer_error_response (conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
+					fhttpd_connection_send_response (conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), NULL);
+				
+				fhttpd_server_free_connection (server, conn);
 				return LOOP_OPERATION_NONE;
 			}
 			break;
@@ -940,6 +910,10 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
 			if (!fhttpd_process_request (server, conn, i, response))
 			{
 				fhttpd_wclog_debug ("Connection #%lu: Failed to process request", conn->id);
+
+				if (fhttpd_connection_defer_error_response (conn, i + 1, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
+					fhttpd_connection_send_response (conn, i + 1, NULL);
+
 				fhttpd_server_free_connection (server, conn);
 				return LOOP_OPERATION_NONE;
 			}
@@ -1061,12 +1035,6 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
 	if (!server || !server->connections)
 		return false;
 
-	/** FIXME: Hardcoded values */
-	const uint32_t recv_timeout = 8000;
-	const uint32_t send_timeout = 8000;
-	const uint32_t header_timeout = 15000;
-	const uint32_t body_timeout = 25000;
-
 	struct itable_entry *entry = server->connections->head;
 	size_t count = 0;
 
@@ -1077,6 +1045,15 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
 
 		if (conn)
 		{
+			const struct fhttpd_config_host *host_config
+				= strtable_get (server->host_config_table, conn->full_hostname);
+			const struct fhttpd_config *config = host_config ? host_config->host_config : server->config;
+
+			const uint32_t recv_timeout = config->sec_recv_timeout;
+			const uint32_t send_timeout = config->sec_send_timeout;
+			const uint32_t header_timeout = config->sec_header_timeout;
+			const uint32_t body_timeout = config->sec_body_timeout;
+
 			fhttpd_wclog_debug ("Checking connection #%lu", conn->id);
 
 			bool is_recv_timeout = conn->last_recv_timestamp + recv_timeout < current_time;

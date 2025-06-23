@@ -17,6 +17,8 @@ struct fhttpd_bound_addr
 {
     char *hostname;
     size_t hostname_len;
+    char *full_hostname;
+    size_t full_hostname_len;
     uint16_t port;
 };
 
@@ -30,13 +32,23 @@ struct fhttpd_config_host
 struct fhttpd_config
 {
     char *conf_root;
+    size_t worker_count;
+
     enum fhttpd_log_level logging_min_level;
     char *logging_file;
     char *logging_error_file;
+
     struct fhttpd_config_host *hosts;
     size_t host_count;
     ssize_t default_host_index;
+
     char *docroot;
+
+    size_t sec_max_response_body_size;
+    uint32_t sec_recv_timeout;
+    uint32_t sec_send_timeout;
+    uint32_t sec_header_timeout;
+    uint32_t sec_body_timeout;
 };
 
 struct fhttpd_conf_parser;

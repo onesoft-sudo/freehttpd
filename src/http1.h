@@ -44,6 +44,8 @@ struct http1_parser_result
     char *uri;
     size_t uri_len;
     uint16_t host_port;
+    char *full_host;
+    size_t full_host_len;
     char *qs;
     size_t qs_len;
     char *path;

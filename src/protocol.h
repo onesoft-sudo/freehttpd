@@ -72,6 +72,8 @@ struct fhttpd_request
     enum fhttpd_method method;
     char *host;
     size_t host_len;
+    char *full_host;
+    size_t full_host_len;
     uint16_t host_port;
     char *uri;
     size_t uri_len;

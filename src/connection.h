@@ -53,6 +53,8 @@ struct fhttpd_connection
     uint16_t port;
     const char *hostname;
     size_t hostname_len;
+    const char *full_hostname;
+    size_t full_hostname_len;
 
     enum fhttpd_connection_mode mode;
 

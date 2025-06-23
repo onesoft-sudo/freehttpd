@@ -122,8 +122,7 @@ fhttpd_master_prepare (struct fhttpd_master *master)
 bool
 fhttpd_master_start (struct fhttpd_master *master)
 {
-	/** FIXME: Hardcoded value */
-	size_t worker_count = 4;
+	size_t worker_count = master->config->worker_count;
 
 	master->workers = calloc (worker_count, sizeof (pid_t));
 

@@ -1584,7 +1584,7 @@ static struct fhttpd_config *dfl_host_config_ptr = NULL;
 
 static bool
 fhttpd_prop_set_host_is_default (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-								   struct fhttpd_config *config, const struct conf_node *value)
+								 struct fhttpd_config *config, const struct conf_node *value)
 {
 	if (value->literal.bool_value)
 		dfl_host_config_ptr = config;
@@ -1592,7 +1592,97 @@ fhttpd_prop_set_host_is_default (struct fhttpd_conf_parser *parser __attribute_m
 	return true;
 }
 
-static const char *valid_blocks[] = { "logging", "host", NULL };
+static bool
+fhttpd_prop_set_security_max_response_body_size (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+												 struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.int_value <= 0)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid negative/zero value for security.max_response_body_size");
+		return false;
+	}
+
+	config->sec_max_response_body_size = (size_t) value->literal.int_value;
+	return true;
+}
+
+static bool
+fhttpd_prop_set_worker_count (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+							  struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.int_value <= 0)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid negative/zero value for worker_count");
+		return false;
+	}
+
+	config->worker_count = (size_t) value->literal.int_value;
+	return true;
+}
+
+static bool
+fhttpd_prop_set_security_recv_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+									   struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.int_value <= 0 || value->literal.int_value >= UINT32_MAX)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid negative/zero value for security.recv_timeout");
+		return false;
+	}
+
+	config->sec_recv_timeout = (uint32_t) value->literal.int_value;
+	return true;
+}
+
+static bool
+fhttpd_prop_set_security_send_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+									   struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.int_value <= 0 || value->literal.int_value >= UINT32_MAX)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid negative/zero value for security.send_timeout");
+		return false;
+	}
+
+	config->sec_send_timeout = (uint32_t) value->literal.int_value;
+	return true;
+}
+
+static bool
+fhttpd_prop_set_security_header_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+										 struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.int_value <= 0 || value->literal.int_value >= UINT32_MAX)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid negative/zero value for security.header_timeout");
+		return false;
+	}
+
+	config->sec_header_timeout = (uint32_t) value->literal.int_value;
+	return true;
+}
+
+static bool
+fhttpd_prop_set_security_body_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
+									   struct fhttpd_config *config, const struct conf_node *value)
+{
+	if (value->literal.int_value <= 0 || value->literal.int_value >= UINT32_MAX)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
+								  "Invalid negative/zero value for security.body_timeout");
+		return false;
+	}
+
+	config->sec_body_timeout = (uint32_t) value->literal.int_value;
+	return true;
+}
+
+static const char *valid_blocks[] = { "logging", "host", "security", NULL };
 
 /* Property descriptor, validator and handler definitions */
 static struct fhttpd_config_property const properties[] = {
@@ -1601,6 +1691,12 @@ static struct fhttpd_config_property const properties[] = {
 		CONF_VALUE_TYPE_STRING,
 		NULL,
 		&fhttpd_prop_set_root,
+	},
+	{
+		"worker_count",
+		CONF_VALUE_TYPE_STRING,
+		NULL,
+		&fhttpd_prop_set_worker_count,
 	},
 	{
 		"logging.min_level",
@@ -1631,6 +1727,36 @@ static struct fhttpd_config_property const properties[] = {
 		CONF_VALUE_TYPE_BOOLEAN,
 		NULL,
 		&fhttpd_prop_set_host_is_default,
+	},
+	{
+		"security.max_response_body_size",
+		CONF_VALUE_TYPE_INT,
+		NULL,
+		&fhttpd_prop_set_security_max_response_body_size,
+	},
+	{
+		"security.recv_timeout",
+		CONF_VALUE_TYPE_INT,
+		NULL,
+		&fhttpd_prop_set_security_recv_timeout,
+	},
+	{
+		"security.send_timeout",
+		CONF_VALUE_TYPE_INT,
+		NULL,
+		&fhttpd_prop_set_security_send_timeout,
+	},
+	{
+		"security.header_timeout",
+		CONF_VALUE_TYPE_INT,
+		NULL,
+		&fhttpd_prop_set_security_header_timeout,
+	},
+	{
+		"security.body_timeout",
+		CONF_VALUE_TYPE_INT,
+		NULL,
+		&fhttpd_prop_set_security_body_timeout,
 	},
 	{
 		NULL,
@@ -1954,10 +2080,44 @@ fhttpd_conf_node_walk_include_glob (struct fhttpd_conf_parser *parser, const str
 	return true;
 }
 
+static void
+fhttpd_conf_init (struct fhttpd_config *config)
+{
+	config->default_host_index = -1;
+	config->worker_count = 4;
+	config->conf_root = strdup ("/etc/freehttpd");
+	config->sec_max_response_body_size = 256UL * 1024UL * 1024UL; /* 256 MiB */
+	config->sec_body_timeout = 25000;   /* 25s */
+	config->sec_header_timeout = 15000; /* 15s */
+	config->sec_recv_timeout = 8000;    /* 8s  */
+	config->sec_send_timeout = 8000;    /* 8s  */
+}
+
+static void
+fhttpd_conf_dup (struct fhttpd_config *dest, const struct fhttpd_config *src)
+{
+	memcpy (dest, src, sizeof (*dest));
+
+	dest->hosts = NULL;
+	dest->host_count = 0;
+
+	dest->conf_root = src->conf_root ? strdup (src->conf_root) : NULL;
+	dest->docroot = src->docroot ? strdup (src->docroot) : NULL;
+	dest->logging_file = src->logging_file ? strdup (src->logging_file) : NULL;
+	dest->logging_error_file = src->logging_error_file ? strdup (src->logging_error_file) : NULL;
+}
+
 static bool
 fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct conf_node *block,
 							   struct fhttpd_config *config)
 {
+	if (block->parent)
+	{
+		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, block->line, block->column,
+								  "host (...) {...} must be used at the top level");
+		return false;
+	}
+
 	if (block->block.argc == 0)
 	{
 		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, block->line, block->column,
@@ -2068,11 +2228,23 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 				}
 
 				struct fhttpd_bound_addr addr = { 0 };
+				size_t port_len = strlen (ports_splitted->strings[i]);
 
 				addr.hostname = strdup (host_entry);
 				addr.hostname_len = strlen (host_entry);
-				addr.port = (uint16_t) port;
+				char *full_host_name = malloc (addr.hostname_len + port_len + 4);
 
+				if (full_host_name)
+				{
+					strncpy (full_host_name, addr.hostname, addr.hostname_len);
+					strncpy (full_host_name + addr.hostname_len, ":", 2);
+					strncpy (full_host_name + addr.hostname_len + 1, ports_splitted->strings[i], port_len);
+					full_host_name[addr.hostname_len + port_len + 1] = 0;
+				}
+
+				addr.port = (uint16_t) port;
+				addr.full_hostname = full_host_name;
+				addr.full_hostname_len = full_host_name ? addr.hostname_len + port_len + 1 : 0;
 				addrs[addr_index++] = addr;
 			}
 
@@ -2121,7 +2293,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 		return false;
 	}
 
-	local_config->default_host_index = -1;
+	fhttpd_conf_dup (local_config, config);
 
 	for (size_t i = 0; i < block->block.child_count; i++)
 	{
@@ -2153,10 +2325,26 @@ fhttpd_conf_handle_block (struct fhttpd_conf_parser *parser, const struct conf_n
 {
 	const char *block_name = block->block.name->identifier.value;
 
-	if (!strcmp (block_name, "logging"))
+	if (!strcmp (block_name, "logging") || !strcmp (block_name, "security"))
 	{
 		for (size_t i = 0; i < block->block.child_count; i++)
 		{
+			if (block->parent && strcmp (block->parent->block.name->identifier.value, "host"))
+			{
+				fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, block->parent->line,
+										  block->parent->column, "Invalid nesting: block '%s' inside '%s'", block_name,
+										  block->parent->block.name->identifier.value);
+				return false;
+			}
+
+			if (block->block.children[i]->type == CONF_NODE_BLOCK)
+			{
+				fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, block->block.children[i]->line,
+										  block->block.children[i]->column, "Invalid nesting: block '%s' inside '%s'",
+										  block->block.children[i]->block.name->identifier.value, block_name);
+				return false;
+			}
+
 			if (!fhttpd_conf_walk (parser, block->block.children[i], config))
 				return false;
 		}
@@ -2239,6 +2427,7 @@ fhttpd_conf_free_config (struct fhttpd_config *config)
 			{
 				for (size_t j = 0; j < config->hosts[i].bound_addr_count; j++)
 				{
+					free (config->hosts[i].bound_addrs[j].full_hostname);
 					free (config->hosts[i].bound_addrs[j].hostname);
 				}
 
@@ -2274,7 +2463,7 @@ fhttpd_conf_process (struct fhttpd_conf_parser *parser)
 		return NULL;
 	}
 
-	config->default_host_index = -1;
+	fhttpd_conf_init (config);
 
 	if (!fhttpd_conf_walk (parser, root, config))
 	{
@@ -2303,11 +2492,18 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 
 	printf ("%*ssrv_root: %s\n", (int) indent, "", config->conf_root ? config->conf_root : "(null)");
 	printf ("%*sdocroot: %s\n", (int) indent, "", config->docroot ? config->docroot : "(null)");
+	printf ("%*sworker_count: %zu\n", (int) indent, "", config->worker_count);
 
 	printf ("%*slogging.min_level: %d\n", (int) indent, "", config->logging_min_level);
 	printf ("%*slogging.file: %s\n", (int) indent, "", config->logging_file ? config->logging_file : "(null)");
 	printf ("%*slogging.error_file: %s\n", (int) indent, "",
 			config->logging_error_file ? config->logging_error_file : "(null)");
+
+	printf ("%*ssecurity.recv_timeout: %u\n", (int) indent, "", config->sec_recv_timeout);
+	printf ("%*ssecurity.send_timeout: %u\n", (int) indent, "", config->sec_send_timeout);
+	printf ("%*ssecurity.header_timeout: %u\n", (int) indent, "", config->sec_header_timeout);
+	printf ("%*ssecurity.body_timeout: %u\n", (int) indent, "", config->sec_body_timeout);
+	printf ("%*ssecurity.max_response_body_size: %zu\n", (int) indent, "", config->sec_max_response_body_size);
 
 	for (size_t i = 0; i < config->host_count; i++)
 	{
