@@ -1,6 +1,7 @@
 #ifndef FHTTPD_CONF_H
 #define FHTTPD_CONF_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "log.h"
@@ -10,46 +11,46 @@ enum conf_parser_error
 	CONF_PARSER_ERROR_NONE = 0,
 	CONF_PARSER_ERROR_SYNTAX_ERROR,
 	CONF_PARSER_ERROR_MEMORY,
-    CONF_PARSER_ERROR_INVALID_CONFIG,
+	CONF_PARSER_ERROR_INVALID_CONFIG,
 };
 
 struct fhttpd_bound_addr
 {
-    char *hostname;
-    size_t hostname_len;
-    char *full_hostname;
-    size_t full_hostname_len;
-    uint16_t port;
+	char *hostname;
+	size_t hostname_len;
+	char *full_hostname;
+	size_t full_hostname_len;
+	uint16_t port;
 };
 
 struct fhttpd_config_host
 {
-    struct fhttpd_bound_addr *bound_addrs;
-    size_t bound_addr_count;
-    struct fhttpd_config *host_config;
+	struct fhttpd_bound_addr *bound_addrs;
+	size_t bound_addr_count;
+	struct fhttpd_config *host_config;
 };
 
 struct fhttpd_config
 {
-    char *conf_root;
-    size_t worker_count;
+	char *conf_root;
+	size_t worker_count;
 
-    enum fhttpd_log_level logging_min_level;
-    char *logging_file;
-    char *logging_error_file;
+	enum fhttpd_log_level logging_min_level;
+	char *logging_file;
+	char *logging_error_file;
 
-    struct fhttpd_config_host *hosts;
-    size_t host_count;
-    ssize_t default_host_index;
+	struct fhttpd_config_host *hosts;
+	size_t host_count;
+	ssize_t default_host_index;
 
-    char *docroot;
+	char *docroot;
 
-    size_t sec_max_response_body_size;
-    size_t sec_max_connections;
-    uint32_t sec_recv_timeout;
-    uint32_t sec_send_timeout;
-    uint32_t sec_header_timeout;
-    uint32_t sec_body_timeout;
+	size_t sec_max_response_body_size;
+	size_t sec_max_connections;
+	uint32_t sec_recv_timeout;
+	uint32_t sec_send_timeout;
+	uint32_t sec_header_timeout;
+	uint32_t sec_body_timeout;
 };
 
 struct fhttpd_conf_parser;

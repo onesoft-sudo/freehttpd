@@ -1,17 +1,17 @@
 #ifndef FHTTPD_MASTER_H
 #define FHTTPD_MASTER_H
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "conf.h"
 
 struct fhttpd_master
 {
-    pid_t pid;
-    pid_t *workers;
-    size_t worker_count;
-    struct fhttpd_config *config;
+	pid_t pid;
+	pid_t *workers;
+	size_t worker_count;
+	struct fhttpd_config *config;
 };
 
 struct fhttpd_master *fhttpd_master_create (void);

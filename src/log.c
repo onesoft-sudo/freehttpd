@@ -77,7 +77,7 @@ log_level_to_string_len (log_level_t level)
 	switch (level)
 	{
 		case FHTTPD_LOG_LEVEL_INFO:
-            return 1;
+			return 1;
 		default:
 			return 0;
 	}

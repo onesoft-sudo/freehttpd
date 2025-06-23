@@ -5,10 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-struct bitmap {
-    uint64_t *bits;
-    size_t size;
-    size_t bit_size : 6;
+struct bitmap
+{
+	uint64_t *bits;
+	size_t size;
+	size_t bit_size : 6;
 };
 
 typedef struct bitmap bitmap_t;

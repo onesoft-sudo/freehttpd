@@ -9,19 +9,19 @@
 
 struct itable_entry
 {
-    uint64_t key;
-    void *data;
-    struct itable_entry *next;
-    struct itable_entry *prev;
+	uint64_t key;
+	void *data;
+	struct itable_entry *next;
+	struct itable_entry *prev;
 };
 
 struct itable
 {
-    size_t capacity;
-    size_t count;
-    struct itable_entry *head;
-    struct itable_entry *tail;
-    struct itable_entry *buckets;
+	size_t capacity;
+	size_t count;
+	struct itable_entry *head;
+	struct itable_entry *tail;
+	struct itable_entry *buckets;
 };
 
 struct itable *itable_create (size_t capacity);

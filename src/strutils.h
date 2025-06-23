@@ -5,8 +5,8 @@
 
 struct str_split_result
 {
-    char **strings;
-    size_t count;
+	char **strings;
+	size_t count;
 };
 
 char *str_trim_whitespace (const char *str, size_t len, size_t *out_len);

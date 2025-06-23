@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "compat.h"
 #include "protocol.h"
 
 #define STREAM_DETECT_INITIAL_READ_SIZE 64

@@ -9,19 +9,19 @@
 
 struct strtable_entry
 {
-    char *key;
-    void *data;
-    struct strtable_entry *next;
-    struct strtable_entry *prev;
+	char *key;
+	void *data;
+	struct strtable_entry *next;
+	struct strtable_entry *prev;
 };
 
 struct strtable
 {
-    size_t capacity;
-    size_t count;
-    struct strtable_entry *head;
-    struct strtable_entry *tail;
-    struct strtable_entry *buckets;
+	size_t capacity;
+	size_t count;
+	struct strtable_entry *head;
+	struct strtable_entry *tail;
+	struct strtable_entry *buckets;
 };
 
 struct strtable *strtable_create (size_t capacity);

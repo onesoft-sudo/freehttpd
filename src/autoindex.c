@@ -98,7 +98,7 @@ fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *
 #ifndef NDEBUG
 	uint64_t start = get_current_timestamp ();
 #endif /* NDEBUG */
-	
+
 	fhttpd_header_add (&response->headers, "Content-Type", "text/html; charset=UTF-8", 12, 24);
 
 	size_t buf_size = 128, buf_len = 0;
@@ -114,7 +114,6 @@ fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *
 	}
 
 	struct dirent **entries;
-	size_t total_entries = 0;
 
 	bool is_root = request->path_len == 1 && request->path[0] == '/';
 
@@ -227,7 +226,6 @@ fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *
 		}
 
 		buf_len += bytes_written;
-		total_entries++;
 
 		free (entries[i]);
 		entries[i] = NULL;
@@ -283,13 +281,13 @@ fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *
 	if (request->method == FHTTPD_METHOD_HEAD)
 	{
 		free (html);
-        fhttpd_header_add_printf (&response->headers, "Content-Length", 14, "%d", bytes_written);
+		fhttpd_header_add_printf (&response->headers, "Content-Length", 14, "%d", bytes_written);
 	}
 
 	free (buf);
 
 #ifndef NDEBUG
-	fhttpd_wclog_debug ("Indexed directory '%s' in %lums", filepath, get_current_timestamp() - start);
+	fhttpd_wclog_debug ("Indexed directory '%s' in %lums", filepath, get_current_timestamp () - start);
 #endif /* NDEBUG */
 
 	return true;

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
+#include "compat.h"
 #include "log.h"
 #include "server.h"
 
@@ -31,7 +32,7 @@ fhttpd_worker_signal_handler (int signum)
 	}
 }
 
-static _Noreturn void
+static __noreturn void
 fhttpd_worker_start (struct fhttpd_master *master)
 {
 	struct sigaction sa;
@@ -101,7 +102,7 @@ fhttpd_master_prepare (struct fhttpd_master *master)
 
 	if (!config)
 	{
-		auto rc = fhttpd_conf_parser_last_error (parser);
+		enum conf_parser_error rc = fhttpd_conf_parser_last_error (parser);
 
 		if (rc == CONF_PARSER_ERROR_SYNTAX_ERROR || rc == CONF_PARSER_ERROR_INVALID_CONFIG)
 			fhttpd_conf_parser_print_error (parser);
@@ -169,7 +170,7 @@ fhttpd_master_destroy (struct fhttpd_master *master)
 		if (master->config)
 			fhttpd_conf_free_config (master->config);
 	}
-	
+
 	free (master->workers);
 	free (master);
 }

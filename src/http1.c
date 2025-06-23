@@ -672,7 +672,7 @@ http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 					char buf[4096];
 					fhttpd_wclog_debug ("Parser error, draining buffer and rejecting request");
 
-                    errno = 0;
+					errno = 0;
 
 					while (errno == 0 && fhttpd_connection_recv (conn, buf, sizeof (buf), 0) > 0)
 						;

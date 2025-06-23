@@ -172,6 +172,7 @@ fhttpd_server_create_sockets (struct fhttpd_server *server)
 			ports[port_count++] = addr->port;
 
 		fhttpd_server_create_sockets_addr_end:
+			continue;
 		}
 	}
 
@@ -269,7 +270,7 @@ fhttpd_server_prepare (struct fhttpd_server *server)
 
 	for (size_t i = 0; i < server->config->host_count; i++)
 	{
-		auto host = &server->config->hosts[i];
+		struct fhttpd_config_host *host = &server->config->hosts[i];
 
 		for (size_t j = 0; j < host->bound_addr_count; j++)
 			strtable_set (server->host_config_table, host->bound_addrs[j].full_hostname, host);
@@ -705,10 +706,11 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 		switch (conn->protocol)
 		{
 			case FHTTPD_PROTOCOL_HTTP1x:
-				http1_parser_ctx_init (&conn->http1_req_ctx);
-				static_assert (sizeof (conn->http1_req_ctx.buffer) >= H2_PREFACE_SIZE);
-				memcpy (conn->http1_req_ctx.buffer, conn->buffers.protobuf, H2_PREFACE_SIZE);
-				conn->http1_req_ctx.buffer_len = H2_PREFACE_SIZE;
+				http1_parser_ctx_init (&conn->proto.http1.http1_req_ctx);
+				static_assert (sizeof (conn->proto.http1.http1_req_ctx.buffer) >= H2_PREFACE_SIZE,
+							   "protobuf is smaller than H2 preface");
+				memcpy (conn->proto.http1.http1_req_ctx.buffer, conn->buffers.protobuf, H2_PREFACE_SIZE);
+				conn->proto.http1.http1_req_ctx.buffer_len = H2_PREFACE_SIZE;
 				conn->mode = FHTTPD_CONNECTION_MODE_READ;
 				conn->hostname = dfl_addr->hostname;
 				conn->hostname_len = dfl_addr->hostname_len;
@@ -727,19 +729,19 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 	switch (conn->protocol)
 	{
 		case FHTTPD_PROTOCOL_HTTP1x:
-			if (!http1_parse (conn, &conn->http1_req_ctx))
+			if (!http1_parse (conn, &conn->proto.http1.http1_req_ctx))
 			{
 				fhttpd_wclog_error ("Connection #%lu: HTTP/1.x parsing failed", conn->id);
 				conn->mode = FHTTPD_CONNECTION_MODE_WRITE;
 
 				if (fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_BAD_REQUEST))
 					fhttpd_connection_send_response (conn, 0, NULL);
-				
+
 				fhttpd_server_free_connection (server, conn);
 				return LOOP_OPERATION_NONE;
 			}
 
-			if (conn->http1_req_ctx.state == HTTP1_STATE_DONE)
+			if (conn->proto.http1.http1_req_ctx.state == HTTP1_STATE_DONE)
 			{
 				fhttpd_wclog_info ("Connection #%lu: HTTP/1.x request parsed successfully", conn->id);
 
@@ -762,7 +764,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 					if (fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
 						fhttpd_connection_send_response (conn, 0, NULL);
-					
+
 					fhttpd_server_free_connection (server, conn);
 					return LOOP_OPERATION_NONE;
 				}
@@ -773,24 +775,24 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 				request->conn = conn;
 				request->protocol = conn->protocol;
-				request->method = conn->http1_req_ctx.result.method;
-				request->uri = conn->http1_req_ctx.result.uri;
-				request->uri_len = conn->http1_req_ctx.result.uri_len;
-				request->host = conn->http1_req_ctx.result.host;
-				request->host_len = conn->http1_req_ctx.result.host_len;
-				request->full_host = conn->http1_req_ctx.result.full_host;
-				request->full_host_len = conn->http1_req_ctx.result.full_host_len;
-				request->host_port = conn->http1_req_ctx.result.host_port;
-				request->qs = conn->http1_req_ctx.result.qs;
-				request->qs_len = conn->http1_req_ctx.result.qs_len;
-				request->path = conn->http1_req_ctx.result.path;
-				request->path_len = conn->http1_req_ctx.result.path_len;
-				request->headers = conn->http1_req_ctx.result.headers;
-				request->body = (uint8_t *) conn->http1_req_ctx.result.body;
-				request->body_len = conn->http1_req_ctx.result.body_len;
+				request->method = conn->proto.http1.http1_req_ctx.result.method;
+				request->uri = conn->proto.http1.http1_req_ctx.result.uri;
+				request->uri_len = conn->proto.http1.http1_req_ctx.result.uri_len;
+				request->host = conn->proto.http1.http1_req_ctx.result.host;
+				request->host_len = conn->proto.http1.http1_req_ctx.result.host_len;
+				request->full_host = conn->proto.http1.http1_req_ctx.result.full_host;
+				request->full_host_len = conn->proto.http1.http1_req_ctx.result.full_host_len;
+				request->host_port = conn->proto.http1.http1_req_ctx.result.host_port;
+				request->qs = conn->proto.http1.http1_req_ctx.result.qs;
+				request->qs_len = conn->proto.http1.http1_req_ctx.result.qs_len;
+				request->path = conn->proto.http1.http1_req_ctx.result.path;
+				request->path_len = conn->proto.http1.http1_req_ctx.result.path_len;
+				request->headers = conn->proto.http1.http1_req_ctx.result.headers;
+				request->body = (uint8_t *) conn->proto.http1.http1_req_ctx.result.body;
+				request->body_len = conn->proto.http1.http1_req_ctx.result.body_len;
 
-				memcpy (conn->exact_protocol, conn->http1_req_ctx.result.version, 4);
-				http1_parser_ctx_init (&conn->http1_req_ctx);
+				memcpy (conn->exact_protocol, conn->proto.http1.http1_req_ctx.result.version, 4);
+				http1_parser_ctx_init (&conn->proto.http1.http1_req_ctx);
 				conn->last_request_timestamp = get_current_timestamp ();
 
 				if (conn->request_count == 1)
@@ -815,7 +817,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 					if (fhttpd_connection_defer_error_response (conn, 0, FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
 						fhttpd_connection_send_response (conn, 0, NULL);
-					
+
 					fhttpd_server_free_connection (server, conn);
 					return LOOP_OPERATION_NONE;
 				}
@@ -823,12 +825,12 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 				fhttpd_wclog_info ("Connection #%lu: Accepted request #%zu", conn->id, conn->request_count - 1);
 				return LOOP_OPERATION_NONE;
 			}
-			else if (conn->http1_req_ctx.state == HTTP1_STATE_RECV)
+			else if (conn->proto.http1.http1_req_ctx.state == HTTP1_STATE_RECV)
 			{
 				fhttpd_wclog_debug ("Connection #%lu: Waiting for more data in HTTP/1.x parser", conn->id);
 				return LOOP_OPERATION_NONE;
 			}
-			else if (conn->http1_req_ctx.state == HTTP1_STATE_ERROR)
+			else if (conn->proto.http1.http1_req_ctx.state == HTTP1_STATE_ERROR)
 			{
 				fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x parser encountered an error", conn->id);
 				conn->mode = FHTTPD_CONNECTION_MODE_WRITE;
@@ -841,9 +843,12 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 					return LOOP_OPERATION_NONE;
 				}
 
-				if (fhttpd_connection_defer_error_response (conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
-					fhttpd_connection_send_response (conn, conn->request_count == 0 ? 0 : (conn->request_count - 1), NULL);
-				
+				if (fhttpd_connection_defer_error_response (conn,
+															conn->request_count == 0 ? 0 : (conn->request_count - 1),
+															FHTTPD_STATUS_INTERNAL_SERVER_ERROR))
+					fhttpd_connection_send_response (conn, conn->request_count == 0 ? 0 : (conn->request_count - 1),
+													 NULL);
+
 				fhttpd_server_free_connection (server, conn);
 				return LOOP_OPERATION_NONE;
 			}
@@ -929,8 +934,8 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 	if (conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
 	{
-		memset (&conn->http1_res_ctx, 0, sizeof (conn->http1_res_ctx));
-		conn->http1_res_ctx.fd = -1;
+		memset (&conn->proto.http1.http1_res_ctx, 0, sizeof (conn->proto.http1.http1_res_ctx));
+		conn->proto.http1.http1_res_ctx.fd = -1;
 	}
 
 	bool all_responses_sent = true;
@@ -1063,10 +1068,10 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
 			{
 				fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x protocol", conn->id);
 
-				enum http1_parser_state state = conn->http1_req_ctx.state;
+				enum http1_parser_state state = conn->proto.http1.http1_req_ctx.state;
 
 				if (state == HTTP1_STATE_RECV)
-					state = conn->http1_req_ctx.prev_state;
+					state = conn->proto.http1.http1_req_ctx.prev_state;
 
 				fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x parser state: %d", conn->id, state);
 				fhttpd_wclog_debug ("Connection #%lu: Last recv timestamp: %lu, Last send timestamp: %lu", conn->id,
@@ -1125,7 +1130,7 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
 	return true;
 }
 
-_Noreturn void
+__noreturn void
 fhttpd_server_loop (struct fhttpd_server *server)
 {
 	struct epoll_event events[MAX_EVENTS];
