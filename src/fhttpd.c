@@ -6,6 +6,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define FHTTPD_LOG_MODULE_NAME "main"
+
 #include "conf.h"
 #include "log.h"
 #include "server.h"

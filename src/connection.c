@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define FHTTPD_LOG_MODULE_NAME "connection"
+
 #include "connection.h"
 #include "http1.h"
 #include "log.h"

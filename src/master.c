@@ -4,6 +4,8 @@
 #include <string.h>
 #include <sys/wait.h>
 
+#define FHTTPD_LOG_MODULE_NAME "master"
+
 #include "compat.h"
 #include "log.h"
 #include "server.h"

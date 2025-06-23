@@ -1149,6 +1149,9 @@ fhttpd_server_loop (struct fhttpd_server *server)
 
 		if (nfds < 0)
 		{
+			if (errno == EAGAIN || errno == EINTR)
+				continue;
+
 			fhttpd_wclog_error ("epoll_wait() returned %d", nfds);
 			exit (EXIT_FAILURE);
 		}

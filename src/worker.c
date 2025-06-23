@@ -3,6 +3,8 @@
 #include <string.h>
 #include <errno.h>
 
+#define FHTTPD_LOG_MODULE_NAME "worker"
+
 #include "compat.h"
 #include "log.h"
 #include "master.h"
