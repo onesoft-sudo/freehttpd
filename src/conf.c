@@ -1611,7 +1611,7 @@ static bool
 fhttpd_prop_set_worker_count (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
 							  struct fhttpd_config *config, const struct conf_node *value)
 {
-	if (value->literal.int_value <= 0 || value->literal.int_value >= SIZE_MAX)
+	if (value->literal.int_value <= 0 || ((size_t) value->literal.int_value) >= SIZE_MAX)
 	{
 		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
 								  "Invalid negative/zero value for worker_count");
@@ -1686,7 +1686,7 @@ static bool
 fhttpd_prop_set_security_max_connections (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
 									   struct fhttpd_config *config, const struct conf_node *value)
 {
-	if (value->literal.int_value < 0 || value->literal.int_value >= SIZE_MAX)
+	if (value->literal.int_value < 0 || ((size_t) value->literal.int_value) >= SIZE_MAX)
 	{
 		fhttpd_conf_parser_error (parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line, value->column,
 								  "Invalid negative/zero value for security.max_connections");
@@ -2526,7 +2526,7 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 	printf ("%*ssecurity.header_timeout: %u\n", (int) indent, "", config->sec_header_timeout);
 	printf ("%*ssecurity.body_timeout: %u\n", (int) indent, "", config->sec_body_timeout);
 	printf ("%*ssecurity.max_response_body_size: %zu\n", (int) indent, "", config->sec_max_response_body_size);
-	printf ("%*ssecurity.sec_max_connections: %zu\n", (int) indent, "", config->sec_max_connections);
+	printf ("%*ssecurity.max_connections: %zu\n", (int) indent, "", config->sec_max_connections);
 
 	for (size_t i = 0; i < config->host_count; i++)
 	{

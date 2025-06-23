@@ -95,6 +95,10 @@ bool
 fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *response, const char *filepath,
 				  size_t filepath_len __attribute_maybe_unused__)
 {
+#ifndef NDEBUG
+	uint64_t start = get_current_timestamp ();
+#endif /* NDEBUG */
+	
 	fhttpd_header_add (&response->headers, "Content-Type", "text/html; charset=UTF-8", 12, 24);
 
 	size_t buf_size = 128, buf_len = 0;
@@ -283,5 +287,10 @@ fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *
 	}
 
 	free (buf);
+
+#ifndef NDEBUG
+	fhttpd_wclog_debug ("Indexed directory '%s' in %lums", filepath, get_current_timestamp() - start);
+#endif /* NDEBUG */
+
 	return true;
 }
