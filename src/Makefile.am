@@ -32,8 +32,8 @@ freehttpd_SOURCES = \
 	strutils.h \
 	strtable.c \
 	strtable.h \
-	bitstream.c \
-	bitstream.h
+	bitmap.c \
+	bitmap.h
 
 freehttpd_LDADD = ../res/libresources.a
 
