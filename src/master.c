@@ -7,70 +7,11 @@
 #include "compat.h"
 #include "log.h"
 #include "server.h"
+#include "worker.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-
-/* Only used by the worker processes */
-static struct fhttpd_server *local_server = NULL;
-
-static void
-fhttpd_worker_exit_handler (void)
-{
-	if (local_server)
-		fhttpd_server_destroy (local_server);
-}
-
-static void
-fhttpd_worker_signal_handler (int signum)
-{
-	if (signum == SIGTERM)
-	{
-		fhttpd_wclog_info ("Received signal %s, shutting down worker process", strsignal (signum));
-		exit (0);
-	}
-}
-
-static __noreturn void
-fhttpd_worker_start (struct fhttpd_master *master)
-{
-	struct sigaction sa;
-
-	sa.sa_handler = &fhttpd_worker_signal_handler;
-	sa.sa_flags = 0;
-	sigemptyset (&sa.sa_mask);
-
-	if (sigaction (SIGTERM, &sa, NULL) < 0)
-	{
-		fhttpd_wclog_error ("Failed to set up signal handlers: %s", strerror (errno));
-		exit (EXIT_FAILURE);
-	}
-
-	atexit (&fhttpd_worker_exit_handler);
-
-	struct fhttpd_server *server = fhttpd_server_create (master, master->config);
-
-	if (!server)
-	{
-		fhttpd_wclog_error ("Failed to create server: %s\n", strerror (errno));
-		exit (EXIT_FAILURE);
-	}
-
-	local_server = server;
-
-	if (!fhttpd_server_prepare (server))
-	{
-		fhttpd_wclog_error ("Failed to prepare server: %s\n", strerror (errno));
-		exit (EXIT_FAILURE);
-	}
-
-	fhttpd_server_loop (server);
-	fhttpd_server_destroy (server);
-
-	local_server = NULL;
-	exit (EXIT_FAILURE);
-}
 
 bool
 fhttpd_master_prepare (struct fhttpd_master *master)

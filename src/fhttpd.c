@@ -19,7 +19,9 @@ exit_handler (void)
 	if (!fhttpd)
 		return;
 
-	fhttpd_master_destroy (fhttpd);
+	if (fhttpd->pid == getpid ())
+		fhttpd_master_destroy (fhttpd);
+
 	fhttpd = NULL;
 }
 
@@ -29,24 +31,19 @@ signal_handler (int signum)
 	if (!fhttpd)
 		exit (0);
 
-	fprintf (stderr, "%s, shutting down %s...\n", strsignal (signum), fhttpd->pid == getpid () ? "server" : "worker");
+	if (fhttpd->pid == getpid ())
+		{
+			fprintf (stdout, "\n");
+			fhttpd_log_info ("%s, shutting down master process", strsignal (signum));
+		}
 
-	if (fhttpd->pid != getpid ())
-	{
-		struct sigaction sa;
-		sa.sa_handler = SIG_DFL;
-		sigemptyset (&sa.sa_mask);
-		sa.sa_flags = 0;
-		sigaction (signum, &sa, NULL);
-	}
-
+	exit_handler ();
 	exit (0);
 }
 
 int
 main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused__)
 {
-	atexit (&exit_handler);
 	fhttpd_log_set_output (stderr, stdout);
 
 	fhttpd = fhttpd_master_create ();
@@ -56,6 +53,7 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 		fprintf (stderr, "Failed to create server\n");
 		return 1;
 	}
+
 	struct sigaction sa;
 
 	sa.sa_handler = &signal_handler;
@@ -64,18 +62,24 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 
 	if (sigaction (SIGINT, &sa, NULL) < 0 || sigaction (SIGTERM, &sa, NULL) < 0)
 	{
+		exit_handler ();
 		fprintf (stderr, "Failed to set up signal handlers\n");
 		return 1;
 	}
 
 	if (!fhttpd_master_prepare (fhttpd))
+	{
+		exit_handler ();
 		return 1;
+	}
 
 	if (!fhttpd_master_start (fhttpd))
 	{
 		fprintf (stderr, "Failed to run server: %s\n", strerror (errno));
+		exit_handler ();
 		return 1;
 	}
 
+	exit_handler ();
 	return 0;
 }
