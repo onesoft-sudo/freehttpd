@@ -30,21 +30,30 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 
 	if (!master)
 	{
+#ifdef FHTTPD_ENABLE_SYSTEMD
 		sd_notifyf (0, "ERRNO=%d", errno);
+#endif /* FHTTPD_ENABLE_SYSTEMD */
+
 		fhttpd_log_error ("Failed to create server");
 		return 1;
 	}
 
 	if (!fhttpd_master_prepare (master))
 	{
+#ifdef FHTTPD_ENABLE_SYSTEMD
 		sd_notifyf (0, "ERRNO=%d", errno);
+#endif /* FHTTPD_ENABLE_SYSTEMD */
+
 		fhttpd_master_destroy (master);
 		return 1;
 	}
 
 	if (!fhttpd_master_start (master))
 	{
+#ifdef FHTTPD_ENABLE_SYSTEMD
 		sd_notifyf (0, "ERRNO=%d", errno);
+#endif /* FHTTPD_ENABLE_SYSTEMD */
+
 		fhttpd_log_error ("Failed to run server: %s", strerror (errno));
 		fhttpd_master_destroy (master);
 		return 1;

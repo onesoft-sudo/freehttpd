@@ -169,7 +169,9 @@ fhttpd_master_spawn_workers (struct fhttpd_master *master)
 static bool
 fhttpd_master_process_notification (struct fhttpd_master *master)
 {
+#ifdef FHTTPD_ENABLE_SYSTEMD
 	bool stats_updated = false;
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 	for (size_t i = 0; i < master->worker_count; i++)
 	{
@@ -198,7 +200,9 @@ fhttpd_master_process_notification (struct fhttpd_master *master)
 					}
 
 					master->worker_stats[i] = stat;
+#ifdef FHTTPD_ENABLE_SYSTEMD
 					stats_updated = true;
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 				}
 				break;
 
@@ -212,7 +216,7 @@ fhttpd_master_process_notification (struct fhttpd_master *master)
 	if (stats_updated)
 	{
 		uint64_t total_connection_count = 0, current_connection_count = 0;
-		
+
 		for (size_t i = 0; i < master->worker_count; i++)
 		{
 			total_connection_count += master->worker_stats[i].total_connection_count;
@@ -224,8 +228,8 @@ fhttpd_master_process_notification (struct fhttpd_master *master)
 		else if (current_connection_count == 0 && total_connection_count > 0)
 			sd_notifyf (0, "STATUS=Total connections handled: %lu", total_connection_count);
 		else
-			sd_notifyf (0, "STATUS=Handling %lu connections, handled %lu total so far",
-						current_connection_count, total_connection_count);
+			sd_notifyf (0, "STATUS=Handling %lu connections, handled %lu total so far", current_connection_count,
+						total_connection_count);
 
 		fhttpd_log_debug ("systemd stats updated");
 	}
@@ -240,14 +244,18 @@ fhttpd_master_start (struct fhttpd_master *master)
 	if (!fhttpd_master_spawn_workers (master))
 		return false;
 
+#ifdef FHTTPD_ENABLE_SYSTEMD
 	sd_notify (0, "READY=1");
 	sd_notify (0, "STATUS=Ready to handle connections");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 	while (true)
 	{
 		if (flag_terminate)
 		{
+#ifdef FHTTPD_ENABLE_SYSTEMD
 			sd_notify (0, "STOPPING=1");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 			if (master)
 				fhttpd_master_destroy (master);
@@ -257,13 +265,17 @@ fhttpd_master_start (struct fhttpd_master *master)
 
 		if (flag_reload_config)
 		{
+#ifdef FHTTPD_ENABLE_SYSTEMD
 			sd_notify (0, "RELOADING=1");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 			if (!fhttpd_master_reload_config (master))
 			{
 				flag_reload_config = false;
+#ifdef FHTTPD_ENABLE_SYSTEMD
 				sd_notify (0, "READY=1");
 				sd_notify (0, "STATUS=Failed to reload configuration");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 				continue;
 			}
 
@@ -276,7 +288,9 @@ fhttpd_master_start (struct fhttpd_master *master)
 				kill (worker_pid, SIGQUIT);
 			}
 
+#ifdef FHTTPD_ENABLE_SYSTEMD
 			sd_notify (0, "STATUS=Sent SIGQUIT to workers");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 			fhttpd_log_info ("Sent SIGQUIT to workers");
 
 			for (size_t i = 0; i < master->worker_count; i++)
@@ -296,14 +310,18 @@ fhttpd_master_start (struct fhttpd_master *master)
 
 			if (!fhttpd_master_spawn_workers (master))
 			{
+#ifdef FHTTPD_ENABLE_SYSTEMD
 				sd_notify (0, "READY=1");
 				sd_notify (0, "STATUS=Failed to re-spawn workers");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 				return false;
 			}
 
 			flag_reload_config = false;
+#ifdef FHTTPD_ENABLE_SYSTEMD
 			sd_notify (0, "READY=1");
 			sd_notify (0, "STATUS=Configuration reloaded");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 		}
 
 		fhttpd_master_process_notification (master);

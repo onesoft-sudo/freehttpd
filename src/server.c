@@ -1040,6 +1040,7 @@ fhttpd_create_timerfd (struct fhttpd_server *server, time_t interval_sec)
 	return true;
 }
 
+#ifdef FHTTPD_ENABLE_SYSTEMD
 static bool
 fhttpd_server_notify_master (struct fhttpd_server *server, enum fhttpd_notification type, void *data, size_t data_size)
 {
@@ -1055,6 +1056,7 @@ fhttpd_server_notify_master (struct fhttpd_server *server, enum fhttpd_notificat
 }
 
 static size_t connection_check_count = 0;
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 static bool
 fhttpd_server_check_connections (struct fhttpd_server *server)
