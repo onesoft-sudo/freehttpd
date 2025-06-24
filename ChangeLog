@@ -1,4 +1,60 @@
+2025-06-24  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	merge: branch 'main' of github.com:onesoft-sudo/freehttpd
+
+	chore: update readme
+
+	chore(icons): add image.png
+
+	chore: update systemd unit
+
+	fix: use macros to guard systemd-specific code
+
+	feat: better integration with systemd
+
+	chore: add TODOs
+
+	feat(autoindex): theme colors and improved meta tags
+
+	chore: vhost configuration files with correct paths
+
+	feat: hot reloading of all configuration options
+
+	feat(config): hot reloading via SIGHUP
+
+2025-06-23  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	feat: better logging
+
+	refactor: better signal handling
+
+	refactor: use c99 with gnu extensions
+
+	style: reformat
+
+	perf: autoindex checks
+
+	feat(security): connection limit and throttling
+
+	chore: add config files
+
+	feat(config): security {...} block
+
+	refactor: rename bitstream to bitmap
+
+	feat: bitstream management
+
 2025-06-22  Ar Rakin  <rakinar2@onesoftnet.eu.org>
+
+	chore: update stub config files
+
+	ci: fix build workflow
+
+	ci: fix build workflow
+
+	fix: configuration file path detection
+
+	chore: update changelog
 
 	feat(core): complete vhost support
 
