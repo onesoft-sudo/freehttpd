@@ -11,6 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef HAVE_CONFIG_H
+	#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
 #include "conf.h"
 #include "strutils.h"
 
@@ -638,8 +642,15 @@ bool
 fhttpd_conf_parser_print_error (struct fhttpd_conf_parser *parser)
 {
 	if (parser->last_error)
+	{
+#ifdef FHTTPD_ENABLE_SYSTEMD
+		fhttpd_log_error ("%s:%zu:%zu: %s\n", parser->error_filename ? parser->error_filename : parser->filename,
+						  parser->error_line, parser->error_column, parser->last_error);
+#else  /* not FHTTPD_ENABLE_SYSTEMD */
 		fprintf (stderr, "%s:%zu:%zu: %s\n", parser->error_filename ? parser->error_filename : parser->filename,
 				 parser->error_line, parser->error_column, parser->last_error);
+#endif /* FHTTPD_ENABLE_SYSTEMD */
+	}
 
 	return parser->last_error != NULL;
 }
@@ -2518,38 +2529,37 @@ fhttpd_conf_process (struct fhttpd_conf_parser *parser)
 void
 fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 {
-	printf ("%*sConfiguration <%p>:\n", (int) indent, "", (void *) config);
+	fhttpd_log_debug ("%*sConfiguration <%p>:", (int) indent, "", (void *) config);
 
-	printf ("%*ssrv_root: %s\n", (int) indent, "", config->conf_root ? config->conf_root : "(null)");
-	printf ("%*sdocroot: %s\n", (int) indent, "", config->docroot ? config->docroot : "(null)");
-	printf ("%*sworker_count: %zu\n", (int) indent, "", config->worker_count);
+	fhttpd_log_debug ("%*ssrv_root: %s", (int) indent, "", config->conf_root ? config->conf_root : "(null)");
+	fhttpd_log_debug ("%*sdocroot: %s", (int) indent, "", config->docroot ? config->docroot : "(null)");
+	fhttpd_log_debug ("%*sworker_count: %zu", (int) indent, "", config->worker_count);
 
-	printf ("%*slogging.min_level: %d\n", (int) indent, "", config->logging_min_level);
-	printf ("%*slogging.file: %s\n", (int) indent, "", config->logging_file ? config->logging_file : "(null)");
-	printf ("%*slogging.error_file: %s\n", (int) indent, "",
-			config->logging_error_file ? config->logging_error_file : "(null)");
+	fhttpd_log_debug ("%*slogging.min_level: %d", (int) indent, "", config->logging_min_level);
+	fhttpd_log_debug ("%*slogging.file: %s", (int) indent, "", config->logging_file ? config->logging_file : "(null)");
+	fhttpd_log_debug ("%*slogging.error_file: %s", (int) indent, "",
+					  config->logging_error_file ? config->logging_error_file : "(null)");
 
-	printf ("%*ssecurity.recv_timeout: %u\n", (int) indent, "", config->sec_recv_timeout);
-	printf ("%*ssecurity.send_timeout: %u\n", (int) indent, "", config->sec_send_timeout);
-	printf ("%*ssecurity.header_timeout: %u\n", (int) indent, "", config->sec_header_timeout);
-	printf ("%*ssecurity.body_timeout: %u\n", (int) indent, "", config->sec_body_timeout);
-	printf ("%*ssecurity.max_response_body_size: %zu\n", (int) indent, "", config->sec_max_response_body_size);
-	printf ("%*ssecurity.max_connections: %zu\n", (int) indent, "", config->sec_max_connections);
+	fhttpd_log_debug ("%*ssecurity.recv_timeout: %u", (int) indent, "", config->sec_recv_timeout);
+	fhttpd_log_debug ("%*ssecurity.send_timeout: %u", (int) indent, "", config->sec_send_timeout);
+	fhttpd_log_debug ("%*ssecurity.header_timeout: %u", (int) indent, "", config->sec_header_timeout);
+	fhttpd_log_debug ("%*ssecurity.body_timeout: %u", (int) indent, "", config->sec_body_timeout);
+	fhttpd_log_debug ("%*ssecurity.max_response_body_size: %zu", (int) indent, "", config->sec_max_response_body_size);
+	fhttpd_log_debug ("%*ssecurity.max_connections: %zu", (int) indent, "", config->sec_max_connections);
 
 	for (size_t i = 0; i < config->host_count; i++)
 	{
 		const struct fhttpd_config_host *host = &config->hosts[i];
-		printf ("%*sHost [%p]%s:\n", (int) indent, "", (void *) host,
-				config->default_host_index >= 0 && i == (size_t) config->default_host_index ? " [ROOT]" : "");
+		fhttpd_log_debug ("%*sHost [%p]%s:", (int) indent, "", (void *) host,
+						  config->default_host_index >= 0 && i == (size_t) config->default_host_index ? " [ROOT]" : "");
 
 		for (size_t j = 0; j < host->bound_addr_count; j++)
 		{
-			printf ("%*s  Bound address: %s:%u\n", (int) indent, "", host->bound_addrs[j].hostname,
-					host->bound_addrs[j].port);
+			fhttpd_log_debug ("%*s  Bound address: %s:%u", (int) indent, "", host->bound_addrs[j].hostname,
+							  host->bound_addrs[j].port);
 		}
 
-		printf ("%*s  Host Configuration:\n", (int) indent, "");
+		fhttpd_log_debug ("%*s  Host Configuration:", (int) indent, "");
 		fhttpd_conf_print_config (host->host_config, indent + 4);
-		printf ("\n");
 	}
 }

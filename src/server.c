@@ -38,8 +38,16 @@
 #include "utils.h"
 
 #ifdef HAVE_RESOURCES
-#	include "resources.h"
-#endif
+	#include "resources.h"
+#endif /* HAVE_RESOURCES */
+
+#ifdef HAVE_CONFIG_H
+	#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
+#ifdef FHTTPD_ENABLE_SYSTEMD
+	#include <systemd/sd-daemon.h>
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 #define FHTTPD_DEFAULT_BACKLOG SOMAXCONN
 #define MAX_EVENTS 64
@@ -54,7 +62,6 @@ fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *
 
 	memcpy (server->pipe_fd, pipe_fd, sizeof server->pipe_fd);
 
-	fd_set_nonblocking (pipe_fd[0]);
 	fd_set_nonblocking (pipe_fd[1]);
 
 	server->master_pid = master->pid;
@@ -1034,6 +1041,22 @@ fhttpd_create_timerfd (struct fhttpd_server *server, time_t interval_sec)
 }
 
 static bool
+fhttpd_server_notify_master (struct fhttpd_server *server, enum fhttpd_notification type, void *data, size_t data_size)
+{
+	uint8_t type_byte = type;
+
+	if (write (server->pipe_fd[1], &type_byte, sizeof type_byte) != (ssize_t) sizeof type_byte)
+		return false;
+
+	if (write (server->pipe_fd[1], data, data_size) != (ssize_t) data_size)
+		return false;
+
+	return true;
+}
+
+static size_t connection_check_count = 0;
+
+static bool
 fhttpd_server_check_connections (struct fhttpd_server *server)
 {
 	if (!server || !server->connections)
@@ -1124,6 +1147,21 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
 		fhttpd_server_free_connection (server, conn);
 		count++;
 	}
+
+#ifdef FHTTPD_ENABLE_SYSTEMD
+	connection_check_count++;
+
+	if (connection_check_count >= 10 || true)
+	{
+		struct fhttpd_notify_stat stat = {
+			.current_connection_count = (uint64_t) server->connections->count,
+			.total_connection_count = server->last_connection_id,
+		};
+
+		fhttpd_server_notify_master (server, FHTTPD_NOTIFY_STAT, &stat, sizeof stat);
+		connection_check_count = 0;
+	}
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 	fhttpd_wclog_debug ("Closed %zu connections due to timeouts", count);
 	return true;

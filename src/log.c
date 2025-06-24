@@ -6,6 +6,14 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
+#ifdef FHTTPD_ENABLE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif /* FHTTPD_ENABLE_SYSTEMD */
+
 #include "log.h"
 
 #ifdef NDEBUG
@@ -96,6 +104,7 @@ fhttpd_log (log_level_t level, const char *format, ...)
 			  ? log_stderr
 			  : log_stdout;
 
+#ifndef FHTTPD_ENABLE_SYSTEMD
 	if (isatty (fileno (output)))
 	{
 		fprintf (output, "%s[fhttpd:%s]\033[0m%*s ",
@@ -106,6 +115,8 @@ fhttpd_log (log_level_t level, const char *format, ...)
 	{
 		fprintf (output, "[fhttpd:%s]%*s ", log_level_to_string (level), log_level_to_string_len (level), "");
 	}
+
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 	va_list args;
 	va_start (args, format);
@@ -120,7 +131,9 @@ fhttpd_perror (const char *format, ...)
 {
 	assert (log_stderr != NULL && "Log stderr must be set before logging errors");
 
+#ifndef FHTTPD_ENABLE_SYSTEMD
 	fprintf (log_stderr, "[fhttpd:error] ");
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 	va_list args;
 	va_start (args, format);

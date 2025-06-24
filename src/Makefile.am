@@ -1,6 +1,6 @@
 bin_PROGRAMS = freehttpd
 
-AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99
+AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99 $(SYSTEMD_CFLAGS)
 AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES
 
 freehttpd_SOURCES = \
@@ -37,7 +37,7 @@ freehttpd_SOURCES = \
 	worker.c \
 	worker.h
 
-freehttpd_LDADD = ../res/libresources.a
+freehttpd_LDADD = ../res/libresources.a $(SYSTEMD_LIBS)
 
 clean-local:
 	rm -rf .deps

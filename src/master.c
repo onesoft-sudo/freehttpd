@@ -14,8 +14,12 @@
 #include "worker.h"
 
 #ifdef HAVE_CONFIG_H
-#	include "config.h"
+	#include "config.h"
 #endif
+
+#ifdef FHTTPD_ENABLE_SYSTEMD
+	#include <systemd/sd-daemon.h>
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
 static struct fhttpd_master *local_master = NULL;
 
@@ -124,8 +128,9 @@ fhttpd_master_spawn_workers (struct fhttpd_master *master)
 
 	master->workers = calloc (worker_count, sizeof (pid_t));
 	master->worker_pipes = calloc (worker_count, sizeof (fd_t[2]));
+	master->worker_stats = calloc (worker_count, sizeof (struct fhttpd_notify_stat));
 
-	if (!master->workers || !master->worker_pipes)
+	if (!master->workers || !master->worker_pipes || !master->worker_stats)
 		return false;
 
 	master->worker_count = worker_count;
@@ -161,18 +166,89 @@ fhttpd_master_spawn_workers (struct fhttpd_master *master)
 	return true;
 }
 
+static bool
+fhttpd_master_process_notification (struct fhttpd_master *master)
+{
+	bool stats_updated = false;
+
+	for (size_t i = 0; i < master->worker_count; i++)
+	{
+		uint8_t type = 0;
+
+		if (read (master->worker_pipes[i][0], &type, sizeof type) != (ssize_t) sizeof type)
+		{
+			if (errno == EAGAIN || errno == EINTR)
+				continue;
+
+			return false;
+		}
+
+		switch (type)
+		{
+			case FHTTPD_NOTIFY_STAT:
+				{
+					struct fhttpd_notify_stat stat;
+
+					if (read (master->worker_pipes[i][0], &stat, sizeof stat) != (ssize_t) sizeof stat)
+					{
+						if (errno == EAGAIN || errno == EINTR)
+							continue;
+
+						return false;
+					}
+
+					master->worker_stats[i] = stat;
+					stats_updated = true;
+				}
+				break;
+
+			default:
+				fhttpd_log_error ("Unknown notification type: %u", type);
+				break;
+		}
+	}
+
+#ifdef FHTTPD_ENABLE_SYSTEMD
+	if (stats_updated)
+	{
+		uint64_t total_connection_count = 0, current_connection_count = 0;
+		
+		for (size_t i = 0; i < master->worker_count; i++)
+		{
+			total_connection_count += master->worker_stats[i].total_connection_count;
+			current_connection_count += master->worker_stats[i].current_connection_count;
+		}
+
+		if (current_connection_count == 0 && total_connection_count == 0)
+			sd_notify (0, "STATUS=Waiting for incoming connections");
+		else if (current_connection_count == 0 && total_connection_count > 0)
+			sd_notifyf (0, "STATUS=Total connections handled: %lu", total_connection_count);
+		else
+			sd_notifyf (0, "STATUS=Handling %lu connections, handled %lu total so far",
+						current_connection_count, total_connection_count);
+
+		fhttpd_log_debug ("systemd stats updated");
+	}
+#endif /* FHTTPD_ENABLE_SYSTEMD */
+
+	return true;
+}
+
 bool
 fhttpd_master_start (struct fhttpd_master *master)
 {
 	if (!fhttpd_master_spawn_workers (master))
 		return false;
 
+	sd_notify (0, "READY=1");
+	sd_notify (0, "STATUS=Ready to handle connections");
+
 	while (true)
 	{
-		pause ();
-
 		if (flag_terminate)
 		{
+			sd_notify (0, "STOPPING=1");
+
 			if (master)
 				fhttpd_master_destroy (master);
 
@@ -181,9 +257,13 @@ fhttpd_master_start (struct fhttpd_master *master)
 
 		if (flag_reload_config)
 		{
+			sd_notify (0, "RELOADING=1");
+
 			if (!fhttpd_master_reload_config (master))
 			{
 				flag_reload_config = false;
+				sd_notify (0, "READY=1");
+				sd_notify (0, "STATUS=Failed to reload configuration");
 				continue;
 			}
 
@@ -196,6 +276,7 @@ fhttpd_master_start (struct fhttpd_master *master)
 				kill (worker_pid, SIGQUIT);
 			}
 
+			sd_notify (0, "STATUS=Sent SIGQUIT to workers");
 			fhttpd_log_info ("Sent SIGQUIT to workers");
 
 			for (size_t i = 0; i < master->worker_count; i++)
@@ -204,19 +285,29 @@ fhttpd_master_start (struct fhttpd_master *master)
 				waitpid (worker_pid, NULL, 0);
 				fhttpd_log_info ("Worker %d terminated", worker_pid);
 			}
-			
+
+			free (master->worker_stats);
 			free (master->worker_pipes);
 			free (master->workers);
 
 			master->worker_count = 0;
 			master->worker_pipes = NULL;
 			master->workers = NULL;
-			
+
 			if (!fhttpd_master_spawn_workers (master))
+			{
+				sd_notify (0, "READY=1");
+				sd_notify (0, "STATUS=Failed to re-spawn workers");
 				return false;
+			}
 
 			flag_reload_config = false;
+			sd_notify (0, "READY=1");
+			sd_notify (0, "STATUS=Configuration reloaded");
 		}
+
+		fhttpd_master_process_notification (master);
+		sleep (10);
 	}
 
 	for (size_t i = 0; i < master->config->worker_count; i++)
@@ -240,6 +331,7 @@ fhttpd_master_destroy (struct fhttpd_master *master)
 			fhttpd_conf_free_config (master->config);
 	}
 
+	free (master->worker_stats);
 	free (master->worker_pipes);
 	free (master->workers);
 	free (master);

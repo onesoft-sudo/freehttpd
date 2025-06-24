@@ -13,6 +13,14 @@
 #include "server.h"
 #include "strutils.h"
 
+#ifdef HAVE_CONFIG_H
+	#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
+#ifdef FHTTPD_ENABLE_SYSTEMD
+	#include <systemd/sd-daemon.h>
+#endif /* FHTTPD_ENABLE_SYSTEMD */
+
 int
 main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused__)
 {
@@ -22,19 +30,22 @@ main (int argc __attribute_maybe_unused__, char **argv __attribute_maybe_unused_
 
 	if (!master)
 	{
-		fprintf (stderr, "Failed to create server\n");
+		sd_notifyf (0, "ERRNO=%d", errno);
+		fhttpd_log_error ("Failed to create server");
 		return 1;
 	}
 
 	if (!fhttpd_master_prepare (master))
 	{
+		sd_notifyf (0, "ERRNO=%d", errno);
 		fhttpd_master_destroy (master);
 		return 1;
 	}
 
 	if (!fhttpd_master_start (master))
 	{
-		fprintf (stderr, "Failed to run server: %s\n", strerror (errno));
+		sd_notifyf (0, "ERRNO=%d", errno);
+		fhttpd_log_error ("Failed to run server: %s", strerror (errno));
 		fhttpd_master_destroy (master);
 		return 1;
 	}

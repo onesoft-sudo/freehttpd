@@ -2,8 +2,8 @@
 Description=freehttpd HTTP Server
 
 [Service]
-Type=simple
-ExecStart=/home/rakinar2/Projects/freehttpd/bin/freehttpd
+Type=notify
+ExecStart=/home/rakinar2/Projects/freehttpd/src/freehttpd
 KillMode=control-group
 ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=5

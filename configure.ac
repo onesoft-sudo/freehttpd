@@ -41,7 +41,12 @@ if test "x$enable_systemd" = "xyes"; then
     PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [], [
         AC_MSG_ERROR([libsystemd is required for systemd support. Please install it or disable systemd support with --disable-systemd.])
     ])
+
+    AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])
 fi
+
+AC_SUBST([SYSTEMD_CFLAGS])
+AC_SUBST([SYSTEMD_LIBS])
 
 # Define macros
 AC_DEFINE_UNQUOTED([FHTTPD_MAIN_CONFIG_FILE], ["$fhttpd_config_file"], [Path to the configuration file])
@@ -84,6 +89,9 @@ AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
+AC_CHECK_FUNCS([epoll_create1 epoll_wait], [], [
+  AC_MSG_ERROR([epoll is not supported on this platform, which is needed for freehttpd to compile.])
+])
 
 AC_CONFIG_FILES([Makefile
                  res/Makefile
@@ -94,9 +102,9 @@ AC_OUTPUT
 AC_MSG_NOTICE([Configuration summary:
   Build type: $build_type
   Compiler: $CC
-  Compiler flags: $CFLAGS
-  Linker flags: $LDFLAGS
-  Libraries: $LIBS
+  Compiler flags: $CFLAGS $SYSTEMD_CFLAGS
+  Linker flags: $LDFLAGS $SYSTEMD_LDLAGS
+  Libraries: $LIBS $SYSTEMD_LIBS
   Header files: $CPPFLAGS
   Installation prefix: $prefix
   systemd support: $enable_systemd

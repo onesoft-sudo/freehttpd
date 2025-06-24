@@ -7,11 +7,23 @@
 #include "conf.h"
 #include "types.h"
 
+struct fhttpd_notify_stat
+{
+	uint64_t current_connection_count;
+	uint64_t total_connection_count;
+};
+
+enum fhttpd_notification
+{
+	FHTTPD_NOTIFY_STAT
+};
+
 struct fhttpd_master
 {
 	pid_t pid;
 	pid_t *workers;
 	fd_t (*worker_pipes)[2];
+	struct fhttpd_notify_stat *worker_stats;
 	size_t worker_count;
 	struct fhttpd_config *config;
 };
