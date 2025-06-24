@@ -1,0 +1,8 @@
+TODOs for freehttpd
+===================
+
+* server: use memory pool for request processing
+* server: use fhttpd_chain with fhttpd_buffer for request/response
+* server: default index file
+* autoindex: parent directory link icon
+* http1: keep-alive connections
