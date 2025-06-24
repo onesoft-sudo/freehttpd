@@ -2,23 +2,25 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
-#include <sys/wait.h>
 #include <sys/shm.h>
+#include <sys/wait.h>
 
 #define FHTTPD_LOG_MODULE_NAME "master"
 
 #include "compat.h"
 #include "log.h"
 #include "server.h"
-#include "worker.h"
 #include "utils.h"
+#include "worker.h"
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#	include "config.h"
 #endif
 
 static struct fhttpd_master *local_master = NULL;
+
+static bool flag_terminate = false;
+static bool flag_reload_config = false;
 
 bool
 fhttpd_master_load_config (struct fhttpd_master *master)
@@ -83,32 +85,21 @@ fhttpd_master_reload_config (struct fhttpd_master *master)
 static void
 fhttpd_master_term_handler (int _signal __attribute_maybe_unused__)
 {
-	if (local_master)
-		fhttpd_master_destroy (local_master);
-
-	exit (0);
+	fhttpd_log_info ("SIGTERM received, terminating");
+	flag_terminate = true;
 }
 
 static void
 fhttpd_master_hup_handler (int _signal __attribute_maybe_unused__)
 {
-	if (!fhttpd_master_reload_config (local_master))
-		return;
-
-	for (size_t i = 0; i < local_master->worker_count; i++)
-	{
-		pid_t worker_pid = local_master->workers[i];
-		fd_t out_fd = local_master->worker_pipes[i][1];
-		uint8_t buf[] = { FHTTPD_IPC_RELOAD_CONFIG };
-		write (out_fd, buf, sizeof buf);
-		kill (worker_pid, SIGHUP);
-	}
+	fhttpd_log_info ("SIGHUP received, reloading configuration");
+	flag_reload_config = true;
 }
 
 bool
 fhttpd_master_prepare (struct fhttpd_master *master)
 {
-	struct sigaction sa = {0};
+	struct sigaction sa = { 0 };
 
 	sa.sa_flags = SA_RESTART;
 	sa.sa_handler = &fhttpd_master_term_handler;
@@ -127,19 +118,20 @@ fhttpd_master_prepare (struct fhttpd_master *master)
 }
 
 bool
-fhttpd_master_start (struct fhttpd_master *master)
+fhttpd_master_spawn_workers (struct fhttpd_master *master)
 {
 	size_t worker_count = master->config->worker_count;
 
 	master->workers = calloc (worker_count, sizeof (pid_t));
-	master->worker_pipes = calloc (worker_count, sizeof (fd_t [2]));
+	master->worker_pipes = calloc (worker_count, sizeof (fd_t[2]));
 
 	if (!master->workers || !master->worker_pipes)
 		return false;
 
 	master->worker_count = worker_count;
+	fhttpd_log_info ("Spawning %zu workers", master->worker_count);
 
-	for (size_t i = 0; i < worker_count; i++)
+	for (size_t i = 0; i < master->worker_count; i++)
 	{
 		fd_t pipe_fd[2];
 
@@ -166,7 +158,68 @@ fhttpd_master_start (struct fhttpd_master *master)
 		}
 	}
 
-	for (size_t i = 0; i < worker_count; i++)
+	return true;
+}
+
+bool
+fhttpd_master_start (struct fhttpd_master *master)
+{
+	if (!fhttpd_master_spawn_workers (master))
+		return false;
+
+	while (true)
+	{
+		pause ();
+
+		if (flag_terminate)
+		{
+			if (master)
+				fhttpd_master_destroy (master);
+
+			exit (0);
+		}
+
+		if (flag_reload_config)
+		{
+			if (!fhttpd_master_reload_config (master))
+			{
+				flag_reload_config = false;
+				continue;
+			}
+
+			for (size_t i = 0; i < master->worker_count; i++)
+			{
+				pid_t worker_pid = master->workers[i];
+				fd_t *pipefd = master->worker_pipes[i];
+				close (pipefd[0]);
+				close (pipefd[1]);
+				kill (worker_pid, SIGQUIT);
+			}
+
+			fhttpd_log_info ("Sent SIGQUIT to workers");
+
+			for (size_t i = 0; i < master->worker_count; i++)
+			{
+				pid_t worker_pid = master->workers[i];
+				waitpid (worker_pid, NULL, 0);
+				fhttpd_log_info ("Worker %d terminated", worker_pid);
+			}
+			
+			free (master->worker_pipes);
+			free (master->workers);
+
+			master->worker_count = 0;
+			master->worker_pipes = NULL;
+			master->workers = NULL;
+			
+			if (!fhttpd_master_spawn_workers (master))
+				return false;
+
+			flag_reload_config = false;
+		}
+	}
+
+	for (size_t i = 0; i < master->config->worker_count; i++)
 		waitpid (master->workers[i], NULL, 0);
 
 	return false;

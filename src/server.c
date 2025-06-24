@@ -1144,6 +1144,19 @@ fhttpd_server_loop (struct fhttpd_server *server)
 
 	while (true)
 	{
+		if (server->flag_terminate)
+		{
+			exit (0);
+			continue;
+		}
+
+		if (server->flag_clean_quit && server->connections->count == 0)
+		{
+			fhttpd_wclog_info ("All existing connections were closed - terminating now");
+			exit (0);
+			continue;
+		}
+
 		int nfds = epoll_wait (server->epoll_fd, events, MAX_EVENTS, -1);
 
 		if (nfds < 0)
@@ -1186,7 +1199,9 @@ fhttpd_server_loop (struct fhttpd_server *server)
 			{
 				if (server->listen_fds[j] == events[i].data.fd)
 				{
-					if (!fhttpd_server_accept (server, j))
+					if (server->flag_clean_quit)
+						fhttpd_wclog_warning ("Worker is preparing to quit cleanly - will not accept new connections");
+					else if (!fhttpd_server_accept (server, j))
 					{
 						if (errno == EAGAIN)
 							fhttpd_wclog_error ("Max connections reached, cannot accept any new connection");

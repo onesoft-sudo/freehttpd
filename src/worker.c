@@ -28,37 +28,14 @@ static void
 fhttpd_worker_sigterm_handler (int _signum __attribute_maybe_unused__)
 {
 	fhttpd_wclog_info ("Received SIGTERM, shutting down worker process");
-	exit (0);
+	local_server->flag_terminate = true;
 }
 
 static void
-fhttpd_worker_sighup_handler (int _signum __attribute_maybe_unused__)
+fhttpd_worker_sigquit_handler (int _signum __attribute_maybe_unused__)
 {
-	fhttpd_wclog_info ("Received SIGHUP, reading opcode");
-
-	fd_t in_fd = local_server->pipe_fd[0];
-	enum fhttpd_ipc_op op = 0;
-
-	if (read (in_fd, &op, 1) != 1)
-	{
-		fhttpd_wclog_error ("Failed to read IPC opcode: %s", strerror (errno));
-		return;
-	}
-
-	switch (op)
-	{
-		case FHTTPD_IPC_RELOAD_CONFIG:
-			if (!fhttpd_master_reload_config (local_master))
-				fhttpd_wclog_error ("Unable to reload configuration");
-
-			local_server->config = local_master->config;
-			fhttpd_server_config_host_map (local_server);
-			break;
-
-		default:
-			fhttpd_wclog_info ("Unsupported opcode: %02x", op);
-			break;
-	}
+	fhttpd_wclog_info ("Received SIGQUIT, reloading configuration");
+	local_server->flag_clean_quit = true;
 }
 
 static void
@@ -67,6 +44,7 @@ fhttpd_worker_setup_signals (void)
 	struct sigaction sa = { 0 };
 
 	sa.sa_handler = &fhttpd_worker_sigterm_handler;
+	sa.sa_flags = SA_RESTART;
 	sa.sa_flags = 0;
 
 	if (sigaction (SIGTERM, &sa, NULL) < 0)
@@ -76,10 +54,10 @@ fhttpd_worker_setup_signals (void)
 	}
 
 	memset (&sa, 0, sizeof sa);
-	sa.sa_handler = &fhttpd_worker_sighup_handler;
+	sa.sa_handler = &fhttpd_worker_sigquit_handler;
 	sa.sa_flags = SA_RESTART;
 
-	if (sigaction (SIGHUP, &sa, NULL) < 0)
+	if (sigaction (SIGQUIT, &sa, NULL) < 0)
 	{
 		fhttpd_wclog_error ("Failed to set up signal handlers: %s", strerror (errno));
 		exit (EXIT_FAILURE);

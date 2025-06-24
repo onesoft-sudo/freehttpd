@@ -51,6 +51,9 @@ struct fhttpd_server
 	uint64_t last_connection_id;
 
 	fd_t pipe_fd[2];
+
+	bool flag_terminate : 1;
+	bool flag_clean_quit : 1;
 };
 
 __noreturn void fhttpd_server_loop (struct fhttpd_server *server);

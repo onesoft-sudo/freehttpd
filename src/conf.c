@@ -1714,7 +1714,7 @@ static struct fhttpd_config_property const properties[] = {
 	},
 	{
 		"worker_count",
-		CONF_VALUE_TYPE_STRING,
+		CONF_VALUE_TYPE_INT,
 		NULL,
 		&fhttpd_prop_set_worker_count,
 	},
