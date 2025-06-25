@@ -8,5 +8,3 @@ TODOs for freehttpd
 * http1: keep-alive connections
 * module: base64.c
 * module: md5.c
-
-* chore: setup clang-tidy
