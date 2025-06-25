@@ -1,0 +1,158 @@
+#!/bin/sh
+#
+# Automatically add or update license notices to source files
+#
+# This file is part of OSN freehttpd.
+#
+# Copyright (C) 2025  OSN Developers.
+#
+# OSN freehttpd is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# OSN freehttpd is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Written by Ar Rakin.
+
+me="$0"
+version="1.0.0"
+
+paths_to_check=""
+noticerc="$(pwd)/.noticerc"
+
+noticerc_opt_paths=""
+
+pr_debug ()
+{
+    if [ "$UPDATE_LICENSE_COMMENTS_DEBUG" = "1" ]; then
+        echo "$me: $*"
+    fi
+}
+
+pr_err ()
+{
+    echo "$me: $*" >&2
+}
+
+pr_info ()
+{
+    echo "$me: $*"
+}
+
+show_version ()
+{
+    echo "$me $version"
+    echo "License: GPLv3 or layer"
+    echo "Written by Ar Rakin."
+}
+
+usage ()
+{
+    echo "Usage:"
+    echo "  $me [OPTIONS] [FILE...]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help            Show this help and exit"
+    echo "  -v, --version         Show the version of this script"
+    echo "  -n, --noticerc=PATH   Path to the .noticerc file"
+    echo ""
+    echo "General inquiries and bug reports may be sent "
+    echo "to <rakinar2@onesoftnet.eu.org>."
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|'-?'|--help)
+            usage
+            exit 0
+            ;;
+
+        -v|--version)
+            show_version
+            exit 0
+            ;;
+
+        -n|--noticerc)
+            if [ -z "$2" ]; then
+                pr_err "Option '$1' requires an argument"
+                exit 1
+            fi
+
+            noticerc="$2"
+            shift 2
+            ;;
+
+        -*)
+            pr_err "Invalid option \"$1\""
+            exit 1
+            ;;
+
+        *)
+            if [ -z "$paths_to_check" ]; then
+                paths_to_check="$1"
+            else
+                paths_to_check="$paths_to_check $1"
+            fi
+
+            shift
+            ;;
+    esac
+done
+
+pr_debug "Reading .noticerc file: $noticerc"
+
+# shellcheck disable=1090
+. "$noticerc"
+
+if [ $? -ne 0 ]; then
+    pr_err "Failed to source file: $noticerc"
+    exit 1
+fi
+
+paths_to_check="$paths_to_check $noticerc_opt_paths"
+
+if [ "$UPDATE_LICENSE_COMMENTS_DEBUG" = "1" ]; then
+    echo "Paths: $paths_to_check"
+fi
+
+if ! command -v noticerc_get_comment > /dev/null; then
+    pr_err "The .noticerc file '$noticerc' did not define 'noticerc_get_comment ()'"
+    exit 1
+fi
+
+if ! command -v noticerc_has_comment > /dev/null; then
+    pr_err "The .noticerc file '$noticerc' did not define 'noticerc_has_comment ()'"
+    exit 1
+fi
+
+if [ -z "$paths_to_check" ]; then
+    pr_err "No file or directory was specified. Please specify at least one path!"
+    exit 1
+fi
+
+
+for path in $paths_to_check; do
+    pr_info "Entering directory: $path"
+
+    find "$path" -type f | while IFS= read -r file; do
+        pr_debug "Checking file: $file"
+        
+        if ! noticerc_has_comment "$file"; then
+            comment="$(noticerc_get_comment "$file")"
+            contents="$(cat "$file")"
+            echo "$comment" > "$file"
+            echo "" >> "$file"
+            echo "$contents" >> "$file"
+            pr_info "Added license notice to file: $file"
+        fi
+    done
+
+    pr_info "Leaving directory: $path"
+done

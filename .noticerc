@@ -1,0 +1,82 @@
+#!/bin/sh
+#
+# Configuration file for the build-aux/update-license-comments script.
+#
+# This file is part of OSN freehttpd.
+#
+# Copyright (C) 2025  OSN Developers.
+#
+# OSN freehttpd is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# OSN freehttpd is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
+
+# shellcheck disable=2034
+
+noticerc_opt_paths="src tests"
+
+noticerc_has_comment ()
+{
+    first_line="$(head -n10 "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | tr -d '\0')"
+    orig_first_line="$first_line"
+
+    case "$first_line" in
+        "#!"*)
+            first_line="$(echo "$first_line" | tail -n9 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | tr -d '\0')"
+        ;;
+    esac
+
+    case "$1" in
+        *.c|*.h)
+            case "$first_line" in
+                "/*"*)
+                    return 0
+                    ;;
+            esac
+
+            return 1
+        ;;
+    esac
+
+    return 0
+}
+
+noticerc_get_comment ()
+{
+    YEAR=$(date +"%Y")
+
+    case "$1" in
+        *.c|*.h)
+            cat <<EOF
+/*
+ * This file is part of OSN freehttpd.
+ * 
+ * Copyright (C) $YEAR  OSN Developers.
+ *
+ * OSN freehttpd is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * OSN freehttpd is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Affero General Public License
+ * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
+EOF
+        ;;
+    esac
+}
