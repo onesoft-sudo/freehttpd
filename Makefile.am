@@ -28,7 +28,7 @@ check-benchmark: all
 check-valgrind-benchmark: all
 	$(MAKE) -C tests check-valgrind-benchmark
 
-.PHONY: vcs-clean check-benchmark check-valgrind-benchmark
+.PHONY: vcs-clean check-benchmark check-valgrind-benchmark dist-fhttpd dist-fhttpd-sign
 
 .tarball-version:
 	echo '1.0.0' > .tarball-version
@@ -36,7 +36,10 @@ check-valgrind-benchmark: all
 clean-local:
 	rm -f .tarball-version
 
-dist-fhttpd: dist-gzip dist-bzip2 dist-xz
+dist-fhttpd:
+	$(MAKE) dist-gzip
+	$(MAKE) dist-xz
+	$(MAKE) dist-bzip2
 
 dist-fhttpd-sign: dist-fhttpd
 	if test -z "$(GPG_LOCAL_USER)"; then \
