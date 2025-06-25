@@ -55,7 +55,7 @@ get_current_timestamp (void)
 	return (now.tv_sec * 1000) + (now.tv_nsec / 1000000);
 }
 
-__noreturn void
+_noreturn void
 freeze (void)
 {
 	fprintf (stderr, "Alert: process %d will be frozen\n", getpid ());

@@ -6,3 +6,7 @@ TODOs for freehttpd
 * server: default index file
 * autoindex: parent directory link icon
 * http1: keep-alive connections
+* module: base64.c
+* module: md5.c
+
+* chore: setup clang-tidy

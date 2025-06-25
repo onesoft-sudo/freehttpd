@@ -31,6 +31,8 @@
 #include "log.h"
 #include "server.h"
 #include "strutils.h"
+#include "master.h"
+#include "compat.h"
 
 #ifdef HAVE_CONFIG_H
 	#include "config.h"

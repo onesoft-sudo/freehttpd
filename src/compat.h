@@ -20,14 +20,24 @@
 #ifndef FHTTPD_COMPAT_H
 #define FHTTPD_COMPAT_H
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#include <stdlib.h>
+
+#if !defined (__attribute_maybe_unused__) 
+#ifdef defined (__GNUC__) || defined (__clang__)
+#define __attribute_maybe_unused__ __attribute__ ((maybe_unused))
+#else /* not (defined (__GNUC__) || defined (__clang__)) */
+#define __attribute_maybe_unused__
+#endif /* defined (__GNUC__) || defined (__clang__) */
+#endif /* !defined (__attribute_maybe_unused__) */
+
+#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #	ifdef HAVE_STDNORETURN_H
 #		include <stdnoreturn.h>
 #	endif /* HAVE_STDNORETURN_H */
 
-#	define __noreturn _Noreturn
+#	define _noreturn _Noreturn
 #else /* defined (__STDC_VERSION__) && __STDC_VERSION__ >= 201112L */
-#	define __noreturn __attribute__ ((noreturn))
+#	define _noreturn __attribute__ ((noreturn))
 #   undef static_assert
 #	define static_assert(cond, msg)                                                                                   \
 		extern int (*__Static_assert_function (void))[!!sizeof (struct { int __error_if_negative : (cond) ? 2 : -1; })]

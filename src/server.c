@@ -730,7 +730,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 		switch (conn->protocol)
 		{
-			case FHTTPD_PROTOCOL_HTTP1x:
+			case FHTTPD_PROTOCOL_HTTP_1X:
 				http1_parser_ctx_init (&conn->proto.http1.http1_req_ctx);
 				static_assert (sizeof (conn->proto.http1.http1_req_ctx.buffer) >= H2_PREFACE_SIZE,
 							   "protobuf is smaller than H2 preface");
@@ -753,7 +753,7 @@ fhttpd_server_on_read_ready (struct fhttpd_server *server, fd_t client_sockfd)
 
 	switch (conn->protocol)
 	{
-		case FHTTPD_PROTOCOL_HTTP1x:
+		case FHTTPD_PROTOCOL_HTTP_1X:
 			if (!http1_parse (conn, &conn->proto.http1.http1_req_ctx))
 			{
 				fhttpd_wclog_error ("Connection #%lu: HTTP/1.x parsing failed", conn->id);
@@ -923,7 +923,7 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
 		size_t prev_response_count = conn->response_count;
 		conn->response_count = conn->request_count;
 
-		if (conn->response_count > 1 && conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
+		if (conn->response_count > 1 && conn->protocol == FHTTPD_PROTOCOL_HTTP_1X)
 		{
 			fhttpd_wclog_error ("Connection #%lu: Multiple requests in HTTP/1.x protocol are not supported", conn->id);
 			fhttpd_server_free_connection (server, conn);
@@ -957,7 +957,7 @@ fhttpd_server_on_write_ready (struct fhttpd_server *server, fd_t client_sockfd)
 		return LOOP_OPERATION_NONE;
 	}
 
-	if (conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
+	if (conn->protocol == FHTTPD_PROTOCOL_HTTP_1X)
 	{
 		memset (&conn->proto.http1.http1_res_ctx, 0, sizeof (conn->proto.http1.http1_res_ctx));
 		conn->proto.http1.http1_res_ctx.fd = -1;
@@ -1107,7 +1107,7 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
 			bool is_recv_timeout = conn->last_recv_timestamp + recv_timeout < current_time;
 			bool is_send_timeout = conn->last_send_timestamp + send_timeout < current_time;
 
-			if (conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
+			if (conn->protocol == FHTTPD_PROTOCOL_HTTP_1X)
 			{
 				fhttpd_wclog_debug ("Connection #%lu: HTTP/1.x protocol", conn->id);
 
@@ -1188,7 +1188,7 @@ fhttpd_server_check_connections (struct fhttpd_server *server)
 	return true;
 }
 
-__noreturn void
+_noreturn void
 fhttpd_server_loop (struct fhttpd_server *server)
 {
 	struct epoll_event events[MAX_EVENTS];

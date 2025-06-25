@@ -33,6 +33,7 @@
         "cmath": "c",
         "istream": "c",
         "new": "c",
-        "variant": "c"
+        "variant": "c",
+        "tags": "c"
     }
 }

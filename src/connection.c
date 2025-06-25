@@ -63,7 +63,7 @@ fhttpd_connection_close (struct fhttpd_connection *conn)
 	if (!conn)
 		return;
 
-	if (conn->protocol == FHTTPD_PROTOCOL_HTTP1x)
+	if (conn->protocol == FHTTPD_PROTOCOL_HTTP_1X)
 	{
 		http1_parser_ctx_free (&conn->proto.http1.http1_req_ctx);
 		http1_response_ctx_free (&conn->proto.http1.http1_res_ctx);
@@ -137,7 +137,7 @@ fhttpd_connection_detect_protocol (struct fhttpd_connection *conn)
 		}
 		else if (bytes_read == 0)
 		{
-			conn->protocol = FHTTPD_PROTOCOL_HTTP1x;
+			conn->protocol = FHTTPD_PROTOCOL_HTTP_1X;
 			return true;
 		}
 
@@ -147,7 +147,7 @@ fhttpd_connection_detect_protocol (struct fhttpd_connection *conn)
 	if (memcmp (conn->buffers.protobuf, H2_PREFACE, H2_PREFACE_SIZE) == 0)
 		conn->protocol = FHTTPD_PROTOCOL_H2;
 	else
-		conn->protocol = FHTTPD_PROTOCOL_HTTP1x;
+		conn->protocol = FHTTPD_PROTOCOL_HTTP_1X;
 
 	return true;
 }

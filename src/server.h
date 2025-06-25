@@ -75,7 +75,7 @@ struct fhttpd_server
 	bool flag_clean_quit : 1;
 };
 
-__noreturn void fhttpd_server_loop (struct fhttpd_server *server);
+_noreturn void fhttpd_server_loop (struct fhttpd_server *server);
 
 struct fhttpd_server *fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *config, fd_t pipe_fd[static 2]);
 bool fhttpd_server_prepare (struct fhttpd_server *server);

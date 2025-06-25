@@ -42,7 +42,7 @@ fhttpd_protocol_to_string (enum fhttpd_protocol protocol)
 {
 	switch (protocol)
 	{
-		case FHTTPD_PROTOCOL_HTTP1x:
+		case FHTTPD_PROTOCOL_HTTP_1X:
 			return "HTTP/1.x";
 		case FHTTPD_PROTOCOL_H2:
 			return "h2";
@@ -55,7 +55,7 @@ enum fhttpd_protocol
 fhttpd_string_to_protocol (const char *protocol_str)
 {
 	if (strcmp (protocol_str, "HTTP/1.0") == 0 || strcmp (protocol_str, "HTTP/1.1") == 0)
-		return FHTTPD_PROTOCOL_HTTP1x;
+		return FHTTPD_PROTOCOL_HTTP_1X;
 	else if (strcmp (protocol_str, "HTTP/2.0") == 0 || strcmp (protocol_str, "h2") == 0
 			 || strcmp (protocol_str, "h2c") == 0)
 		return FHTTPD_PROTOCOL_H2;

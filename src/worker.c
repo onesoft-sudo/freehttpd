@@ -93,7 +93,7 @@ fhttpd_worker_setup_signals (void)
 	}
 }
 
-__noreturn void
+_noreturn void
 fhttpd_worker_start (struct fhttpd_master *master, fd_t pipe_fd[static 2])
 {
 	fhttpd_worker_setup_signals ();
