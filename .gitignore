@@ -29,3 +29,10 @@ vgcore.*
 .dirstamp
 *.trs
 /.maintainer_configure
+
+# Tagging
+TAGS
+GPATH
+GRTAGS
+GTAGS
+.gpg_keyid

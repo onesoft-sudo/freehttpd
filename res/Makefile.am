@@ -10,6 +10,7 @@ EXTRA_DIST = \
 	freehttpd_http.png \
 	icons/file.png \
 	icons/folder.png \
+	icons/image.png \
 	icons/text.png
 
 noinst_LIBRARIES = libresources.a

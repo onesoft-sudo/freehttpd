@@ -1,5 +1,9 @@
 #!/bin/sh
 
+if [ -z "$BINDIR" ]; then
+    BINDIR=../build/bin
+fi
+
 valgrind \
     -s \
     --leak-check=full \
@@ -10,7 +14,7 @@ valgrind \
     --error-exitcode=1 \
     --log-file=valgrind.log \
     --verbose \
-    ../build/bin/freehttpd > freehttpd-valgrind.log 2>&1 &
+    "$BINDIR/freehttpd" > freehttpd-valgrind.log 2>&1 &
 
 pid=$!
 

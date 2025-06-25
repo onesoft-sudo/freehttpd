@@ -2,7 +2,10 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.61])
-AC_INIT([freehttpd], [1.0.0-alpha.2], [bug-freehttpd@lists.onesoftnet.eu.org])
+
+AC_INIT([freehttpd], 
+  m4_esyscmd([if test -f "$srcdir/.tarball-version"; then head -n1 "$srcdir/.tarball-version"; else jq -r '.version' .github/version.json; fi]), 
+  [bug-freehttpd@lists.onesoftnet.eu.org])
 AC_CONFIG_SRCDIR([src/fhttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -26,14 +29,22 @@ AC_ARG_WITH([systemd-unitdir],
 
 AC_ARG_WITH([config-file], 
             [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
-            [fhttpd_config_file="$withval"],
-            [fhttpd_config_file="$sysconfdir/freehttpd/fhttpd.conf"])
+            [FHTTPD_MAIN_CONFIG_FILE="$withval"],
+            [FHTTPD_MAIN_CONFIG_FILE="$sysconfdir/freehttpd/fhttpd.conf"])
 
 # Checks for programs.
 AC_PROG_CC
 
 AM_PROG_AR
 AC_PROG_RANLIB
+
+AC_CHECK_PROGS([GPG], [gpg gpg2], [no])
+
+if test "x$GPG" = "xno"; then
+  GPG=""
+fi
+
+AC_SUBST([GPG])
 
 # Checks for libraries.
 
@@ -49,7 +60,7 @@ AC_SUBST([SYSTEMD_CFLAGS])
 AC_SUBST([SYSTEMD_LIBS])
 
 # Define macros
-AC_DEFINE_UNQUOTED([FHTTPD_MAIN_CONFIG_FILE], ["$fhttpd_config_file"], [Path to the configuration file])
+AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
@@ -96,18 +107,21 @@ AC_CHECK_FUNCS([epoll_create1 epoll_wait], [], [
 AC_CONFIG_FILES([Makefile
                  res/Makefile
                  src/Makefile
+                 conf/Makefile
                  tests/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([Configuration summary:
+
+  Version: $VERSION
   Build type: $build_type
   Compiler: $CC
   Compiler flags: $CFLAGS $SYSTEMD_CFLAGS
   Linker flags: $LDFLAGS $SYSTEMD_LDLAGS
+  Preprocessor flags: $CPPFLAGS
   Libraries: $LIBS $SYSTEMD_LIBS
-  Header files: $CPPFLAGS
   Installation prefix: $prefix
+  Main Configuration file: $FHTTPD_MAIN_CONFIG_FILE
   systemd support: $enable_systemd
   systemd unit directory: $systemd_unitdir
-  Configuration file: $fhttpd_config_file
 ])

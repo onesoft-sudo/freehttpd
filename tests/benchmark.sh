@@ -1,6 +1,10 @@
 #!/bin/sh
 
-../build/bin/freehttpd > freehttpd.log 2>&1 &
+if [ -z "$BINDIR" ]; then
+    BINDIR=../build/bin
+fi
+
+"$BINDIR/freehttpd" > freehttpd.log 2>&1 &
 
 pid=$!
 

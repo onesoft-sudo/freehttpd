@@ -1,7 +1,8 @@
 bin_PROGRAMS = freehttpd
+FHTTPD_MAIN_CONFIG_FILE = @FHTTPD_MAIN_CONFIG_FILE@
 
 AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99 $(SYSTEMD_CFLAGS)
-AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES
+AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES '-DFHTTPD_MAIN_CONFIG_FILE="$(FHTTPD_MAIN_CONFIG_FILE)"'
 
 freehttpd_SOURCES = \
 	fhttpd.c \

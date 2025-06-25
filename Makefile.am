@@ -1,4 +1,8 @@
-SUBDIRS = res src tests
+SUBDIRS = res conf src tests
+EXTRA_DIST = README.md NEWS AUTHORS TODO bootstrap ChangeLog .tarball-version
+
+GPG ?= @GPG@
+GPG_LOCAL_USER ?=
 
 vcs-clean: clean
 	for dir in $(SUBDIRS) .; do \
@@ -25,3 +29,21 @@ check-valgrind-benchmark: all
 	$(MAKE) -C tests check-valgrind-benchmark
 
 .PHONY: vcs-clean check-benchmark check-valgrind-benchmark
+
+.tarball-version:
+	echo '1.0.0' > .tarball-version
+
+clean-local:
+	rm -f .tarball-version
+
+dist-fhttpd: dist-gzip dist-bzip2 dist-xz
+
+dist-fhttpd-sign: dist-fhttpd
+	if test -z "$(GPG_LOCAL_USER)"; then \
+		echo "The GPG_LOCAL_USER variable is not set - please set it to your GPG key ID."; \
+		exit 1; \
+	fi
+
+	$(GPG) -a -b --local-user $(GPG_LOCAL_USER) "$(distdir).tar.gz"
+	$(GPG) -a -b --local-user $(GPG_LOCAL_USER) "$(distdir).tar.bz2"
+	$(GPG) -a -b --local-user $(GPG_LOCAL_USER) "$(distdir).tar.xz"
