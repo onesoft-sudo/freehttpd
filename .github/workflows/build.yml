@@ -56,3 +56,4 @@ jobs:
             tests/freehttpd.log
             tests/valgrind.log
             tests/vgcore.*
+            *.tar.gz
