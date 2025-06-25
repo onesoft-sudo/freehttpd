@@ -1,213 +1,489 @@
-2025-06-24  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	merge: branch 'main' of github.com:onesoft-sudo/freehttpd
-
-	chore: update readme
-
-	chore(icons): add image.png
-
-	chore: update systemd unit
-
-	fix: use macros to guard systemd-specific code
-
-	feat: better integration with systemd
-
-	chore: add TODOs
-
-	feat(autoindex): theme colors and improved meta tags
-
-	chore: vhost configuration files with correct paths
-
-	feat: hot reloading of all configuration options
-
-	feat(config): hot reloading via SIGHUP
-
-2025-06-23  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	feat: better logging
-
-	refactor: better signal handling
-
-	refactor: use c99 with gnu extensions
-
-	style: reformat
-
-	perf: autoindex checks
-
-	feat(security): connection limit and throttling
-
-	chore: add config files
-
-	feat(config): security {...} block
-
-	refactor: rename bitstream to bitmap
-
-	feat: bitstream management
-
-2025-06-22  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	chore: update stub config files
-
-	ci: fix build workflow
-
-	ci: fix build workflow
-
-	fix: configuration file path detection
-
-	chore: update changelog
-
-	feat(core): complete vhost support
-
-	chore: update .gitignore
-
-	feat(config): integrate into the server [1/2]
-
-	feat(config): finalize config parser and validator
-
-2025-06-20  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	build: update source file names
-
-	feat(config): glob includes
-
-	feat(config): complete parsing and partial option loading
-
-	refactor: organize code
-
-	feat(config): tokenizer
-
-2025-06-19  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	chore: update readme logo
-
-	fix: missing include of <stdbool.h>
-
-	build: include resources in EXTRA_DIST
-
-	build: fix autoconf issues
-
-	build: fix autoconf issues
-
-	build: fix autoconf issues
-
-	build: fix autoconf issues
-
-	ci: build workflow fix
-
-	build: fix autoconf issues
-
-	build: remove gnulib
-
-	build: fix autoconf
-
-	ci: fix build workflow
-
-	build: add support for `-std=gnu2x` standard
-
-	ci: update build workflow
-
-	build: integrate gnulib
-
-	chore: restructure project to use gnu autotools
-
-	chore: add icons and switch to new logo
-
-	feat(autoindex): separate module, determine icons by extensions
-
-	feat: finalize auto index page
-
-	chore: update readme
-
-	chore: add logo to readme
-
-	feat(autoindex): use scandir() with versionsort()
-
-	feat: etags
-
-2025-06-18  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	chore: add powered by logo
-
-	chore: systemd unit file
-
-	ci: non-valgrind benchmarks
-
-	ci: non-valgrind benchmarks
-
-	ci: non-valgrind benchmarks
-
-	test: update itable suites
-
-	refactor: more clear config option names
-
-	feat: flow control, timeouts
-
-	ci: fix codeql workflow
-
-	feat: static file serving and directory indexing
-
-2025-06-17  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	chore: remove resources
-
-	chore: remove resources
-
-2025-06-16  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	Merge branch 'main' of github.com:onesoft-sudo/freehttpd
-
-	feat: better request processing
-
-	ci: add permissions to workflows
-
-	ci: add codeql
-
-	chore: add readme
-
-	ci: artifacts
-
-	ci: prepare tests
-
-2025-06-15  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	chore: add license
-
-	feat: basic responses
-
-	feat: full http1.x parsing, basic response sending
-
-2025-06-14  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	refactor: rewrite
-
-2025-06-12  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	feat: epoll usage improvements and timeouts
-
-	feat: initial implmentation of streamed request parsing
-
-2025-06-11  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	refactor: organize event handlers
-
-	feat: use epoll
-
-2025-06-09  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	feat: header parsing
-
-	feat(h2): multiple streams and correct parsing of settings and other frames
-
-2025-06-08  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	chore: add todos
-
-	feat: h2
-
-	feat!: restructure the project
-
-2025-05-10  Ar Rakin  <rakinar2@onesoftnet.eu.org>
-
-	feat(server): preforking
-
-	feat: initial commit
+25-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: test release
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: better integration with gnu autotools
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: update build workflow
+         
+
+24-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] chore: update changelog
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] merge: branch 'main' of github.com:onesoft-sudo/freehttpd
+         
+
+     [*] chore: update readme
+         
+
+     [*] chore(icons): add image.png
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: update systemd unit
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: use macros to guard systemd-specific code
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: better integration with systemd
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add TODOs
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(autoindex): theme colors and improved meta tags
+         
+
+     [*] chore: vhost configuration files with correct paths
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: hot reloading of all configuration options
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+23-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat(config): hot reloading via SIGHUP
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: better logging
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: better signal handling
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: use c99 with gnu extensions
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] style: reformat
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] perf: autoindex checks
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(security): connection limit and throttling
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add config files
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(config): security {...} block
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: rename bitstream to bitmap
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+22-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: bitstream management
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: update stub config files
+         
+
+     [*] ci: fix build workflow
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: fix build workflow
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: configuration file path detection
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: update changelog
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(core): complete vhost support
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+21-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] chore: update .gitignore
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(config): integrate into the server [1/2]
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(config): finalize config parser and validator
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+20-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] build: update source file names
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(config): glob includes
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(config): complete parsing and partial option loading
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: organize code
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+19-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat(config): tokenizer
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: update readme logo
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: missing include of <stdbool.h>
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: include resources in EXTRA_DIST
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix autoconf issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix autoconf issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix autoconf issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix autoconf issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: build workflow fix
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix autoconf issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: remove gnulib
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix autoconf
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: fix build workflow
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: add support for `-std=gnu2x` standard
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: update build workflow
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: integrate gnulib
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: restructure project to use gnu autotools
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add icons and switch to new logo
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(autoindex): separate module, determine icons by extensions
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: finalize auto index page
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+18-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] chore: update readme
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add logo to readme
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(autoindex): use scandir() with versionsort()
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: etags
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add powered by logo
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: systemd unit file
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: non-valgrind benchmarks
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: non-valgrind benchmarks
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: non-valgrind benchmarks
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] test: update itable suites
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: more clear config option names
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: flow control, timeouts
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+17-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] ci: fix codeql workflow
+         
+
+     [*] feat: static file serving and directory indexing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: remove resources
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: remove resources
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+16-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: better request processing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+15-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] ci: add permissions to workflows
+         
+
+     [*] ci: add codeql
+         
+
+     [*] chore: add readme
+         
+
+     [*] ci: artifacts
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: prepare tests
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add license
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: basic responses
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+14-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: full http1.x parsing, basic response sending
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: rewrite
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+12-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: epoll usage improvements and timeouts
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+11-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: initial implmentation of streamed request parsing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: organize event handlers
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: use epoll
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+09-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: header parsing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+08-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat(h2): multiple streams and correct parsing of settings and other frames
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add todos
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: h2
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat!: restructure the project
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+10-05-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat(server): preforking
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: initial commit
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
