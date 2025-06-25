@@ -3,8 +3,10 @@
 
 AC_PREREQ([2.61])
 
+define([FHTTPD_VERSION], m4_esyscmd([if test -f "$srcdir/.tarball-version"; then head -n1 "$srcdir/.tarball-version" | tr -d '\n'; else jq -r '.version' .github/version.json | tr -d '\n'; fi]))
+
 AC_INIT([freehttpd], 
-  m4_esyscmd([if test -f "$srcdir/.tarball-version"; then head -n1 "$srcdir/.tarball-version"; else jq -r '.version' .github/version.json; fi]), 
+  FHTTPD_VERSION, 
   [bug-freehttpd@lists.onesoftnet.eu.org])
 AC_CONFIG_SRCDIR([src/fhttpd.c])
 AC_CONFIG_HEADERS([config.h])
@@ -26,6 +28,11 @@ AC_ARG_WITH([config-file],
             [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
             [FHTTPD_MAIN_CONFIG_FILE="$withval"],
             [FHTTPD_MAIN_CONFIG_FILE="$sysconfdir/freehttpd/fhttpd.conf"])
+
+if test "x$FHTTPD_CONFIGURE_DEBUG" = "x1"; then
+    AC_MSG_NOTICE([Configuring OSN freehttpd])
+    AC_MSG_NOTICE([Version: ]FHTTPD_VERSION)
+fi
 
 # Checks for programs.
 AC_PROG_CC
