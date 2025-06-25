@@ -1,5 +1,13 @@
 25-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
 
+     [*] merge: branch 'main' of github.com:onesoft-sudo/freehttpd
+         
+
+     [*] fix: broken dist archives
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
      [*] feat: test release
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
@@ -11,6 +19,13 @@
          
 
      [*] ci: update build workflow
+         
+
+25-06-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v1.0.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
          
 
 24-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
