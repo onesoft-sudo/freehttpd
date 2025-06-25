@@ -1,16 +1,17 @@
 [Unit]
 Description=freehttpd HTTP Server
+After=network.target
 
 [Service]
 Type=notify
-ExecStart=/home/rakinar2/Projects/freehttpd/src/freehttpd
+ExecStart=@bindir@/freehttpd
 KillMode=control-group
 ExecReload=/bin/kill -HUP $MAINPID
 TimeoutStopSec=5
 Restart=no
 DevicePolicy=closed
 KeyringMode=private
-LockPersonality=yes
+LockPersonality=yesa
 MemoryDenyWriteExecute=yes
 OOMPolicy=continue
 PrivateDevices=yes
@@ -27,6 +28,8 @@ RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
 SystemCallArchitectures=native
+User=daemon
+group=daemon
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

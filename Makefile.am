@@ -1,4 +1,4 @@
-SUBDIRS = res conf src tests
+SUBDIRS = res conf systemd src tests
 EXTRA_DIST = README.md NEWS AUTHORS TODO bootstrap ChangeLog .tarball-version
 
 GPG ?= @GPG@

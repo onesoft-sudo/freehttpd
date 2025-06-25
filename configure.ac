@@ -22,11 +22,6 @@ AC_ARG_ENABLE([systemd],
               [enable_systemd="$enableval"],
               [enable_systemd=no])
 
-AC_ARG_WITH([systemd-unitdir],
-            [AS_HELP_STRING([--with-systemd-unitdir=DIR], [Directory for systemd unit files (default: $libdir/systemd/system)])],
-            [systemd_unitdir="$withval"],
-            [systemd_unitdir="$libdir/systemd/system"])
-
 AC_ARG_WITH([config-file], 
             [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
             [FHTTPD_MAIN_CONFIG_FILE="$withval"],
@@ -53,8 +48,15 @@ if test "x$enable_systemd" = "xyes"; then
         AC_MSG_ERROR([libsystemd is required for systemd support. Please install it or disable systemd support with --disable-systemd.])
     ])
 
-    AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])
+    AC_MSG_CHECKING([for systemd unit directory])
+    systemdsystemunitdir="$libdir/systemd/system"
+    AC_SUBST([systemdsystemunitdir])
+    AC_MSG_RESULT([$systemdsystemunitdir])
+
+    AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])    
 fi
+
+AM_CONDITIONAL([ENABLE_SYSTEMD], [test "x$enable_systemd" = "xyes"])
 
 AC_SUBST([SYSTEMD_CFLAGS])
 AC_SUBST([SYSTEMD_LIBS])
@@ -70,18 +72,18 @@ AC_CHECK_HEADERS([stdnoreturn.h])
 AC_MSG_CHECKING([whether the compiler supports VLAs])
 
 AC_COMPILE_IFELSE(
-  [AC_LANG_PROGRAM(
-    [[
-      #ifdef __STDC_NO_VLA__
-      #error "No VLA support"
-      #endif
-    ]]
-  )],
-  [AC_MSG_RESULT([yes])],
-  [
-    AC_MSG_RESULT([no])
-    AC_MSG_ERROR([The compiler does not support VLAs (variable-length arrays)])
-  ]
+    [AC_LANG_PROGRAM(
+        [[
+            #ifdef __STDC_NO_VLA__
+            #error "No VLA support"
+            #endif
+        ]]
+    )],
+    [AC_MSG_RESULT([yes])],
+    [
+        AC_MSG_RESULT([no])
+        AC_MSG_ERROR([The compiler does not support VLAs (variable-length arrays)])
+    ]
 )
 
 AC_CHECK_HEADER_STDBOOL
@@ -101,13 +103,14 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
 AC_CHECK_FUNCS([epoll_create1 epoll_wait], [], [
-  AC_MSG_ERROR([epoll is not supported on this platform, which is needed for freehttpd to compile.])
+    AC_MSG_ERROR([epoll is not supported on this platform, which is needed for freehttpd to compile.])
 ])
 
 AC_CONFIG_FILES([Makefile
                  res/Makefile
                  src/Makefile
                  conf/Makefile
+                 systemd/Makefile
                  tests/Makefile])
 AC_OUTPUT
 
@@ -123,5 +126,4 @@ AC_MSG_NOTICE([Configuration summary:
   Installation prefix: $prefix
   Main Configuration file: $FHTTPD_MAIN_CONFIG_FILE
   systemd support: $enable_systemd
-  systemd unit directory: $systemd_unitdir
 ])
