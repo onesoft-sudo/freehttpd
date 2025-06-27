@@ -2,4 +2,4 @@
 
 set -e
 
-../build-aux/valgrind ./test_bitmap_bin
+$VALGRIND ./test_bitmap_bin

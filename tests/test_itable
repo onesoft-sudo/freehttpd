@@ -2,4 +2,4 @@
 
 set -e
 
-../build-aux/valgrind ./test_itable_bin
+$VALGRIND ./test_itable_bin

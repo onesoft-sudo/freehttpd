@@ -16,7 +16,7 @@
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
 SUBDIRS = res conf systemd src tests
-EXTRA_DIST = README.md NEWS AUTHORS TODO bootstrap ChangeLog .tarball-version
+EXTRA_DIST = README.md NEWS AUTHORS TODO bootstrap ChangeLog .tarball-version build-aux/valgrind
 
 GPG ?= @GPG@
 GPG_LOCAL_USER ?=

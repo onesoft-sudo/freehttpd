@@ -16,13 +16,19 @@
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
 bin_PROGRAMS = freehttpd
+noinst_LIBRARIES = libfhttpd.a
+
 FHTTPD_MAIN_CONFIG_FILE = @FHTTPD_MAIN_CONFIG_FILE@
 
 AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99 $(SYSTEMD_CFLAGS)
 AM_CPPFLAGS = -I$(top_srcdir)/res -DHAVE_RESOURCES '-DFHTTPD_MAIN_CONFIG_FILE="$(FHTTPD_MAIN_CONFIG_FILE)"'
 
 freehttpd_SOURCES = \
-	fhttpd.c \
+	fhttpd.c
+
+freehttpd_LDADD = libfhttpd.a $(top_builddir)/res/libresources.a $(SYSTEMD_LIBS)
+
+libfhttpd_a_SOURCES = \
 	autoindex.c \
 	http1.c \
 	connection.c \
@@ -56,8 +62,6 @@ freehttpd_SOURCES = \
 	worker.h \
 	base64.c \
 	base64.h
-
-freehttpd_LDADD = ../res/libresources.a $(SYSTEMD_LIBS)
 
 clean-local:
 	rm -rf .deps
