@@ -37,3 +37,4 @@ GRTAGS
 GTAGS
 .gpg_keyid
 /.tarball-version
+/tests/*_bin

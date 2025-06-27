@@ -33,4 +33,4 @@ exec valgrind \
     --track-origins=yes \
     --error-exitcode=1 \
     --trace-children=yes \
-    "$1"
+    $@
