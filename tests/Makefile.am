@@ -21,7 +21,6 @@ EXTRA_DIST = $(top_srcdir)/build-aux/valgrind
 AM_CPPFLAGS = -I$(top_srcdir)/src
 check_PROGRAMS = test_itable_bin test_utils_bin test_bitmap_bin test_base64_bin
 TESTS = test_itable test_utils test_bitmap test_base64
-TESTS = test_base64
 
 test_itable_bin_SOURCES = test_itable.c ../src/itable.c ../src/itable.h
 test_utils_bin_SOURCES = test_utils.c ../src/utils.c ../src/utils.h
