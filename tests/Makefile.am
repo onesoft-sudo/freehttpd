@@ -18,7 +18,7 @@
 AUTOMAKE_OPTIONS = parallel-tests
 EXTRA_DIST = $(top_srcdir)/build-aux/valgrind
 
-AM_CPPFLAGS = -I$(top_srcdir)/src
+AM_CFLAGS = -I$(top_srcdir)/src
 check_PROGRAMS = test_itable_bin test_utils_bin test_bitmap_bin test_base64_bin
 TESTS = test_itable test_utils test_bitmap test_base64
 

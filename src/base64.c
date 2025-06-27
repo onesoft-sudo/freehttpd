@@ -3,7 +3,7 @@
 
 #include "base64.h"
 
-static const char base64_encode_char_index[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const char base64_encode_char_index[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static const char base64_decode_char_index[] = {
 	['A'] = 0,	['B'] = 1,	['C'] = 2,	['D'] = 3,	['E'] = 4,	['F'] = 5,	['G'] = 6,	['H'] = 7,
 	['I'] = 8,	['J'] = 9,	['K'] = 10, ['L'] = 11, ['M'] = 12, ['N'] = 13, ['O'] = 14, ['P'] = 15,
@@ -46,9 +46,6 @@ fh_base64_encode (struct fh_base64_buf *b64, const char *data, size_t len)
 			i += 3;
 		}
 
-		char encoded[4];
-		size_t chars = 0;
-
 		b64->buf[b64->size++] = base64_encode_char_index[(bits >> 18U) & 0x3F];
 		b64->buf[b64->size++] = base64_encode_char_index[(bits >> 12U) & 0x3F];
 
@@ -87,8 +84,8 @@ fh_base64_decode (struct fh_base64_buf *b64, const char *data, size_t len)
 		if (len - i != 0 && len - i < 4)
 			return false;
 
-		uint32_t bits = (base64_decode_char_index[data[i]] << 18U) | (base64_decode_char_index[data[i + 1]] << 12U)
-						| (base64_decode_char_index[data[i + 2]] << 6U) | base64_decode_char_index[data[i + 3]];
+		uint32_t bits = (base64_decode_char_index[(uint8_t) data[i]] << 18U) | (base64_decode_char_index[(uint8_t) data[i + 1]] << 12U)
+						| (base64_decode_char_index[(uint8_t) data[i + 2]] << 6U) | base64_decode_char_index[(uint8_t) data[i + 3]];
 
 		b64->buf[b64->size++] = (bits >> 16U) & 0xFF;
 		b64->buf[b64->size++] = (bits >> 8U) & 0xFF;

@@ -27,6 +27,7 @@ freehttpd_SOURCES = \
 	http1.c \
 	connection.c \
 	itable.c \
+	itable.h \
 	log.c \
 	protocol.c \
 	server.c \
@@ -35,7 +36,6 @@ freehttpd_SOURCES = \
 	autoindex.h \
 	http1.h \
 	connection.h \
-	itable.h \
 	log.h \
 	protocol.h \
 	server.h \
