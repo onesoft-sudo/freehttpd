@@ -53,7 +53,7 @@ freehttpd_SOURCES = \
 	bitmap.h \
 	compat.h \
 	worker.c \
-	worker.h |
+	worker.h \
 	base64.c \
 	base64.h
 
