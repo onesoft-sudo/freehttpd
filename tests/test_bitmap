@@ -1,5 +1,0 @@
-#!/bin/sh
-
-set -e
-
-$VALGRIND ./test_bitmap_bin

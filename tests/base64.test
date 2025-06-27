@@ -9,7 +9,7 @@ for i in $(seq 1 100); do
     str="$(printf "%s" "$str")"
     echo "Test #$i: b64_encode('$str')"
     # shellcheck disable=SC2006
-    out=`./test_base64_bin e "$str"`
+    out=`./base64.test.helper e "$str"`
     expected="$(printf "%s" "$str" | base64 -w 0)"
 
     if [ "$out" != "$expected" ]; then
@@ -25,7 +25,7 @@ for i in $(seq 1 100); do
     input="$(printf "%s" "$str" | base64 -w 0)"
     echo "Test #$i: b64_decode('$input')"
     # shellcheck disable=SC2006
-    out=`./test_base64_bin d "$input"`
+    out=`./base64.test.helper d "$input"`
 
     if [ "$out" != "$str" ]; then
         echo "Test failed: '$out' != '$str'" >&2
@@ -39,8 +39,8 @@ for i in $(seq 1 100); do
     str="$(head -n5 /dev/random | md5sum)"
     echo "Test #$i: b64_decode(b64_encode('$input'))"
     
-    encoded="$(./test_base64_bin e "$str")"
-    decoded="$(./test_base64_bin d "$encoded")"
+    encoded="$(./base64.test.helper e "$str")"
+    decoded="$(./base64.test.helper d "$encoded")"
 
     if [ "$decoded" != "$str" ]; then
         echo "Test failed: '$decoded' != '$str'" >&2
