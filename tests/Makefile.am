@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-AM_CPPFLAGS = -I$(top_srcdir)/src
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/core -I$(top_srcdir)/src/mm -I$(top_srcdir)/src/utils -I$(top_srcdir)/src/include
 AM_TESTS_ENVIRONMENT = \
   top_srcdir=$(top_srcdir) \
   top_builddir=$(top_builddir) \
@@ -25,11 +25,11 @@ AM_TESTS_ENVIRONMENT = \
 check_PROGRAMS = itable.test.helper utils.test.helper bitmap.test.helper base64.test.helper pool.test.helper
 TESTS = itable.test utils.test bitmap.test base64.test pool.test
 
-itable_test_helper_SOURCES = itable.test.c $(top_srcdir)/src/itable.c $(top_srcdir)/src/itable.h
-utils_test_helper_SOURCES = utils.test.c $(top_srcdir)/src/utils.c $(top_srcdir)/src/utils.h
-bitmap_test_helper_SOURCES = bitmap.test.c $(top_srcdir)/src/bitmap.c $(top_srcdir)/src/bitmap.h
-base64_test_helper_SOURCES = base64.test.c $(top_srcdir)/src/base64.c $(top_srcdir)/src/base64.h
-pool_test_helper_SOURCES = pool.test.c $(top_srcdir)/src/pool.c $(top_srcdir)/src/pool.h
+itable_test_helper_SOURCES = itable.test.c $(top_srcdir)/src/utils/itable.c $(top_srcdir)/src/utils/itable.h
+utils_test_helper_SOURCES = utils.test.c $(top_srcdir)/src/utils/utils.c $(top_srcdir)/src/utils/utils.h
+bitmap_test_helper_SOURCES = bitmap.test.c $(top_srcdir)/src/utils/bitmap.c $(top_srcdir)/src/utils/bitmap.h
+base64_test_helper_SOURCES = base64.test.c $(top_srcdir)/src/utils/base64.c $(top_srcdir)/src/utils/base64.h
+pool_test_helper_SOURCES = pool.test.c $(top_srcdir)/src/mm/pool.c $(top_srcdir)/src/mm/pool.h
 
 EXTRA_DIST = $(TESTS)
 
