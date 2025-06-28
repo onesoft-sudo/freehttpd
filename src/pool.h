@@ -1,6 +1,7 @@
 #ifndef FH_POOL_H
 #define FH_POOL_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 struct fh_pool;
