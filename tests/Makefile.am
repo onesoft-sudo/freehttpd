@@ -6,12 +6,12 @@
 # it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # OSN freehttpd is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Affero General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -22,13 +22,14 @@ AM_TESTS_ENVIRONMENT = \
   testdir=$(top_builddir)/tests \
   VALGRIND=$(top_srcdir)/build-aux/valgrind
 
-check_PROGRAMS = itable.test.helper utils.test.helper bitmap.test.helper base64.test.helper
-TESTS = itable.test utils.test bitmap.test base64.test
+check_PROGRAMS = itable.test.helper utils.test.helper bitmap.test.helper base64.test.helper pool.test.helper
+TESTS = itable.test utils.test bitmap.test base64.test pool.test
 
 itable_test_helper_SOURCES = itable.test.c $(top_srcdir)/src/itable.c $(top_srcdir)/src/itable.h
 utils_test_helper_SOURCES = utils.test.c $(top_srcdir)/src/utils.c $(top_srcdir)/src/utils.h
 bitmap_test_helper_SOURCES = bitmap.test.c $(top_srcdir)/src/bitmap.c $(top_srcdir)/src/bitmap.h
 base64_test_helper_SOURCES = base64.test.c $(top_srcdir)/src/base64.c $(top_srcdir)/src/base64.h
+pool_test_helper_SOURCES = pool.test.c $(top_srcdir)/src/pool.c $(top_srcdir)/src/pool.h
 
 EXTRA_DIST = $(TESTS)
 
