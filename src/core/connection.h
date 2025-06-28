@@ -23,8 +23,8 @@
 #include <arpa/inet.h>
 #include <stdint.h>
 
-#include "http1.h"
-#include "protocol.h"
+#include "http/http1.h"
+#include "http/protocol.h"
 #include "types.h"
 
 enum fhttpd_connection_mode

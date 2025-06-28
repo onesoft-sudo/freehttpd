@@ -29,10 +29,10 @@
 
 #define FHTTPD_LOG_MODULE_NAME "http1"
 
-#include "connection.h"
+#include "core/connection.h"
 #include "http1.h"
-#include "log.h"
-#include "utils.h"
+#include "log/log.h"
+#include "utils/utils.h"
 
 #ifdef HAVE_RESOURCES
 #include "resources.h"

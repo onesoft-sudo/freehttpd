@@ -45,16 +45,16 @@
 
 #define FHTTPD_LOG_MODULE_NAME "server"
 
-#include "autoindex.h"
 #include "conf.h"
 #include "connection.h"
-#include "itable.h"
-#include "log.h"
 #include "loop.h"
-#include "protocol.h"
 #include "server.h"
 #include "types.h"
-#include "utils.h"
+#include "modules/autoindex.h"
+#include "utils/itable.h"
+#include "log/log.h"
+#include "http/protocol.h"
+#include "utils/utils.h"
 
 #ifdef HAVE_RESOURCES
 	#include "resources.h"

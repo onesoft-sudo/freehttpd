@@ -26,10 +26,10 @@
 
 #define FHTTPD_LOG_MODULE_NAME "master"
 
+#include "log/log.h"
+#include "utils/utils.h"
 #include "compat.h"
-#include "log.h"
 #include "server.h"
-#include "utils.h"
 #include "worker.h"
 
 #ifdef HAVE_CONFIG_H

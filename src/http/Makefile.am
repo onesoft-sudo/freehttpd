@@ -15,30 +15,18 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-SUBDIRS = core http include log mm modules utils
-
-bin_PROGRAMS = freehttpd
-
-freehttpd_SOURCES = \
-	fhttpd.c
-
-freehttpd_LDADD = \
-	$(top_builddir)/src/core/libcore.a \
-	$(top_builddir)/src/http/libhttp.a \
-	$(top_builddir)/src/log/liblog.a \
-	$(top_builddir)/src/mm/libmm.a \
-	$(top_builddir)/src/modules/libmodules.a \
-	$(top_builddir)/src/utils/libutils.a \
-	$(top_builddir)/res/libresources.a \
-	$(SYSTEMD_LIBS)
-
-FHTTPD_MAIN_CONFIG_FILE = @FHTTPD_MAIN_CONFIG_FILE@
-
-export EXPORTED_AM_CFLAGS = -Wall -Wextra -pedantic -std=gnu99 $(SYSTEMD_CFLAGS)
-export EXPORTED_AM_CPPFLAGS = -I$(ABS_SRCDIR)/src/include -I$(ABS_SRCDIR)/src -I$(ABS_SRCDIR)/res -DHAVE_RESOURCES '-DFHTTPD_MAIN_CONFIG_FILE="$(FHTTPD_MAIN_CONFIG_FILE)"'
+noinst_LIBRARIES = libhttp.a
+libhttp_a_SOURCES = \
+    buffer.c \
+    buffer.h \
+    http1.c \
+    http1.h \
+    protocol.c \
+    protocol.h \
+    stream.c \
+    stream.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
 
-clean-local:
-	rm -rf .deps
+CLEANFILES = .deps

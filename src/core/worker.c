@@ -25,10 +25,10 @@
 #define FHTTPD_LOG_MODULE_NAME "worker"
 
 #include "compat.h"
-#include "log.h"
 #include "master.h"
 #include "server.h"
 #include "worker.h"
+#include "log/log.h"
 
 static struct fhttpd_server *local_server = NULL;
 static struct fhttpd_master *local_master = NULL;

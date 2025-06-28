@@ -27,11 +27,11 @@
 
 #define FHTTPD_LOG_MODULE_NAME "main"
 
-#include "conf.h"
-#include "log.h"
-#include "server.h"
-#include "strutils.h"
-#include "master.h"
+#include "core/conf.h"
+#include "log/log.h"
+#include "core/server.h"
+#include "utils/strutils.h"
+#include "core/master.h"
 #include "compat.h"
 
 #ifdef HAVE_CONFIG_H

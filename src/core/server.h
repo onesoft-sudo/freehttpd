@@ -28,12 +28,11 @@
 
 #include "compat.h"
 #include "conf.h"
-#include "error.h"
-#include "itable.h"
 #include "master.h"
-#include "protocol.h"
-#include "strtable.h"
 #include "types.h"
+#include "utils/itable.h"
+#include "http/protocol.h"
+#include "utils/strtable.h"
 
 #define MAX_REQUEST_THREADS 4
 

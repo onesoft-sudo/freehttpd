@@ -23,7 +23,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "log.h"
+#include "log/log.h"
 
 enum conf_parser_error
 {

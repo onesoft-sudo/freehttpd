@@ -30,10 +30,10 @@
 
 #define FHTTPD_LOG_MODULE_NAME "autoindex"
 
-#include "connection.h"
-#include "log.h"
-#include "protocol.h"
-#include "utils.h"
+#include "core/connection.h"
+#include "log/log.h"
+#include "http/protocol.h"
+#include "utils/utils.h"
 
 #ifdef HAVE_RESOURCES
 #	include "resources.h"

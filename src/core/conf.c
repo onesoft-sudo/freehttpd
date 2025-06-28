@@ -35,7 +35,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "conf.h"
-#include "strutils.h"
+#include "utils/strutils.h"
 
 enum conf_token_type
 {

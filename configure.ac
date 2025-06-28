@@ -88,6 +88,12 @@ AC_SUBST([SYSTEMD_LIBS])
 # Define macros
 AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
 
+ABS_SRCDIR=`cd "$srcdir" && pwd`
+ABS_BUILDDIR=`pwd`
+
+AC_SUBST([ABS_SRCDIR])
+AC_SUBST([ABS_BUILDDIR])
+
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
 AC_CHECK_HEADERS([stdnoreturn.h])
@@ -133,6 +139,13 @@ AC_CHECK_FUNCS([epoll_create1 epoll_wait], [], [
 AC_CONFIG_FILES([Makefile
                  res/Makefile
                  src/Makefile
+                 src/core/Makefile
+                 src/http/Makefile
+                 src/include/Makefile
+                 src/log/Makefile
+                 src/mm/Makefile
+                 src/modules/Makefile
+                 src/utils/Makefile
                  conf/Makefile
                  systemd/Makefile
                  tests/Makefile])
