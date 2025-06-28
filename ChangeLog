@@ -1,4 +1,19 @@
+28-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] fix: missing includes
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(mm): hierarchy-based memory pools
+         
+
 27-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] build: rename tests to *.test
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
 
      [*] build: fix tests failing
          
@@ -33,6 +48,13 @@
      [*] feat(module): base64.c
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+27-06-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v1.2.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
          
 
 25-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
