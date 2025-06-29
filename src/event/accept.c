@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include "accept.h"
+#include "core/conn.h"
 #include "utils/utils.h"
 
 bool
@@ -35,16 +36,34 @@ fh_event_accept (struct fhttpd_server *server, const xevent_t *event)
 	}
 #endif /* __linux__ */
 
-	if (!xpoll_add (server->xpoll, client_sockfd, XPOLLIN | XPOLLET, 0))
+	char client_ip[INET_ADDRSTRLEN] = {0};
+
+	inet_ntop (AF_INET, &client_addr.sin_addr, client_ip, sizeof (client_ip));
+	fhttpd_wclog_info ("Accepted connection from: %s:%d", client_ip, ntohs (client_addr.sin_port));
+
+	struct fh_conn *conn = fh_conn_create (server->last_connection_id++, client_sockfd);
+
+	if (!conn)
 	{
 		close (client_sockfd);
 		return false;
 	}
 
-	char client_ip[INET_ADDRSTRLEN] = {0};
+	if (!xpoll_add (server->xpoll, client_sockfd, XPOLLIN | XPOLLHUP | XPOLLET, 0))
+	{
+		fh_conn_close (conn);
+		return false;
+	}
 
-	inet_ntop (AF_INET, &client_addr.sin_addr, client_ip, sizeof (client_ip));
-	fhttpd_log_info ("Accepted connection from: %s:%d", client_ip, ntohs (client_addr.sin_port));
+	conn->config = &server->config->hosts[server->config->default_host_index];
+	conn->protocol = FHTTPD_PROTOCOL_UNKNOWN;
+
+	if (!itable_set (server->connections, (uint64_t) client_sockfd, conn))
+	{
+		xpoll_del (server->xpoll, client_sockfd, XPOLLIN);
+		fh_conn_close (conn);
+		return false;
+	}
 
 	return true;
 }

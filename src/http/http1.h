@@ -41,7 +41,7 @@
 static_assert (HTTP1_PARSER_BUFFER_SIZE >= (HTTP1_METHOD_MAX_LEN + HTTP1_VERSION_MAX_LEN + HTTP1_URI_MAX_LEN + 2),
 			   "HTTP1 parser buffer definition is invalid");
 
-struct fhttpd_connection;
+struct fh_conn;
 
 enum http1_parser_state
 {
@@ -90,6 +90,8 @@ struct http1_parser_ctx
 
 	struct http1_parser_result result;
 	bool processing;
+
+	struct fh_pool *pool;
 };
 
 struct http1_response_ctx
@@ -111,12 +113,12 @@ struct http1_response_ctx
 	bool sending_file, sending_rn;
 };
 
-void http1_parser_ctx_init (struct http1_parser_ctx *ctx);
+void http1_parser_ctx_init (struct fh_pool *pool, struct http1_parser_ctx *ctx);
 void http1_parser_ctx_free (struct http1_parser_ctx *ctx);
 void http1_response_ctx_init (struct http1_response_ctx *ctx);
 void http1_response_ctx_free (struct http1_response_ctx *ctx);
-bool http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx);
-bool http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection *conn,
+bool http1_parse (struct fh_conn *conn, struct http1_parser_ctx *ctx);
+bool http1_response_buffer (struct http1_response_ctx *ctx, struct fh_conn *conn,
 							const struct fhttpd_response *response);
 
 #endif /* FHTTPD_HTTP1_H */

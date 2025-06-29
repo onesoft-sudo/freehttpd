@@ -81,5 +81,6 @@ struct fhttpd_server *fhttpd_server_create (const struct fhttpd_master *master, 
 bool fhttpd_server_prepare (struct fhttpd_server *server);
 void fhttpd_server_destroy (struct fhttpd_server *server);
 void fhttpd_server_config_host_map (struct fhttpd_server *server);
+bool fhttpd_server_conn_close (struct fhttpd_server *server, struct fh_conn *conn);
 
 #endif /* FHTTPD_SERVER_H */

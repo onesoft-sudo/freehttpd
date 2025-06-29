@@ -30,7 +30,7 @@
 
 #define FHTTPD_LOG_MODULE_NAME "autoindex"
 
-#include "core/connection.h"
+#include "core/conn.h"
 #include "log/log.h"
 #include "http/protocol.h"
 #include "utils/utils.h"

@@ -50,7 +50,8 @@ typedef int xpoll_t;
 xpoll_t xpoll_create (void);
 void xpoll_destroy (xpoll_t xpoll);
 bool xpoll_add (xpoll_t xpoll, fd_t fd, uint32_t flags, uint32_t fdflags);
-bool xpoll_del (xpoll_t xpoll, fd_t fd, uint32_t flags);
+bool xpoll_del (xpoll_t xpoll, fd_t fd, uint32_t flags __attribute_maybe_unused__);
+bool xpoll_mod (xpoll_t xpoll, fd_t fd, uint32_t flags);
 
 #if defined (__linux__)
 #define xpoll_wait epoll_wait

@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -29,13 +29,14 @@
 
 #define FHTTPD_LOG_MODULE_NAME "http1"
 
-#include "core/connection.h"
+#include "core/conn.h"
 #include "http1.h"
 #include "log/log.h"
 #include "utils/utils.h"
+#include "mm/pool.h"
 
 #ifdef HAVE_RESOURCES
-#include "resources.h"
+	#include "resources.h"
 #endif
 
 #define HTTP1_PARSER_NEXT 0
@@ -50,9 +51,10 @@ static const char *http1_method_names[] = {
 static const size_t http1_method_names_count = sizeof (http1_method_names) / sizeof (http1_method_names[0]);
 
 void
-http1_parser_ctx_init (struct http1_parser_ctx *ctx)
+http1_parser_ctx_init (struct fh_pool *pool, struct http1_parser_ctx *ctx)
 {
 	memset (ctx, 0, sizeof (struct http1_parser_ctx));
+	ctx->pool = pool;
 }
 
 void
@@ -591,7 +593,7 @@ http1_parse_body (struct http1_parser_ctx *ctx)
 }
 
 static short
-http1_parse_recv (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
+http1_parse_recv (struct fh_conn *conn, struct http1_parser_ctx *ctx)
 {
 	if (ctx->buffer_len >= HTTP1_PARSER_BUFFER_SIZE)
 	{
@@ -604,7 +606,7 @@ http1_parse_recv (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 	fhttpd_wclog_debug ("Receiving more data, current buffer length: %zu", ctx->buffer_len);
 
 	ssize_t bytes_received
-		= fhttpd_connection_recv (conn, ctx->buffer + ctx->buffer_len, HTTP1_PARSER_BUFFER_SIZE - ctx->buffer_len, 0);
+		= fh_conn_recv (conn, ctx->buffer + ctx->buffer_len, HTTP1_PARSER_BUFFER_SIZE - ctx->buffer_len, 0);
 
 	if (bytes_received == 0)
 	{
@@ -644,7 +646,7 @@ http1_parse_recv (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 }
 
 bool
-http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
+http1_parse (struct fh_conn *conn, struct http1_parser_ctx *ctx)
 {
 	ctx->processing = true;
 
@@ -693,7 +695,7 @@ http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 
 					errno = 0;
 
-					while (errno == 0 && fhttpd_connection_recv (conn, buf, sizeof (buf), 0) > 0)
+					while (errno == 0 && fh_conn_recv (conn, buf, sizeof (buf), 0) > 0)
 						;
 
 					ctx->processing = false;
@@ -723,7 +725,7 @@ http1_parse (struct fhttpd_connection *conn, struct http1_parser_ctx *ctx)
 }
 
 bool
-http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection *conn,
+http1_response_buffer (struct http1_response_ctx *ctx, struct fh_conn *conn,
 					   const struct fhttpd_response *response)
 {
 	if (ctx->eos)
@@ -739,8 +741,10 @@ http1_response_buffer (struct http1_response_ctx *ctx, struct fhttpd_connection 
 		if (!ctx->resline_written)
 		{
 			int sp_bytes = snprintf (ctx->buffer, HTTP1_RESPONSE_BUFFER_SIZE, "HTTP/%3s %d %s\r\n",
-									 conn->exact_protocol[0] == 0 ? "1.1" : conn->exact_protocol, response->status,
-									 fhttpd_get_status_text (response->status));
+									 conn->protocol == FHTTPD_PROTOCOL_HTTP_1_0	  ? "1.0"
+									 : conn->protocol == FHTTPD_PROTOCOL_HTTP_1_1 ? "1.1"
+																				  : "1.1",
+									 response->status, fhttpd_get_status_text (response->status));
 
 			if (sp_bytes <= 0)
 				return false;

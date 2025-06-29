@@ -31,6 +31,8 @@
 
 #include "compat.h"
 #include "protocol.h"
+#include "core/conn.h"
+#include "mm/pool.h"
 
 #define STREAM_DETECT_INITIAL_READ_SIZE 64
 
@@ -42,8 +44,10 @@ fhttpd_protocol_to_string (enum fhttpd_protocol protocol)
 {
 	switch (protocol)
 	{
-		case FHTTPD_PROTOCOL_HTTP_1X:
-			return "HTTP/1.x";
+		case FHTTPD_PROTOCOL_HTTP_1_0:
+			return "HTTP/1.0";
+		case FHTTPD_PROTOCOL_HTTP_1_1:
+			return "HTTP/1.1";
 		case FHTTPD_PROTOCOL_H2:
 			return "h2";
 		default:
@@ -54,8 +58,10 @@ fhttpd_protocol_to_string (enum fhttpd_protocol protocol)
 enum fhttpd_protocol
 fhttpd_string_to_protocol (const char *protocol_str)
 {
-	if (strcmp (protocol_str, "HTTP/1.0") == 0 || strcmp (protocol_str, "HTTP/1.1") == 0)
-		return FHTTPD_PROTOCOL_HTTP_1X;
+	if (strcmp (protocol_str, "HTTP/1.0") == 0)
+		return FHTTPD_PROTOCOL_HTTP_1_0;
+	if (strcmp (protocol_str, "HTTP/1.1") == 0)
+		return FHTTPD_PROTOCOL_HTTP_1_1;
 	else if (strcmp (protocol_str, "HTTP/2.0") == 0 || strcmp (protocol_str, "h2") == 0
 			 || strcmp (protocol_str, "h2c") == 0)
 		return FHTTPD_PROTOCOL_H2;
@@ -251,9 +257,22 @@ fhttpd_header_add_noalloc (struct fhttpd_headers *headers, size_t index, const c
 	return headers->list[index].name && headers->list[index].value;
 }
 
-void
-fhttpd_request_free (struct fhttpd_request *request, bool inner_only)
+bool 
+fhttpd_request_init (struct fh_conn *conn, struct fhttpd_request *request)
 {
+	request->pool = fh_pool_create_child (conn->pool, 0);
+
+	if (!request->pool)
+		return false;
+
+	return true;
+}
+
+void
+fhttpd_request_free (struct fhttpd_request *request)
+{
+	fh_pool_destroy (request->pool);
+
 	free (request->full_host);
 	free (request->path);
 	free (request->qs);
@@ -272,9 +291,6 @@ fhttpd_request_free (struct fhttpd_request *request, bool inner_only)
 	}
 
 	free (request->body);
-
-	if (!inner_only)
-		free (request);
 }
 
 bool

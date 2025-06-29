@@ -27,9 +27,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define FHTTPD_LOG_MODULE_NAME "connection"
+#define FHTTPD_LOG_MODULE_NAME "conn"
 
-#include "connection.h"
+#include "conn.h"
 #include "http/http1.h"
 #include "log/log.h"
 #include "utils/utils.h"
@@ -38,13 +38,21 @@
 #include "resources.h"
 #endif
 
-struct fhttpd_connection *
-fhttpd_connection_create (uint64_t id, fd_t client_sockfd)
+struct fh_conn *
+fh_conn_create (uint64_t id, fd_t client_sockfd)
 {
-	struct fhttpd_connection *conn = calloc (1, sizeof (struct fhttpd_connection));
+	struct fh_conn *conn = calloc (1, sizeof (struct fh_conn));
 
 	if (!conn)
 		return NULL;
+
+	conn->pool = fh_pool_create (4096);
+
+	if (!conn->pool)
+	{
+		free (conn);
+		return NULL;
+	}
 
 	conn->id = id;
 	conn->client_sockfd = client_sockfd;
@@ -57,53 +65,30 @@ fhttpd_connection_create (uint64_t id, fd_t client_sockfd)
 }
 
 void
-fhttpd_connection_close (struct fhttpd_connection *conn)
+fh_conn_close (struct fh_conn *conn)
 {
 	if (!conn)
 		return;
 
-	if (conn->protocol == FHTTPD_PROTOCOL_HTTP_1X)
+	fh_pool_destroy (conn->pool);
+
+	for (size_t i = 0; i < conn->request_count; i++)
+		fhttpd_request_free (&conn->requests[i]);
+
+	free (conn->requests);
+
+	if (conn->protocol == FHTTPD_PROTOCOL_HTTP_1_1 || conn->protocol == FHTTPD_PROTOCOL_HTTP_1_0)
 	{
-		http1_parser_ctx_free (&conn->parsers.http1.http1_req_ctx);
-		http1_response_ctx_free (&conn->parsers.http1.http1_res_ctx);
+		http1_parser_ctx_free (&conn->ioh.http1.http1_req_ctx);
+		http1_response_ctx_free (&conn->ioh.http1.http1_res_ctx);
 	}
 
-	if (conn->requests)
-	{
-		for (size_t i = 0; i < conn->request_count; i++)
-		{
-			fhttpd_request_free (&conn->requests[i], true);
-		}
-
-		free (conn->requests);
-	}
-
-	if (conn->responses)
-	{
-		for (size_t i = 0; i < conn->response_count; i++)
-		{
-			if (conn->responses[i].headers.list)
-			{
-				for (size_t j = 0; j < conn->responses[i].headers.count; j++)
-				{
-					free (conn->responses[i].headers.list[j].name);
-					free (conn->responses[i].headers.list[j].value);
-				}
-
-				free (conn->responses[i].headers.list);
-			}
-
-			free (conn->responses[i].body);
-		}
-
-		free (conn->responses);
-	}
-
+	close (conn->client_sockfd);
 	free (conn);
 }
 
 ssize_t
-fhttpd_connection_recv (struct fhttpd_connection *conn, void *buf, size_t size, int flags)
+fh_conn_recv (struct fh_conn *conn, void *buf, size_t size, int flags)
 {
 	errno = 0;
 
@@ -120,39 +105,36 @@ fhttpd_connection_recv (struct fhttpd_connection *conn, void *buf, size_t size, 
 }
 
 bool
-fhttpd_connection_detect_protocol (struct fhttpd_connection *conn)
+fh_conn_detect_protocol (struct fh_conn *conn)
 {
-	while (conn->buffer_size < H2_PREFACE_SIZE)
+	while (conn->proto_detect_buffer_size < H2_PREFACE_SIZE)
 	{
-		ssize_t bytes_read = fhttpd_connection_recv (conn, conn->buffers.protobuf + conn->buffer_size,
-													 H2_PREFACE_SIZE - conn->buffer_size, 0);
+		ssize_t bytes_read = fh_conn_recv (conn, conn->proto_detect_buffer + conn->proto_detect_buffer_size,
+													 H2_PREFACE_SIZE - conn->proto_detect_buffer_size, 0);
 
 		if (bytes_read < 0)
 		{
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				return true;
-
-			return false;
+			return would_block ();
 		}
 		else if (bytes_read == 0)
 		{
-			conn->protocol = FHTTPD_PROTOCOL_HTTP_1X;
+			conn->protocol = FHTTPD_PROTOCOL_HTTP_1_1;
 			return true;
 		}
 
-		conn->buffer_size += bytes_read;
+		conn->proto_detect_buffer_size += bytes_read;
 	}
 
-	if (memcmp (conn->buffers.protobuf, H2_PREFACE, H2_PREFACE_SIZE) == 0)
+	if (memcmp (conn->proto_detect_buffer, H2_PREFACE, H2_PREFACE_SIZE) == 0)
 		conn->protocol = FHTTPD_PROTOCOL_H2;
 	else
-		conn->protocol = FHTTPD_PROTOCOL_HTTP_1X;
+		conn->protocol = FHTTPD_PROTOCOL_HTTP_1_1;
 
 	return true;
 }
 
 ssize_t
-fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t size, int flags)
+fh_conn_send (struct fh_conn *conn, const void *buf, size_t size, int flags)
 {
 	errno = 0;
 
@@ -169,7 +151,7 @@ fhttpd_connection_send (struct fhttpd_connection *conn, const void *buf, size_t 
 }
 
 ssize_t
-fhttpd_connection_sendfile (struct fhttpd_connection *conn, int src_fd, off_t *offset, size_t count)
+fh_conn_sendfile (struct fh_conn *conn, int src_fd, off_t *offset, size_t count)
 {
 	errno = 0;
 
@@ -186,22 +168,22 @@ fhttpd_connection_sendfile (struct fhttpd_connection *conn, int src_fd, off_t *o
 }
 
 bool
-fhttpd_connection_defer_response (struct fhttpd_connection *conn, size_t response_index,
+fh_conn_defer_response (struct fh_conn *conn, size_t response_index,
 								  const struct fhttpd_response *response)
 {
-	if (conn->response_count <= response_index)
+	if (conn->deferred_response_count <= response_index)
 	{
 		struct fhttpd_response *responses
-			= realloc (conn->responses, sizeof (struct fhttpd_response) * (response_index + 1));
+			= realloc (conn->deferred_responses, sizeof (struct fhttpd_response) * (response_index + 1));
 
 		if (!responses)
 			return false;
 
-		conn->responses = responses;
-		conn->response_count = response_index + 1;
+		conn->deferred_responses = responses;
+		conn->deferred_response_count = response_index + 1;
 	}
 
-	struct fhttpd_response *new_response = &conn->responses[response_index];
+	struct fhttpd_response *new_response = &conn->deferred_responses[response_index];
 
 	memcpy (new_response, response, sizeof (struct fhttpd_response));
 	new_response->is_deferred = true;
@@ -224,7 +206,7 @@ fhttpd_connection_defer_response (struct fhttpd_connection *conn, size_t respons
 }
 
 bool
-fhttpd_connection_defer_error_response (struct fhttpd_connection *conn, size_t response_index, enum fhttpd_status code)
+fh_conn_defer_error_response (struct fh_conn *conn, size_t response_index, enum fhttpd_status code)
 {
 	struct fhttpd_response response = {
 		.status = code,
@@ -234,22 +216,22 @@ fhttpd_connection_defer_error_response (struct fhttpd_connection *conn, size_t r
 		.use_builtin_error_response = true,
 	};
 
-	return fhttpd_connection_defer_response (conn, response_index, &response);
+	return fh_conn_defer_response (conn, response_index, &response);
 }
 
 bool
-fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response_index,
+fh_conn_send_response (struct fh_conn *conn, size_t response_index,
 								 const struct fhttpd_response *response)
 {
 	if (!response)
 	{
-		if (response_index >= conn->response_count)
+		if (response_index >= conn->deferred_response_count)
 			return false;
 
-		response = &conn->responses[response_index];
+		response = &conn->deferred_responses[response_index];
 	}
 
-	struct http1_response_ctx *ctx = &conn->parsers.http1.http1_res_ctx;
+	struct http1_response_ctx *ctx = &conn->ioh.http1.http1_res_ctx;
 
 	while (true)
 	{
@@ -267,7 +249,7 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
 			ctx->buffer_len = 2 - ctx->sent_bytes;
 
 			ssize_t bytes_sent
-				= fhttpd_connection_send (conn, ctx->buffer, ctx->buffer_len, MSG_DONTWAIT | MSG_NOSIGNAL);
+				= fh_conn_send (conn, ctx->buffer, ctx->buffer_len, MSG_DONTWAIT | MSG_NOSIGNAL);
 
 			if (bytes_sent < 0 && would_block ())
 			{
@@ -299,7 +281,7 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
 		if (ctx->sending_file)
 		{
 			ssize_t bytes_sent
-				= fhttpd_connection_sendfile (conn, ctx->fd, &ctx->offset, response->body_len - ctx->sent_bytes);
+				= fh_conn_sendfile (conn, ctx->fd, &ctx->offset, response->body_len - ctx->sent_bytes);
 
 			if (bytes_sent < 0 && would_block ())
 			{
@@ -342,7 +324,7 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
 			}
 		}
 
-		ssize_t bytes_sent = fhttpd_connection_send (conn, ctx->buffer + ctx->sent_bytes,
+		ssize_t bytes_sent = fh_conn_send (conn, ctx->buffer + ctx->sent_bytes,
 													 ctx->buffer_len - ctx->sent_bytes, MSG_DONTWAIT | MSG_NOSIGNAL);
 
 		if (bytes_sent < 0 && would_block ())

@@ -19,8 +19,8 @@ noinst_LIBRARIES = libcore.a
 libcore_a_SOURCES = \
     conf.c \
     conf.h \
-    connection.c \
-    connection.h \
+    conn.c \
+    conn.h \
     master.c \
     master.h \
     server.c \

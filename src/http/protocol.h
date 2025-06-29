@@ -32,13 +32,14 @@
 enum fhttpd_protocol
 {
 	FHTTPD_PROTOCOL_UNKNOWN,
-	FHTTPD_PROTOCOL_HTTP_1X,
+	FHTTPD_PROTOCOL_HTTP_1_0,
+	FHTTPD_PROTOCOL_HTTP_1_1,
 	FHTTPD_PROTOCOL_H2
 };
 
 typedef enum fhttpd_protocol protocol_t;
 
-struct fhttpd_connection; /* Forward declaration */
+struct fh_conn; /* Forward declaration */
 
 enum fhttpd_method
 {
@@ -86,7 +87,9 @@ struct fhttpd_headers
 
 struct fhttpd_request
 {
-	struct fhttpd_connection *conn;
+	struct fh_conn *conn;
+	struct fh_pool *pool;
+
 	protocol_t protocol;
 	enum fhttpd_method method;
 	char *host;
@@ -137,6 +140,7 @@ bool fhttpd_header_add_noalloc_printf (struct fhttpd_headers *headers, size_t in
 bool fhttpd_header_add_printf (struct fhttpd_headers *headers, const char *name, size_t name_length,
 							   const char *value_format, ...);
 
-void fhttpd_request_free (struct fhttpd_request *request, bool inner_only);
+bool fhttpd_request_init (struct fh_conn *conn, struct fhttpd_request *request);
+void fhttpd_request_free (struct fhttpd_request *request);
 
 #endif /* FHTTPD_PROTOCOL_H */

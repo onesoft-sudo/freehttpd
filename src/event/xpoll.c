@@ -52,7 +52,7 @@ xpoll_wait (xpoll_t xpoll, xevent_t *events, int max_events, int timeout)
 
 	for (int i = 0; i < nfds; i++)
 	{
-		events[i].events = (uint32_t) kevents[i].filter;
+		events[i].events = kevents[i].filter == EVFILT_READ ? XPOLLIN : kevents[i].filter == EVFILT_WRITE ? XPOLLOUT : 0;
 		events[i].data.fd = kevents[i].ident;
 	}
 
@@ -114,6 +114,40 @@ xpoll_add (xpoll_t xpoll, fd_t fd, uint32_t flags, uint32_t fdflags)
 }
 
 bool
+xpoll_mod (xpoll_t xpoll, fd_t fd, uint32_t flags)
+{
+	int ret;
+
+#if defined(__linux__)
+	struct epoll_event eev = { .data.fd = fd, .events = flags };
+	ret = epoll_ctl (xpoll, EPOLL_CTL_MOD, fd, &eev) < 0;
+#elif defined(__APPLE__) || defined(__FreeBSD__)
+	struct kevent events[8];
+	int n = 0;
+	uint16_t ev_opt = EV_ADD | EV_ENABLE;
+	int16_t filter = 0;
+
+	if (flags & XPOLLET)
+		ev_opt |= EV_CLEAR;
+
+	EV_SET (&events[n++], fd, EVFILT_READ, flags & XPOLLIN ? ev_opt : EV_DELETE, 0, 0, NULL);
+	EV_SET (&events[n++], fd, EVFILT_WRITE, flags & XPOLLOUT ? ev_opt : EV_DELETE, 0, 0, NULL);
+
+	for (int i = 0; i < n; i++)
+	{
+		ret = kevent (xpoll, &event, 1, NULL, 0, NULL);
+
+		if (ret < 0)
+			return false;
+	}
+#else /* defined (__APPLE__) || defined (__FreeBSD__) */
+	#error "Unsupported platform"
+#endif /* not defined (__APPLE__) || defined (__FreeBSD__) */
+
+	return ret == 0;
+}
+
+bool
 xpoll_del (xpoll_t xpoll, fd_t fd, uint32_t flags __attribute_maybe_unused__)
 {
 	int ret;
@@ -132,13 +166,18 @@ xpoll_del (xpoll_t xpoll, fd_t fd, uint32_t flags __attribute_maybe_unused__)
 	if (flags & XPOLLOUT)
 		EV_SET (&events[n++], fd, EVFILT_WRITE, ev_opt, 0, 0, NULL);
 
+	bool err = false;
+
 	for (int i = 0; i < n; i++)
 	{
 		ret = kevent (xpoll, &event, 1, NULL, 0, NULL);
 
 		if (ret < 0)
-			return false;
+			err = true;
 	}
+
+	if (err)
+		ret = -1;
 #endif
 
 	return ret == 0;

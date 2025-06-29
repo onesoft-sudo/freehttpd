@@ -46,7 +46,7 @@
 #define FHTTPD_LOG_MODULE_NAME "server"
 
 #include "conf.h"
-#include "connection.h"
+#include "conn.h"
 #include "http/protocol.h"
 #include "log/log.h"
 #include "modules/autoindex.h"
@@ -56,6 +56,8 @@
 #include "utils/utils.h"
 #include "event/xpoll.h"
 #include "event/accept.h"
+#include "event/recv.h"
+#include "event/send.h"
 
 #ifdef HAVE_RESOURCES
 	#include "resources.h"
@@ -313,10 +315,10 @@ fhttpd_server_destroy (struct fhttpd_server *server)
 
 		while (entry)
 		{
-			struct fhttpd_connection *conn = entry->data;
+			struct fh_conn *conn = entry->data;
 
 			if (conn)
-				fhttpd_connection_close (conn);
+				fh_conn_close (conn);
 
 			entry = entry->next;
 		}
@@ -364,7 +366,7 @@ fhttpd_server_loop (struct fhttpd_server *server)
 				continue;
 
 			errors++;
-			fhttpd_log_error ("xpoll_wait() returned an error: %s", strerror (errno));
+			fhttpd_wclog_error ("xpoll_wait() returned an error: %s", strerror (errno));
 
 			if (errors >= 5)
 				exit (EXIT_FAILURE);
@@ -385,10 +387,59 @@ fhttpd_server_loop (struct fhttpd_server *server)
 					continue;
 
 				if (!fh_event_accept (server, &events[i]))
-					fhttpd_log_error ("Accept failed: %s", strerror (errno));
+					fhttpd_wclog_error ("accept failed: %s", strerror (errno));
 
 				continue;
 			}
+
+			uint32_t ev = events[i].events;
+			struct fh_conn *conn = itable_get (server->connections, events[i].data.fd);
+
+			if (!conn)
+			{
+				fhttpd_wclog_warning ("Socket %d doesn't have a connection", events[i].data.fd);
+				continue;
+			}
+
+			uint64_t id = conn->id;
+
+			if (ev & XPOLLHUP)
+			{
+				fhttpd_wclog_warning ("Client HUP received");
+				fhttpd_server_conn_close (server, conn);
+				continue;
+			}
+
+			if (ev & XPOLLIN)
+			{
+				if (!fh_event_recv (server, conn))
+				{
+					fhttpd_wclog_error ("connection %lu: recv failed: %s", id, strerror (errno));
+					continue;
+				}
+			}
+			else if (ev & XPOLLOUT)
+			{
+				if (!fh_event_send (server, conn))
+				{
+					fhttpd_wclog_error ("connection %lu: send failed: %s", id, strerror (errno));
+					continue;
+				}
+			}
 		}
 	}
+}
+
+bool
+fhttpd_server_conn_close (struct fhttpd_server *server, struct fh_conn *conn)
+{
+	uint64_t id = conn->id;
+	fd_t sockfd = conn->client_sockfd;
+
+	itable_remove (server->connections, conn->client_sockfd);
+	xpoll_del (server->xpoll, conn->client_sockfd, XPOLLIN | XPOLLOUT);
+	fh_conn_close (conn);
+
+	fhttpd_wclog_debug ("connection %lu: socket %d closed and deallocated", sockfd, id);
+	return true;
 }
