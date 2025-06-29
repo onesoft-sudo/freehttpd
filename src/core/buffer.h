@@ -3,27 +3,39 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
+#include <sys/types.h>
 
 #include "types.h"
 
 enum fh_buf_type
 {
 	FH_BUF_DATA,
-	FH_BUF_REF,
 	FH_BUF_FILE
+};
+
+struct fh_buf_file
+{
+	fd_t fd;
+	off_t start, end;
+};
+
+struct fh_buf_data
+{
+	char *data;
+	size_t len;
+	bool is_readonly;
 };
 
 union fh_buf_payload
 {
-	char *data;
-	char *ref;
-	fd_t fd;
+	struct fh_buf_data data;
+	struct fh_buf_file file;
 };
 
 struct fh_buf
 {
 	enum fh_buf_type type;
-	size_t size;
 	union fh_buf_payload payload;
 };
 

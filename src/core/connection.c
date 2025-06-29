@@ -32,7 +32,6 @@
 #include "connection.h"
 #include "http/http1.h"
 #include "log/log.h"
-#include "loop.h"
 #include "utils/utils.h"
 
 #ifdef HAVE_RESOURCES
@@ -65,8 +64,8 @@ fhttpd_connection_close (struct fhttpd_connection *conn)
 
 	if (conn->protocol == FHTTPD_PROTOCOL_HTTP_1X)
 	{
-		http1_parser_ctx_free (&conn->proto.http1.http1_req_ctx);
-		http1_response_ctx_free (&conn->proto.http1.http1_res_ctx);
+		http1_parser_ctx_free (&conn->parsers.http1.http1_req_ctx);
+		http1_response_ctx_free (&conn->parsers.http1.http1_res_ctx);
 	}
 
 	if (conn->requests)
@@ -250,7 +249,7 @@ fhttpd_connection_send_response (struct fhttpd_connection *conn, size_t response
 		response = &conn->responses[response_index];
 	}
 
-	struct http1_response_ctx *ctx = &conn->proto.http1.http1_res_ctx;
+	struct http1_response_ctx *ctx = &conn->parsers.http1.http1_res_ctx;
 
 	while (true)
 	{

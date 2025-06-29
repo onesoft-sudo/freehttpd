@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-noinst_LIBRARIES = libhttp.a
-libhttp_a_SOURCES = \
-    http1.c \
-    http1.h \
-    protocol.c \
-    protocol.h
+noinst_LIBRARIES = libevent.a
+libevent_a_SOURCES = \
+    xpoll.c \
+    xpoll.h \
+	accept.c \
+	accept.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

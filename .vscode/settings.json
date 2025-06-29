@@ -3,6 +3,7 @@
         "*.h": "c",
         "*.ui": "xml",
         "*.service": "ini",
+        "*.at": "m4",
         "chrono": "c",
         "text_encoding": "c",
         "typeinfo": "c",
@@ -34,6 +35,8 @@
         "istream": "c",
         "new": "c",
         "variant": "c",
-        "tags": "c"
+        "tags": "c",
+        "cstdint": "c",
+        "cstdlib": "c"
     }
 }

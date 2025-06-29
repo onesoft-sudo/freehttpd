@@ -146,6 +146,7 @@ AC_CONFIG_FILES([Makefile
                  src/mm/Makefile
                  src/modules/Makefile
                  src/utils/Makefile
+                 src/event/Makefile
                  conf/Makefile
                  systemd/Makefile
                  tests/Makefile])

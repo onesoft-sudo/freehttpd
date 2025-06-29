@@ -15,6 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-EXTRA_DIST = compat.h loop.h types.h
+EXTRA_DIST = compat.h types.h
 
 CLEANFILES = .deps

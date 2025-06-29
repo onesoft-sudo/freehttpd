@@ -26,7 +26,11 @@ libcore_a_SOURCES = \
     server.c \
     server.h \
     worker.c \
-    worker.h
+    worker.h \
+    buffer.c \
+    buffer.h \
+    stream.c \
+    stream.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

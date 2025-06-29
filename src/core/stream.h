@@ -9,7 +9,7 @@
 
 struct fh_chain
 {
-	struct fh_buffer *buffer;
+	struct fh_buf   *buf;
 	struct fh_chain *next;
 	bool is_eos   : 1;
 	bool is_start : 1;
@@ -19,6 +19,7 @@ struct fh_stream
 {
 	struct fh_pool *pool;
 	struct fh_chain *head;
+	struct fh_chain *tail;
 	size_t length;
 };
 

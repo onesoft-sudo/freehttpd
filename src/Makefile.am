@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-SUBDIRS = core http include log mm modules utils
+SUBDIRS = core http include log mm modules utils event
 
 bin_PROGRAMS = freehttpd
 
@@ -29,6 +29,7 @@ freehttpd_LDADD = \
 	$(top_builddir)/src/mm/libmm.a \
 	$(top_builddir)/src/modules/libmodules.a \
 	$(top_builddir)/src/utils/libutils.a \
+	$(top_builddir)/src/event/libevent.a \
 	$(top_builddir)/res/libresources.a \
 	$(SYSTEMD_LIBS)
 

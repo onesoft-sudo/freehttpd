@@ -61,7 +61,7 @@ struct fhttpd_connection
 			struct http1_parser_ctx http1_req_ctx;
 			struct http1_response_ctx http1_res_ctx;
 		} http1;
-	} proto;
+	} parsers;
 
 	struct fhttpd_request *requests;
 	size_t request_count;
