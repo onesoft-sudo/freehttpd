@@ -15,4 +15,6 @@ bool fh_pool_attach (struct fh_pool *pool, void *ptr);
 struct fh_pool *fh_pool_create (size_t init_cap);
 void fh_pool_destroy (struct fh_pool *pool);
 
+bool fh_pool_cancel_last_alloc (struct fh_pool *pool, size_t size);
+
 #endif /* FH_POOL_H */

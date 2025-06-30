@@ -69,6 +69,11 @@ struct fhttpd_server
 	struct itable *connections;
 	uint64_t last_connection_id;
 
+	struct fh_conn *conn_pool_free_list;
+	struct fh_conn *conn_pool;
+	size_t conn_pool_size;
+	size_t conn_count;
+
 	fd_t pipe_fd[2];
 
 	bool flag_terminate : 1;
@@ -82,5 +87,9 @@ bool fhttpd_server_prepare (struct fhttpd_server *server);
 void fhttpd_server_destroy (struct fhttpd_server *server);
 void fhttpd_server_config_host_map (struct fhttpd_server *server);
 bool fhttpd_server_conn_close (struct fhttpd_server *server, struct fh_conn *conn);
+
+
+struct fh_conn *fhttpd_server_acquire_conn (struct fhttpd_server *server);
+void fhttpd_server_release_conn (struct fhttpd_server *server, struct fh_conn *conn);
 
 #endif /* FHTTPD_SERVER_H */

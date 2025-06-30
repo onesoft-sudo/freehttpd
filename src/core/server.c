@@ -47,6 +47,10 @@
 
 #include "conf.h"
 #include "conn.h"
+#include "event/accept.h"
+#include "event/recv.h"
+#include "event/send.h"
+#include "event/xpoll.h"
 #include "http/protocol.h"
 #include "log/log.h"
 #include "modules/autoindex.h"
@@ -54,10 +58,6 @@
 #include "types.h"
 #include "utils/itable.h"
 #include "utils/utils.h"
-#include "event/xpoll.h"
-#include "event/accept.h"
-#include "event/recv.h"
-#include "event/send.h"
 
 #ifdef HAVE_RESOURCES
 	#include "resources.h"
@@ -72,7 +72,8 @@
 #endif /* FHTTPD_ENABLE_SYSTEMD */
 
 #define FHTTPD_DEFAULT_BACKLOG SOMAXCONN
-#define FHTTPD_MAX_EVENTS             64
+#define FHTTPD_MAX_EVENTS 64
+#define FHTTPD_DEFAULLT_CONN_POOL_SIZE 1024
 
 struct fhttpd_server *
 fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *config, fd_t pipe_fd[static 2])
@@ -125,6 +126,18 @@ fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *
 		xpoll_destroy (server->xpoll);
 		free (server);
 		return NULL;
+	}
+
+	server->conn_pool_size = FHTTPD_DEFAULLT_CONN_POOL_SIZE;
+	server->conn_pool = calloc (FHTTPD_DEFAULLT_CONN_POOL_SIZE, sizeof (struct fh_conn));
+
+	if (!server->conn_pool)
+	{
+		strtable_destroy (server->host_config_table);
+		itable_destroy (server->sockaddr_in_table);
+		itable_destroy (server->connections);
+		xpoll_destroy (server->xpoll);
+		free (server);
 	}
 
 	server->timer_fd = -1;
@@ -312,18 +325,23 @@ fhttpd_server_destroy (struct fhttpd_server *server)
 	if (server->connections)
 	{
 		struct itable_entry *entry = server->connections->head;
+		size_t count = 0;
 
 		while (entry)
 		{
 			struct fh_conn *conn = entry->data;
 
 			if (conn)
+			{
 				fh_conn_close (conn);
+				count++;
+			}
 
 			entry = entry->next;
 		}
 
 		itable_destroy (server->connections);
+		fhttpd_wclog_debug ("Closed %zu connections", count);
 	}
 
 	if (server->sockaddr_in_table)
@@ -344,6 +362,7 @@ fhttpd_server_destroy (struct fhttpd_server *server)
 	}
 
 	fhttpd_conf_free_config (server->config);
+	free (server->conn_pool);
 	free (server);
 }
 
@@ -414,7 +433,8 @@ fhttpd_server_loop (struct fhttpd_server *server)
 			{
 				if (!fh_event_recv (server, conn))
 				{
-					fhttpd_wclog_error ("connection %lu: recv failed: %s", id, strerror (errno));
+					const char *errstr = strerror (errno);
+					fhttpd_wclog_error ("connection %lu: recv failed: %s", id, errstr);
 					continue;
 				}
 			}
@@ -422,7 +442,8 @@ fhttpd_server_loop (struct fhttpd_server *server)
 			{
 				if (!fh_event_send (server, conn))
 				{
-					fhttpd_wclog_error ("connection %lu: send failed: %s", id, strerror (errno));
+					const char *errstr = strerror (errno);
+					fhttpd_wclog_error ("connection %lu: send failed: %s", id, errstr);
 					continue;
 				}
 			}
@@ -430,15 +451,55 @@ fhttpd_server_loop (struct fhttpd_server *server)
 	}
 }
 
+struct fh_conn *
+fhttpd_server_acquire_conn (struct fhttpd_server *server)
+{
+	if (server->conn_pool_free_list)
+	{
+		struct fh_conn *conn = server->conn_pool_free_list;
+		server->conn_pool_free_list = server->conn_pool_free_list->next;
+		server->conn_count++;
+		conn->is_used = true;
+		return conn;
+	}
+
+	if (server->conn_pool_size == server->conn_count)
+		return NULL;
+
+	for (size_t i = 0; i < server->conn_pool_size; i++)
+	{
+		if (!server->conn_pool[i].is_used)
+		{
+			server->conn_count++;
+			server->conn_pool[i].is_used = true;
+			return &server->conn_pool[i];
+		}
+	}
+
+	return NULL;
+}
+
+void
+fhttpd_server_release_conn (struct fhttpd_server *server, struct fh_conn *conn)
+{
+	memset (conn, 0, sizeof (*conn));
+	conn->next = server->conn_pool_free_list;
+	server->conn_pool_free_list = conn;
+}
+
 bool
 fhttpd_server_conn_close (struct fhttpd_server *server, struct fh_conn *conn)
 {
 	uint64_t id = conn->id;
 	fd_t sockfd = conn->client_sockfd;
+	bool is_heap = conn->is_heap;
 
 	itable_remove (server->connections, conn->client_sockfd);
 	xpoll_del (server->xpoll, conn->client_sockfd, XPOLLIN | XPOLLOUT);
 	fh_conn_close (conn);
+
+	if (!is_heap)
+		fhttpd_server_release_conn (server, conn);
 
 	fhttpd_wclog_debug ("connection %lu: socket %d closed and deallocated", sockfd, id);
 	return true;

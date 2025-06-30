@@ -22,7 +22,7 @@ struct fh_buf_file
 
 struct fh_buf_data
 {
-	char *data;
+	uint8_t *start;
 	size_t len;
 	bool is_readonly;
 };
@@ -38,5 +38,7 @@ struct fh_buf
 	enum fh_buf_type type;
 	union fh_buf_payload payload;
 };
+
+void fh_buf_dump (const struct fh_buf *buf);
 
 #endif /* FH_BUFFER_H */

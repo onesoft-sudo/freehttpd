@@ -90,6 +90,8 @@ struct fhttpd_request
 	struct fh_conn *conn;
 	struct fh_pool *pool;
 
+	struct fh_stream *stream;
+
 	protocol_t protocol;
 	enum fhttpd_method method;
 	char *host;

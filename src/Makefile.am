@@ -25,11 +25,12 @@ freehttpd_SOURCES = \
 freehttpd_LDADD = \
 	$(top_builddir)/src/core/libcore.a \
 	$(top_builddir)/src/http/libhttp.a \
+	$(top_builddir)/src/core/libcore.a \
+	$(top_builddir)/src/event/libevent.a \
 	$(top_builddir)/src/log/liblog.a \
 	$(top_builddir)/src/mm/libmm.a \
 	$(top_builddir)/src/modules/libmodules.a \
 	$(top_builddir)/src/utils/libutils.a \
-	$(top_builddir)/src/event/libevent.a \
 	$(top_builddir)/res/libresources.a \
 	$(SYSTEMD_LIBS)
 

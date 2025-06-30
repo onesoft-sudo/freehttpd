@@ -32,6 +32,7 @@
 #include "compat.h"
 #include "protocol.h"
 #include "core/conn.h"
+#include "core/stream.h"
 #include "mm/pool.h"
 
 #define STREAM_DETECT_INITIAL_READ_SIZE 64
@@ -265,14 +266,22 @@ fhttpd_request_init (struct fh_conn *conn, struct fhttpd_request *request)
 	if (!request->pool)
 		return false;
 
+	request->stream = fh_stream_create (request->pool);
+
+	if (!request->stream)
+	{
+		fh_pool_destroy (request->pool);
+		request->pool = NULL;
+		return false;
+	}
+
+	request->conn = conn;
 	return true;
 }
 
 void
 fhttpd_request_free (struct fhttpd_request *request)
 {
-	fh_pool_destroy (request->pool);
-
 	free (request->full_host);
 	free (request->path);
 	free (request->qs);
