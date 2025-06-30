@@ -108,6 +108,7 @@ fh_chain_dump (struct fh_chain *chain)
 		printf ("start ");
 
 	printf ("\nNext: %p\n", (void *) chain->next);
+	fh_buf_dump (chain->buf);
 }
 
 void

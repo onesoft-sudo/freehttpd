@@ -56,7 +56,7 @@ fh_event_recv (struct fhttpd_server *server, struct fh_conn *conn)
 					}
 
 					conn->request_cap = 1;
-					conn->request_count = 0;
+					conn->request_count = 1;
 
 					struct fhttpd_request *request = &conn->requests[0];
 

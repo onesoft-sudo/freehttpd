@@ -52,20 +52,20 @@ struct fh_conn
 	uint8_t proto_detect_buffer[H2_PREFACE_SIZE];
 	size_t proto_detect_buffer_size;
 	union fh_io_handlers io_h;
-	const char *hostname;
-	const char *full_hostname;
-	size_t hostname_len;
-	size_t full_hostname_len;
-	uint16_t port;
 	const struct fhttpd_config_host *config;
 	struct fhttpd_request *requests;
 	struct fhttpd_response *deferred_responses;
 	size_t request_count;
 	size_t request_cap;
 	size_t deferred_response_count;
+	struct fh_conn *next;
+	const char *hostname;
+	const char *full_hostname;
+	size_t hostname_len;
+	size_t full_hostname_len;
+	uint16_t port;
 	bool is_used : 1;
 	bool is_heap : 1;
-	struct fh_conn *next;
 };
 
 bool fh_conn_init (struct fh_conn *conn, uint64_t id, fd_t client_sockfd);
