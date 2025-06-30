@@ -88,11 +88,11 @@ fh_conn_close (struct fh_conn *conn)
 
 	if (conn->protocol == FHTTPD_PROTOCOL_HTTP_1_1 || conn->protocol == FHTTPD_PROTOCOL_HTTP_1_0)
 	{
-		if (conn->ioh.http1.http1_req_ctx)
-			http1_parser_ctx_free (conn->ioh.http1.http1_req_ctx);
+		if (conn->io_h.http1.http1_req_ctx)
+			http1_parser_ctx_free (conn->io_h.http1.http1_req_ctx);
 
-		if (conn->ioh.http1.http1_res_ctx)
-			http1_response_ctx_free (conn->ioh.http1.http1_res_ctx);
+		if (conn->io_h.http1.http1_res_ctx)
+			http1_response_ctx_free (conn->io_h.http1.http1_res_ctx);
 	}
 
 	fh_pool_destroy (conn->pool);

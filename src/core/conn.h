@@ -28,7 +28,7 @@
 #include "mm/pool.h"
 #include "types.h"
 
-struct fh_ioh_http1
+struct fh_io_h_http1
 {
 	struct http1_parser_ctx *http1_req_ctx;
 	struct http1_response_ctx *http1_res_ctx;
@@ -36,7 +36,7 @@ struct fh_ioh_http1
 
 union fh_io_handlers
 {
-	struct fh_ioh_http1 http1;
+	struct fh_io_h_http1 http1;
 };
 
 struct fh_conn
@@ -51,7 +51,7 @@ struct fh_conn
 	uint64_t created_at;
 	uint8_t proto_detect_buffer[H2_PREFACE_SIZE];
 	size_t proto_detect_buffer_size;
-	union fh_io_handlers ioh;
+	union fh_io_handlers io_h;
 	const char *hostname;
 	const char *full_hostname;
 	size_t hostname_len;

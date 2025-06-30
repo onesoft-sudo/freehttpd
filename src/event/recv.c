@@ -38,7 +38,7 @@ fh_event_recv (struct fhttpd_server *server, struct fh_conn *conn)
 		if (would_block ())
 			return true;
 
-		static_assert (sizeof (conn->proto_detect_buffer) < sizeof (conn->ioh.http1.http1_req_ctx->buffer),
+		static_assert (sizeof (conn->proto_detect_buffer) < sizeof (conn->io_h.http1.http1_req_ctx->buffer),
 					   "The HTTP1 buffer is too small");
 
 		switch (conn->protocol)
