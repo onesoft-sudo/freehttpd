@@ -54,8 +54,9 @@ fh_conn_init (struct fh_conn *conn, uint64_t id, fd_t client_sockfd)
 	conn->client_sockfd = client_sockfd;
 	conn->last_recv_timestamp = get_current_timestamp ();
 	conn->last_send_timestamp = conn->last_recv_timestamp;
-	conn->created_at = conn->last_recv_timestamp;
-	conn->last_request_timestamp = conn->last_recv_timestamp;
+	conn->extra = (struct fh_conn_extra *) (conn + 1);
+	conn->extra->created_at = conn->last_recv_timestamp;
+	conn->extra->last_request_timestamp = conn->last_recv_timestamp;
 	conn->is_heap = false;
 	
 	return true;
@@ -64,7 +65,7 @@ fh_conn_init (struct fh_conn *conn, uint64_t id, fd_t client_sockfd)
 struct fh_conn *
 fh_conn_create (uint64_t id, fd_t client_sockfd)
 {
-	struct fh_conn *conn = calloc (1, sizeof (*conn));
+	struct fh_conn *conn = calloc (1, (sizeof (*conn) + sizeof (*conn->extra)));
 
 	if (!fh_conn_init (conn, id, client_sockfd))
 	{
@@ -81,7 +82,7 @@ fh_conn_close (struct fh_conn *conn)
 {
 	close (conn->client_sockfd);
 
-	for (size_t i = 0; i < conn->request_count; i++)
+	for (size_t i = 0; i < conn->extra->request_count; i++)
 		fhttpd_request_free (&conn->requests[i]);
 
 	free (conn->requests);
@@ -121,10 +122,10 @@ fh_conn_recv (struct fh_conn *conn, void *buf, size_t size, int flags)
 bool
 fh_conn_detect_protocol (struct fh_conn *conn)
 {
-	while (conn->proto_detect_buffer_size < H2_PREFACE_SIZE)
+	while (conn->extra->proto_detect_buffer_size < H2_PREFACE_SIZE)
 	{
-		ssize_t bytes_read = fh_conn_recv (conn, conn->proto_detect_buffer + conn->proto_detect_buffer_size,
-										   H2_PREFACE_SIZE - conn->proto_detect_buffer_size, 0);
+		ssize_t bytes_read = fh_conn_recv (conn, conn->extra->proto_detect_buffer + conn->extra->proto_detect_buffer_size,
+										   H2_PREFACE_SIZE - conn->extra->proto_detect_buffer_size, 0);
 
 		if (bytes_read < 0)
 		{
@@ -136,10 +137,10 @@ fh_conn_detect_protocol (struct fh_conn *conn)
 			return true;
 		}
 
-		conn->proto_detect_buffer_size += bytes_read;
+		conn->extra->proto_detect_buffer_size += bytes_read;
 	}
 
-	if (memcmp (conn->proto_detect_buffer, H2_PREFACE, H2_PREFACE_SIZE) == 0)
+	if (memcmp (conn->extra->proto_detect_buffer, H2_PREFACE, H2_PREFACE_SIZE) == 0)
 		conn->protocol = FHTTPD_PROTOCOL_H2;
 	else
 		conn->protocol = FHTTPD_PROTOCOL_HTTP_1_1;

@@ -129,7 +129,7 @@ fhttpd_server_create (const struct fhttpd_master *master, struct fhttpd_config *
 	}
 
 	server->conn_pool_size = FHTTPD_DEFAULLT_CONN_POOL_SIZE;
-	server->conn_pool = calloc (FHTTPD_DEFAULLT_CONN_POOL_SIZE, sizeof (struct fh_conn));
+	server->conn_pool = calloc (FHTTPD_DEFAULLT_CONN_POOL_SIZE, (sizeof (struct fh_conn) + sizeof (struct fh_conn_extra)));
 
 	if (!server->conn_pool)
 	{

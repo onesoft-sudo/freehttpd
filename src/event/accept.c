@@ -92,7 +92,7 @@ fh_event_accept (struct fhttpd_server *server, const xevent_t *event)
 
 	conn->config = &server->config->hosts[server->config->default_host_index];
 	conn->protocol = FHTTPD_PROTOCOL_UNKNOWN;
-	conn->port = server_addr->port;
+	conn->extra->port = server_addr->port;
 
 	if (!itable_set (server->connections, (uint64_t) client_sockfd, conn))
 	{

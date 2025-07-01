@@ -39,6 +39,22 @@ union fh_io_handlers
 	struct fh_io_h_http1 http1;
 };
 
+struct fh_conn_extra
+{
+	uint8_t proto_detect_buffer[H2_PREFACE_SIZE];
+	size_t proto_detect_buffer_size;
+	uint64_t last_request_timestamp;
+	uint64_t created_at;
+	size_t request_count;
+	size_t request_cap;
+	size_t deferred_response_count;
+	const char *hostname;
+	const char *full_hostname;
+	size_t hostname_len;
+	size_t full_hostname_len;
+	uint16_t port;
+};
+
 struct fh_conn
 {
 	uint64_t id;
@@ -47,23 +63,12 @@ struct fh_conn
 	protocol_t protocol;
 	uint64_t last_recv_timestamp;
 	uint64_t last_send_timestamp;
-	uint64_t last_request_timestamp;
-	uint64_t created_at;
-	uint8_t proto_detect_buffer[H2_PREFACE_SIZE];
-	size_t proto_detect_buffer_size;
 	union fh_io_handlers io_h;
 	const struct fhttpd_config_host *config;
 	struct fhttpd_request *requests;
 	struct fhttpd_response *deferred_responses;
-	size_t request_count;
-	size_t request_cap;
-	size_t deferred_response_count;
+	struct fh_conn_extra _nonfreeable *extra;
 	struct fh_conn *next;
-	const char *hostname;
-	const char *full_hostname;
-	size_t hostname_len;
-	size_t full_hostname_len;
-	uint16_t port;
 	bool is_used : 1;
 	bool is_heap : 1;
 };

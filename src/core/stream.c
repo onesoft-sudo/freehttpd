@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "stream.h"
+#include "compat.h"
 
 struct fh_stream *
 fh_stream_create (struct fh_pool *pool)
@@ -47,22 +48,20 @@ fh_chain_new (struct fh_pool *pool)
 struct fh_chain *
 fh_stream_append_chain_memcpy (struct fh_stream *stream, const uint8_t *src, size_t len)
 {
-	struct fh_chain *chain = fh_pool_zalloc (stream->pool, sizeof (struct fh_chain));
+	uint8_t *mem = fh_pool_alloc (stream->pool, sizeof (struct fh_chain) + sizeof (struct fh_buf) + len);
 
-	if (!chain)
+	if (!mem)
 		return NULL;
 
-	chain->buf = fh_pool_alloc (stream->pool, sizeof (*chain->buf));
+	struct fh_chain *chain = (struct fh_chain *) mem;
 
-	if (!chain->buf)
-		return NULL;
-
+	static_assert (sizeof (*chain) == sizeof (struct fh_chain), "Size mismatch");
+	static_assert (sizeof (*chain->buf) == sizeof (struct fh_buf), "Size mismatch");
+	memset (mem, 0, sizeof (*chain));
+	
+	chain->buf = (struct fh_buf *) (mem + sizeof (*chain));
 	chain->buf->type = FH_BUF_DATA;
-	chain->buf->payload.data.start = fh_pool_alloc (stream->pool, len);
-
-	if (!chain->buf->payload.data.start)
-		return NULL;
-
+	chain->buf->payload.data.start = mem + sizeof (*chain) + sizeof (*chain->buf);
 	chain->buf->payload.data.is_readonly = false;
 	chain->buf->payload.data.len = len;
 	stream->size_total += len;
@@ -75,21 +74,23 @@ fh_stream_append_chain_memcpy (struct fh_stream *stream, const uint8_t *src, siz
 struct fh_chain *
 fh_stream_append_chain_data (struct fh_stream *stream, uint8_t *src, size_t len)
 {
-	struct fh_chain *chain = fh_pool_zalloc (stream->pool, sizeof (struct fh_chain));
+	uint8_t *mem = fh_pool_zalloc (stream->pool, sizeof (struct fh_chain) + sizeof (struct fh_buf));
 
-	if (!chain)
+	if (!mem)
 		return NULL;
 
-	chain->buf = fh_pool_alloc (stream->pool, sizeof (*chain->buf));
+	struct fh_chain *chain = (struct fh_chain *) mem;
 
-	if (!chain->buf)
-		return NULL;
-
+	static_assert (sizeof (*chain) == sizeof (struct fh_chain), "Size mismatch");
+	static_assert (sizeof (*chain->buf) == sizeof (struct fh_buf), "Size mismatch");
+	memset (mem, 0, sizeof (*chain));
+	
+	chain->buf = (struct fh_buf *) (mem + sizeof (*chain));
 	chain->buf->type = FH_BUF_DATA;
+	chain->buf->payload.data.start = src;
 	chain->buf->payload.data.is_readonly = false;
 	chain->buf->payload.data.len = len;
 	stream->size_total += len;
-	chain->buf->payload.data.start = src;
 
 	fh_stream_append_chain (stream, chain);
 	return chain;

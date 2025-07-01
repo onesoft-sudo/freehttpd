@@ -9,7 +9,7 @@
 
 struct fh_chain
 {
-	struct fh_buf   *buf;
+	struct fh_buf _nonfreeable *buf;
 	struct fh_chain *next;
 	bool is_eos   : 1;
 	bool is_start : 1;

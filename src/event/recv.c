@@ -19,6 +19,7 @@
 static bool
 fh_event_recv_http1 (struct fhttpd_server *server, struct fh_conn *conn)
 {
+	struct fhttpd_request *request = &conn->requests[0];
 	fhttpd_server_conn_close (server, conn);
 	return true;
 }
@@ -38,7 +39,7 @@ fh_event_recv (struct fhttpd_server *server, struct fh_conn *conn)
 		if (would_block ())
 			return true;
 
-		static_assert (sizeof (conn->proto_detect_buffer) < sizeof (conn->io_h.http1.http1_req_ctx->buffer),
+		static_assert (sizeof (conn->extra->proto_detect_buffer) < sizeof (conn->io_h.http1.http1_req_ctx->buffer),
 					   "The HTTP1 buffer is too small");
 
 		switch (conn->protocol)
@@ -55,8 +56,8 @@ fh_event_recv (struct fhttpd_server *server, struct fh_conn *conn)
 						return false;
 					}
 
-					conn->request_cap = 1;
-					conn->request_count = 1;
+					conn->extra->request_cap = 1;
+					conn->extra->request_count = 1;
 
 					struct fhttpd_request *request = &conn->requests[0];
 
@@ -69,8 +70,8 @@ fh_event_recv (struct fhttpd_server *server, struct fh_conn *conn)
 
 					struct fh_chain *first_chain;
 
-					if (!(first_chain = fh_stream_append_chain_memcpy (request->stream, conn->proto_detect_buffer,
-																	   conn->proto_detect_buffer_size)))
+					if (!(first_chain = fh_stream_append_chain_memcpy (request->stream, conn->extra->proto_detect_buffer,
+																	   conn->extra->proto_detect_buffer_size)))
 					{
 						fhttpd_wclog_error ("connection #%lu: failed to create initial stream chain", conn->id);
 						fhttpd_server_conn_close (server, conn);

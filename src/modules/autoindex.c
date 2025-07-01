@@ -257,8 +257,8 @@ fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *
 
 	buf[buf_len] = 0;
 
-	size_t html_len = resource_index_html_len + buf_len + 1 - 12 + (request->path_len * 3) + (request->conn->port / 10)
-					  + 1 + request->conn->hostname_len;
+	size_t html_len = resource_index_html_len + buf_len + 1 - 12 + (request->path_len * 3) + (request->conn->extra->port / 10)
+					  + 1 + request->conn->extra->hostname_len;
 	char *html = malloc (html_len);
 
 	if (!html)
@@ -276,7 +276,7 @@ fhttpd_autoindex (const struct fhttpd_request *request, struct fhttpd_response *
 	format[resource_index_html_len] = 0;
 
 	int bytes_written = snprintf (html, html_len - 1, format, request->path, request->path, request->path, buf,
-								  request->conn->hostname, request->conn->port);
+								  request->conn->extra->hostname, request->conn->extra->port);
 
 	if (bytes_written < 0 || (size_t) bytes_written >= html_len)
 	{
