@@ -25,7 +25,7 @@ define([FHTTPD_VERSION], m4_esyscmd([if test -f "$srcdir/.tarball-version"; then
 AC_INIT([freehttpd], 
   FHTTPD_VERSION, 
   [bug-freehttpd@lists.onesoftnet.eu.org])
-AC_CONFIG_SRCDIR([src/fhttpd.c])
+AC_CONFIG_SRCDIR([src/freehttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall gnu 1.11 subdir-objects])
@@ -132,21 +132,10 @@ AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
-AC_CHECK_FUNCS([epoll_create1 epoll_wait], [], [
-    AC_MSG_ERROR([epoll is not supported on this platform, which is needed for freehttpd to compile.])
-])
 
 AC_CONFIG_FILES([Makefile
                  res/Makefile
                  src/Makefile
-                 src/core/Makefile
-                 src/http/Makefile
-                 src/include/Makefile
-                 src/log/Makefile
-                 src/mm/Makefile
-                 src/modules/Makefile
-                 src/utils/Makefile
-                 src/event/Makefile
                  conf/Makefile
                  systemd/Makefile
                  tests/Makefile])

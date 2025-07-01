@@ -17,14 +17,32 @@
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef FH_SEND_H
-#define FH_SEND_H
+#include <errno.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include <stdbool.h>
+#define FHTTPD_LOG_MODULE_NAME "main"
 
-#include "core/server.h"
-#include "core/conn.h"
+#ifdef HAVE_CONFIG_H
+	#include "config.h"
+#endif /* HAVE_CONFIG_H */
 
-bool fh_event_send (struct fhttpd_server *server, struct fh_conn *conn);
+#ifdef FHTTPD_ENABLE_SYSTEMD
+	#include <systemd/sd-daemon.h>
+#endif /* FHTTPD_ENABLE_SYSTEMD */
 
-#endif /* FH_SEND_H */
+int
+main (int argc, char **argv)
+{
+	if (argc > 1)
+	{
+		fprintf (stderr, "%s: invalid argument -- '%s'\n", argv[0], argv[1]);
+		return 1;
+	}
+	
+	return 0;
+}
