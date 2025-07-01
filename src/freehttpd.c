@@ -27,6 +27,9 @@
 
 #define FHTTPD_LOG_MODULE_NAME "main"
 
+#include "log/log.h"
+#include "core/master.h"
+
 #ifdef HAVE_CONFIG_H
 	#include "config.h"
 #endif /* HAVE_CONFIG_H */
@@ -44,5 +47,15 @@ main (int argc, char **argv)
 		return 1;
 	}
 	
+	struct fh_master *master = fh_master_create ();
+	
+	if (!fh_master_spawn_workers (master))
+	{
+		fh_pr_err ("failed to spawn worker processes: %s", strerror (errno));
+		return 1;
+	}
+
+	fh_master_wait (master);
+	fh_master_destroy (master);
 	return 0;
 }

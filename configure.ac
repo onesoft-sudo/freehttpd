@@ -136,6 +136,9 @@ AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket s
 AC_CONFIG_FILES([Makefile
                  res/Makefile
                  src/Makefile
+                 src/core/Makefile
+                 src/log/Makefile
+                 src/utils/Makefile
                  conf/Makefile
                  systemd/Makefile
                  tests/Makefile])
