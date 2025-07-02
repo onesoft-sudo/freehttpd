@@ -25,7 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define FHTTPD_LOG_MODULE_NAME "main"
+#define FH_LOG_MODULE_NAME "main"
 
 #include "log/log.h"
 #include "core/master.h"
@@ -48,6 +48,15 @@ main (int argc, char **argv)
 	}
 	
 	struct fh_master *master = fh_master_create ();
+
+	if (!fh_master_read_config (master))
+		return 1;
+
+	if (!fh_master_setup_signal (master))
+	{
+		fh_pr_err ("failed to setup signal handlers: %s", strerror (errno));
+		return 1;
+	}
 	
 	if (!fh_master_spawn_workers (master))
 	{
@@ -56,6 +65,8 @@ main (int argc, char **argv)
 	}
 
 	fh_master_wait (master);
+
+	fh_pr_warn ("All worker processes were terminated, exiting");
 	fh_master_destroy (master);
 	return 0;
 }

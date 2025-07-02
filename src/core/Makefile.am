@@ -18,7 +18,13 @@
 noinst_LIBRARIES = libcore.a
 libcore_a_SOURCES = \
 	master.c \
-	master.h
+	master.h \
+	server.c \
+	server.h \
+	worker.c \
+	worker.h \
+	conf.c \
+	conf.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
