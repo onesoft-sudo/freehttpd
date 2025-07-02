@@ -60,14 +60,14 @@ fh_master_setup_signal (struct fh_master *master)
 
 	struct sigaction act;
 
-	act.sa_flags = 0;
+	act.sa_flags = SA_RESTART;
 	act.sa_handler = &fh_master_handle_term;
 	sigemptyset (&act.sa_mask);
 
 	if (sigaction (SIGINT, &act, NULL) < 0 || sigaction (SIGTERM, &act, NULL) < 0)
 		return false;
 
-	act.sa_flags = 0;
+	act.sa_flags = SA_RESTART;
 	act.sa_handler = SIG_IGN;
 	sigemptyset (&act.sa_mask);
 

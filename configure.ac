@@ -138,6 +138,7 @@ AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/core/Makefile
                  src/event/Makefile
+                 src/hash/Makefile
                  src/include/Makefile
                  src/log/Makefile
                  src/utils/Makefile

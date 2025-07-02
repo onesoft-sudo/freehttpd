@@ -21,6 +21,7 @@
 #define FH_COMPAT_H
 
 #include <stdlib.h>
+#include <errno.h>
 
 #if !defined(__attribute_maybe_unused__)
 	#if defined(__GNUC__) || defined(__clang__)
@@ -49,6 +50,22 @@
 #else
 	#define likely(x) (x)
 	#define unlikely(x) (x)
+#endif
+
+#if EAGAIN == EWOULDBLOCK
+#define would_block() (errno == EAGAIN)
+#else 
+#define would_block() (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
+
+#define would_interrupt() (would_block() || errno == EINTR)
+
+#if defined(__linux__)
+#define FH_PLATFORM_LINUX
+#elif defined(__APPLE__) || defined(__FreeBSD__)
+#define FH_PLATFORM_BSD
+#else
+#error "Unsupported platform"
 #endif
 
 #endif /* FH_COMPAT_H */

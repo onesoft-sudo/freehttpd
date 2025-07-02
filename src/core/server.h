@@ -6,15 +6,19 @@
 
 #include "types.h"
 #include "conf.h"
+#include "event/xpoll.h"
+#include "hash/itable.h"
 
 #define FH_SERVER_MAX_SOCKETS 128
 
 struct fh_server
 {
-    fd_t sockets[FH_SERVER_MAX_SOCKETS];
-    size_t socket_count;
     struct fhttpd_config *config;
+    fd_t xpoll_fd;
     bool should_exit : 1;
+    
+    /* (fd_t) => (struct sockaddr_in *) */
+    struct itable *sockfd_table;
 };
 
 struct fh_server *fh_server_create (struct fhttpd_config *config);
