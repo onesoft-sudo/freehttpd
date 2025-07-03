@@ -1,24 +1,26 @@
 #define _GNU_SOURCE
 
 #include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <string.h>
-#include <fcntl.h>
-#include <errno.h>
 
 #define FH_LOG_MODULE_NAME "server"
 
-#include "conf.h"
-#include "log/log.h"
 #include "compat.h"
-#include "server.h"
+#include "conf.h"
 #include "event/accept.h"
+#include "event/recv.h"
 #include "hash/itable.h"
+#include "log/log.h"
+#include "server.h"
+#include "conn.h"
 
 #define FH_SERVER_MAX_EVENTS 128
 
@@ -39,14 +41,24 @@ fh_server_create (struct fhttpd_config *config)
 		return NULL;
 	}
 
-    server->xpoll_fd = xpoll_create ();
+	server->connections = itable_create (0);
 
-    if (server->xpoll_fd < 0)
-    {
-        itable_destroy (server->sockfd_table);
+	if (!server->connections)
+	{
+		itable_destroy (server->sockfd_table);
 		free (server);
 		return NULL;
-    }
+	}
+
+	server->xpoll_fd = xpoll_create ();
+
+	if (server->xpoll_fd < 0)
+	{
+		itable_destroy (server->connections);
+		itable_destroy (server->sockfd_table);
+		free (server);
+		return NULL;
+	}
 
 	return server;
 }
@@ -59,8 +71,14 @@ fh_server_destroy (struct fh_server *server)
 		free (entry->data);
 	}
 
+	for_each_itable_entry (server->connections, entry)
+	{
+		fh_conn_destroy (entry->data);
+	}
+
+	itable_destroy (server->connections);
 	itable_destroy (server->sockfd_table);
-    xpoll_destroy (server->xpoll_fd);
+	xpoll_destroy (server->xpoll_fd);
 	fhttpd_conf_free_config (server->config);
 	free (server);
 }
@@ -154,15 +172,15 @@ fh_server_listen (struct fh_server *server)
 			return false;
 		}
 
-        if (!itable_set (server->sockfd_table, (uint64_t) sockfd, in))
-        {
+		if (!itable_set (server->sockfd_table, (uint64_t) sockfd, in))
+		{
 			free (in);
 			close (sockfd);
 			xpoll_del (server->xpoll_fd, sockfd, XPOLLIN);
 			return false;
-        }
+		}
 
-        fh_pr_info ("Listening on 0.0.0.0:%u", ports[i]);
+		fh_pr_info ("Listening on 0.0.0.0:%u", ports[i]);
 	}
 
 	return true;
@@ -171,60 +189,71 @@ fh_server_listen (struct fh_server *server)
 void
 fh_server_loop (struct fh_server *server)
 {
-    size_t errors = 0;
+	size_t errors = 0;
 
 	for (;;)
 	{
 		if (server->should_exit)
 			return;
 
-        xevent_t events[FH_SERVER_MAX_EVENTS];
-        int nfds = xpoll_wait (server->xpoll_fd, events, FH_SERVER_MAX_EVENTS, -1);
+		xevent_t events[FH_SERVER_MAX_EVENTS];
+		int nfds = xpoll_wait (server->xpoll_fd, events, FH_SERVER_MAX_EVENTS, -1);
 
-        if (nfds < 0)
-        {
-            if (would_interrupt ())
-                continue;
+		if (nfds < 0)
+		{
+			if (would_interrupt ())
+				continue;
 
-            if (errors >= 5)
-            {
-                fh_pr_emerg ("Too many xpoll_wait() errors occurred, not retrying: %s", strerror (errno));
-                return;
-            }
-
-            errors++;
-            continue;
-        }
-
-        errors = 0;
-
-        for (int i = 0; i < nfds; i++)
-        {
-            uint32_t evflags = events[i].events;
-            fd_t fd = events[i].data.fd;
-
-            if (itable_contains (server->sockfd_table, fd))
-            {
-				event_accept (server, &events[i]);
-                continue;
-            }
-
-            if (evflags & XPOLLIN)
+			if (errors >= 5)
 			{
-				/* event_recv */
-                continue;
+				fh_pr_emerg ("Too many xpoll_wait() errors occurred, not retrying: %s", strerror (errno));
+				return;
 			}
-            else if (evflags & XPOLLOUT)
+
+			errors++;
+			continue;
+		}
+
+		errors = 0;
+
+		for (int i = 0; i < nfds; i++)
+		{
+			uint32_t evflags = events[i].events;
+			fd_t fd = events[i].data.fd;
+			struct sockaddr_in *server_addr;
+
+			if ((server_addr = itable_get (server->sockfd_table, fd)))
+			{
+				event_accept (server, &events[i], server_addr);
+				continue;
+			}
+
+			if (evflags & XPOLLIN)
+			{
+				if (!event_recv (server, &events[i]))
+					fh_pr_err ("recv event handler failed: %s", strerror (errno));
+				
+				continue;
+			}
+			else if (evflags & XPOLLOUT)
 			{
 				/* event_send */
-                continue;
+				continue;
 			}
-            
+
 			if (evflags & XPOLLHUP)
 			{
 				/* event_hup */
-                continue;
+				continue;
 			}
-        }
+		}
 	}
+}
+
+void
+fh_server_close_conn (struct fh_server *server, struct fh_conn *conn)
+{
+	itable_remove (server->connections, conn->client_sockfd);
+	xpoll_del (server->xpoll_fd, conn->client_sockfd, XPOLLIN | XPOLLOUT);
+	fh_conn_destroy (conn);
 }

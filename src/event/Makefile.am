@@ -20,7 +20,9 @@ libevent_a_SOURCES = \
 	xpoll.c \
 	xpoll.h \
 	accept.c \
-	accept.h
+	accept.h \
+	recv.c \
+	recv.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

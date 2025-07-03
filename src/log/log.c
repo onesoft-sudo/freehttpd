@@ -58,24 +58,27 @@ fh_printl (const char *format, ...)
 
 	if (likely (is_tty))
 	{
-		fprintf (stream, "\033[32m[%12.7lf]\033[0m \033[1m[%5s]\033[0m \033[2m[%s %d]\033[0m ",
-				 ((double) (now () - startup_time)) / (double) 1000000,
-				 level == LOG_DEBUG	 ? "debug"
-				 : level == LOG_INFO ? "info"
-				 : level == LOG_WARN ? "warn"
-				 : level == LOG_ERR	 ? "error"
-									 : "emerg",
-				 is_master ? "Master" : "Worker", main_pid);
+		const int color = level == LOG_DEBUG ? 2 : level == LOG_INFO ? 0 : level == LOG_WARN ? 33 : 31;
+		const int ts_color = level >= LOG_WARN ? 31 : 32;
+
+		fprintf (stream, "\033[%dm[%12.7lf]\033[0m \033[2;37m[%s %d]\033[0m \033[%dm%-6s\033[0m ", ts_color,
+				 ((double) (now () - startup_time)) / (double) 1000000, is_master ? "Master" : "Worker", main_pid,
+				 color,
+				 level == LOG_DEBUG	 ? "debug:"
+				 : level == LOG_INFO ? "info:"
+				 : level == LOG_WARN ? "warn:"
+				 : level == LOG_ERR	 ? "error:"
+									 : "emerg:");
 	}
 	else
 	{
-		fprintf (stream, "[%12.7lf] [%s] [%s %d]", ((double) (now () - startup_time)) / (double) 1000000,
-				 level == LOG_DEBUG	 ? "debug"
-				 : level == LOG_INFO ? "info"
-				 : level == LOG_WARN ? "warn"
-				 : level == LOG_ERR	 ? "error"
-									 : "emerg",
-				 is_master ? "Master" : "Worker", main_pid);
+		fprintf (stream, "[%12.7lf] [%s %d] %-6s: ", ((double) (now () - startup_time)) / (double) 1000000,
+				 is_master ? "Master" : "Worker", main_pid,
+				 level == LOG_DEBUG	 ? "debug:"
+				 : level == LOG_INFO ? "info:"
+				 : level == LOG_WARN ? "warn:"
+				 : level == LOG_ERR	 ? "error:"
+									 : "emerg:");
 	}
 
 	va_list args;

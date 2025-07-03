@@ -24,7 +24,9 @@ libcore_a_SOURCES = \
 	worker.c \
 	worker.h \
 	conf.c \
-	conf.h
+	conf.h \
+	conn.c \
+	conn.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

@@ -1,66 +1,91 @@
 #define _GNU_SOURCE
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
 
 #define FH_LOG_MODULE_NAME "event/accept"
 
-#include "compat.h"
 #include "accept.h"
+#include "compat.h"
+#include "core/conn.h"
+#include "core/server.h"
 #include "log/log.h"
 
-bool 
-event_accept (struct fh_server *server, const xevent_t *ev_info)
+bool
+event_accept (struct fh_server *server, const xevent_t *ev_info, const struct sockaddr_in *server_addr)
 {
-    const fd_t sockfd = ev_info->data.fd;
-    size_t errors = 0;
+	const fd_t sockfd = ev_info->data.fd;
+	size_t errors = 0;
+	uint32_t fdflags = 0;
 
-    for (;;)
-    {
-        struct sockaddr_in client_addr = {0};
-        socklen_t client_addr_len = sizeof client_addr;
+	for (;;)
+	{
+		struct sockaddr_in client_addr = { 0 };
+		socklen_t client_addr_len = sizeof client_addr;
 
 #if defined(FH_PLATFORM_LINUX)
-        fd_t client_sockfd = accept4 (sockfd, &client_addr, &client_addr_len, SOCK_NONBLOCK);
+		fd_t client_sockfd = accept4 (sockfd, &client_addr, &client_addr_len, SOCK_NONBLOCK);
 #elif defined(FH_PLATFORM_BSD)
-        fd_t client_sockfd = accept (sockfd, &client_addr, &client_addr_len);
+		fd_t client_sockfd = accept (sockfd, &client_addr, &client_addr_len);
+		fdflags = O_NONBLOCK;
 #endif
 
-        if (client_sockfd < 0)
-        {
-            if (errno == EINTR)
-                continue;
+		if (client_sockfd < 0)
+		{
+			if (errno == EINTR)
+				continue;
 
-            if (would_block ())
-                return true;
+			if (would_block ())
+				return true;
 
-            fh_pr_err ("accept syscall failed: %s", strerror (errno));
+			fh_pr_err ("accept syscall failed: %s", strerror (errno));
 
-            if (errors >= 5)
-                return false;
+			if (errors >= 5)
+				return false;
 
-            errors++;
-            continue;
-        }
+			errors++;
+			continue;
+		}
 
-        errors = 0;
+		errors = 0;
 
-        char ip[INET_ADDRSTRLEN] = {0};
-        inet_ntop (AF_INET, &client_addr.sin_addr.s_addr, ip, sizeof ip);
-        uint16_t port = ntohs (client_addr.sin_port);
+		char ip[INET_ADDRSTRLEN] = { 0 };
+		inet_ntop (AF_INET, &client_addr.sin_addr.s_addr, ip, sizeof ip);
+		uint16_t port = ntohs (client_addr.sin_port);
 
-        fh_pr_info ("accepted new connection from %s:%u", ip, port);
+		fh_pr_debug ("accepted new connection from %s:%u", ip, port);
 
-        usleep (1000000);
+		struct fh_conn *conn = fh_conn_create (client_sockfd, &client_addr, server_addr);
 
-        fh_pr_info ("connection closed");
-        close (client_sockfd);
-    }
+		if (!conn)
+		{
+			close (client_sockfd);
+			fh_pr_err ("memory allocation failed");
+			continue;
+		}
 
-    return true;
+		if (!itable_set (server->connections, (uint64_t) client_sockfd, conn))
+		{
+			fh_conn_destroy (conn);
+			fh_pr_err ("hash table set operation failed");
+			continue;
+		}
+
+		if (!xpoll_add (server->xpoll_fd, client_sockfd, XPOLLIN | XPOLLET | XPOLLHUP, fdflags))
+		{
+			fh_server_close_conn (server, conn);
+			fh_pr_err ("xpoll_add operation failed");
+			continue;
+		}
+
+		fh_pr_info ("connection established with %s:%u", ip, port);
+	}
+
+	return true;
 }

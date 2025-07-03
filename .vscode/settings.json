@@ -37,6 +37,7 @@
         "variant": "c",
         "tags": "c",
         "cstdint": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "initializer_list": "c"
     }
 }
