@@ -24,7 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ITABLE_DEFAULT_CAPACITY 16
+#define ITABLE_DEFAULT_CAPACITY 64
 
 struct itable_entry
 {

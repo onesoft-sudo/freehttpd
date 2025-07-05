@@ -72,7 +72,7 @@ fh_printl (const char *format, ...)
 	}
 	else
 	{
-		fprintf (stream, "[%12.7lf] [%s %d] %-6s: ", ((double) (now () - startup_time)) / (double) 1000000,
+		fprintf (stream, "[%12.7lf] [%s %d] %-6s ", ((double) (now () - startup_time)) / (double) 1000000,
 				 is_master ? "Master" : "Worker", main_pid,
 				 level == LOG_DEBUG	 ? "debug:"
 				 : level == LOG_INFO ? "info:"

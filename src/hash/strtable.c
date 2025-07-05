@@ -145,8 +145,10 @@ strtable_set (struct strtable *table, const char *key, void *data)
 
 	size_t key_len = strlen (key);
 	uint64_t hash = strtable_hash (key, table->capacity, key_len);
+	uint64_t init_hash = hash;
+	bool start = false;
 
-	for (; hash < table->capacity; hash++)
+	for (; hash < table->capacity; )
 	{
 		struct strtable_entry *entry = &table->buckets[hash];
 
@@ -174,6 +176,17 @@ strtable_set (struct strtable *table, const char *key, void *data)
 			table->count++;
 
 			return true;
+		}
+		
+		hash++;
+
+		if (start && hash == init_hash)
+			break;
+
+		if (hash >= table->capacity)
+		{
+			hash = 0;
+			start = true;
 		}
 	}
 

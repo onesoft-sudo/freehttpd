@@ -6,6 +6,10 @@
 #include "macros.h"
 #include "pool.h"
 
+// #undef fh_pool_alloc
+// #undef fh_pool_zalloc
+// #undef fh_pool_undo_last_alloc
+
 struct fh_pool *
 fh_pool_create (size_t init_cap)
 {
@@ -31,10 +35,12 @@ fh_pool_destroy (struct fh_pool *pool)
 
 	while (c)
 	{
+		struct fh_pool_chunk *next = c->next;
+
 		if (!c->non_freeable)
 			free (c);
 
-		c = c->next;
+		c = next;
 	}
 
 	struct fh_pool_malloc *m = pool->mallocs;
@@ -74,7 +80,7 @@ fh_pool_large_alloc (struct fh_pool *pool, size_t size, fh_pool_cleanup_cb_t cle
 void *
 fh_pool_alloc (struct fh_pool *pool, size_t size)
 {
-	if (size >= FH_SMALL_MAX_SIZE)
+	if (size > FH_SMALL_MAX_SIZE)
 		return fh_pool_large_alloc (pool, size, NULL);
 
 	if (pool->current->used + size > pool->current->cap)

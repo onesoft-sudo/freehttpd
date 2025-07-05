@@ -9,12 +9,12 @@
 # it under the terms of the GNU Affero General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # OSN freehttpd is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Affero General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -22,8 +22,8 @@ AC_PREREQ([2.61])
 
 define([FHTTPD_VERSION], m4_esyscmd([if test -f "$srcdir/.tarball-version"; then head -n1 "$srcdir/.tarball-version" | tr -d '\n'; else jq -r '.version' .github/version.json | tr -d '\n'; fi]))
 
-AC_INIT([freehttpd], 
-  FHTTPD_VERSION, 
+AC_INIT([freehttpd],
+  FHTTPD_VERSION,
   [bug-freehttpd@lists.onesoftnet.eu.org])
 AC_CONFIG_SRCDIR([src/freehttpd.c])
 AC_CONFIG_HEADERS([config.h])
@@ -41,7 +41,7 @@ AC_ARG_ENABLE([systemd],
               [enable_systemd="$enableval"],
               [enable_systemd=no])
 
-AC_ARG_WITH([config-file], 
+AC_ARG_WITH([config-file],
             [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
             [FHTTPD_MAIN_CONFIG_FILE="$withval"],
             [FHTTPD_MAIN_CONFIG_FILE="$sysconfdir/freehttpd/fhttpd.conf"])
@@ -77,7 +77,7 @@ if test "x$enable_systemd" = "xyes"; then
     AC_SUBST([systemdsystemunitdir])
     AC_MSG_RESULT([$systemdsystemunitdir])
 
-    AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])    
+    AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])
 fi
 
 AM_CONDITIONAL([ENABLE_SYSTEMD], [test "x$enable_systemd" = "xyes"])
@@ -140,6 +140,7 @@ AC_CONFIG_FILES([Makefile
                  src/event/Makefile
                  src/hash/Makefile
                  src/mm/Makefile
+				 src/http/Makefile
                  src/include/Makefile
                  src/log/Makefile
                  src/utils/Makefile

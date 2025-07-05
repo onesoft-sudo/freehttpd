@@ -36,10 +36,20 @@ struct fh_pool
 
 typedef struct fh_pool pool_t;
 
+// #define fh_pool_alloc(a, b) malloc (b)
+// #define fh_pool_zalloc(a, b) calloc (1, b)
+// #define fh_pool_undo_last_alloc(...) NULL
+
 struct fh_pool *fh_pool_create (size_t init_cap);
 void fh_pool_destroy (struct fh_pool *pool);
 void *fh_pool_large_alloc (struct fh_pool *pool, size_t size, fh_pool_cleanup_cb_t cleanup_cb);
 void *fh_pool_alloc (struct fh_pool *pool, size_t size);
+
+__attribute__ ((always_inline)) __attribute_maybe_unused__ static inline void
+fh_pool_undo_last_alloc (struct fh_pool *pool, size_t size)
+{
+	pool->current->used -= size;
+}
 
 __attribute__ ((always_inline)) __attribute_maybe_unused__ static inline void *
 fh_pool_calloc (struct fh_pool *pool, size_t n, size_t size)

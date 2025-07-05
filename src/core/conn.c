@@ -18,16 +18,18 @@ fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const
     if (!pool)
         return NULL;
 
-    struct fh_conn *conn = fh_pool_alloc (pool, sizeof (*conn) + sizeof (*client_addr));
+    struct fh_conn *conn = fh_pool_alloc (pool, sizeof (*conn) + sizeof (*client_addr) + sizeof (*conn->stream));
 
     if (!conn)
         return NULL;
 
     conn->id = next_conn_id++;
     conn->client_addr = (struct sockaddr_in *) (conn + 1);
+    conn->stream = (struct fh_stream *) (conn->client_addr + 1);
     conn->client_sockfd = client_sockfd;
     conn->pool = pool;
     conn->server_addr = server_addr;
+    conn->req_ctx = NULL;
 
     return conn;
 }

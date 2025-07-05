@@ -17,6 +17,7 @@
 #include "conf.h"
 #include "event/accept.h"
 #include "event/recv.h"
+#include "event/send.h"
 #include "hash/itable.h"
 #include "log/log.h"
 #include "server.h"
@@ -237,7 +238,9 @@ fh_server_loop (struct fh_server *server)
 			}
 			else if (evflags & XPOLLOUT)
 			{
-				/* event_send */
+				if (!event_send (server, &events[i]))
+					fh_pr_err ("send event handler failed: %s", strerror (errno));
+					
 				continue;
 			}
 

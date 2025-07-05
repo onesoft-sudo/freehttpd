@@ -15,20 +15,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-noinst_LIBRARIES = libcore.a
-libcore_a_SOURCES = \
-	master.c \
-	master.h \
-	server.c \
-	server.h \
-	worker.c \
-	worker.h \
-	conf.c \
-	conf.h \
-	conn.c \
-	conn.h \
-	stream.c \
-	stream.h
+noinst_LIBRARIES = libhttp.a
+libhttp_a_SOURCES = \
+	http1.c \
+	http1.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

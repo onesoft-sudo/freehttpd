@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include "types.h"
 #include "mm/pool.h"
+#include "stream.h"
 
 struct fh_conn
 {
@@ -15,6 +16,11 @@ struct fh_conn
     struct sockaddr_in *client_addr;
     const struct sockaddr_in *server_addr;
     pool_t *pool;
+    struct fh_stream *stream;
+
+    union {
+        struct fh_http1_ctx *req_ctx;
+    };
 };
 
 struct fh_conn *fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const struct sockaddr_in *server_addr);

@@ -125,8 +125,10 @@ itable_set (struct itable *table, uint64_t key, void *data)
 	key = key == 0 ? UINT64_MAX : key;
 
 	uint64_t hash = itable_hash (key, table->capacity);
+	uint64_t init_hash = hash;
+	bool start = false;
 
-	for (; hash < table->capacity; hash++)
+	for (; hash < table->capacity; )
 	{
 		struct itable_entry *entry = &table->buckets[hash];
 
@@ -154,10 +156,21 @@ itable_set (struct itable *table, uint64_t key, void *data)
 
 			return true;
 		}
+
+		hash++;
+
+		if (start && hash == init_hash)
+			break;
+
+		if (hash >= table->capacity)
+		{
+			hash = 0;
+			start = true;
+		}
 	}
 
 #ifndef NDEBUG
-	fprintf (stderr, "%s: Hash table is full, cannot insert key %" PRIu64 "\n", __func__, key);
+	fprintf (stderr, "%s: Hash table is full, cannot insert key %lu [hash %lu] [cap %lu]\n", __func__, key, init_hash, table->capacity);
 #endif
 
 	return false;

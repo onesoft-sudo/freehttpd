@@ -22,7 +22,9 @@ libevent_a_SOURCES = \
 	accept.c \
 	accept.h \
 	recv.c \
-	recv.h
+	recv.h \
+	send.c \
+	send.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
