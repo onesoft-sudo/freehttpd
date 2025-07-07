@@ -9,12 +9,17 @@
 #define HTTP1_METHOD_MAX_LEN 16
 #define HTTP1_VERSION_MAX_LEN 8
 #define HTTP1_URI_MAX_LEN   4096
+#define HTTP1_HEADER_NAME_MAX_LEN 128
+#define HTTP1_HEADER_VALUE_MAX_LEN 256
+#define HTTP1_HEADER_COUNT_MAX 128
 
 enum http1_state
 {
 	H1_STATE_METHOD,
 	H1_STATE_URI,
 	H1_STATE_VERSION,
+	H1_STATE_HEADER_NAME,
+	H1_STATE_HEADER_VALUE,
 	H1_STATE_RECV,
 	H1_STATE_ERROR,
 	H1_STATE_DONE
@@ -35,6 +40,9 @@ struct fh_http1_ctx
 	size_t recv_limit;
 
 	enum http1_state state, prev_state;
+
+	const char *current_header_name;
+	size_t current_header_name_len;
 
 	const char *method;
 	size_t method_len;

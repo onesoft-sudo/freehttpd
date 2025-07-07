@@ -24,13 +24,13 @@
 
 #include "strutils.h"
 
-char *
+const char *
 str_trim_whitespace (const char *str, size_t len, size_t *out_len)
 {
 	if (len == 0)
 	{
 		*out_len = 0;
-		return strdup ("");
+		return "";
 	}
 
 	size_t start = 0, end = len - 1;
@@ -44,23 +44,13 @@ str_trim_whitespace (const char *str, size_t len, size_t *out_len)
 	if (start > end)
 	{
 		*out_len = 0;
-		return strdup ("");
+		return "";
 	}
 
 	size_t trimmed_len = end - start + 1;
-	char *trimmed_str = malloc (trimmed_len + 1);
-
-	if (!trimmed_str)
-	{
-		*out_len = 0;
-		return NULL;
-	}
-
-	memcpy (trimmed_str, str + start, trimmed_len);
-	trimmed_str[trimmed_len] = 0;
 	*out_len = trimmed_len;
 
-	return trimmed_str;
+	return str + start;
 }
 
 struct str_split_result *
