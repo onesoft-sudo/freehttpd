@@ -7,12 +7,14 @@
 #include "mm/pool.h"
 
 #define HTTP1_METHOD_MAX_LEN 16
+#define HTTP1_VERSION_MAX_LEN 8
 #define HTTP1_URI_MAX_LEN   4096
 
 enum http1_state
 {
 	H1_STATE_METHOD,
 	H1_STATE_URI,
+	H1_STATE_VERSION,
 	H1_STATE_RECV,
 	H1_STATE_ERROR,
 	H1_STATE_DONE
@@ -39,6 +41,9 @@ struct fh_http1_ctx
 
 	const char *uri;
 	size_t uri_len;
+
+	const char *version;
+	size_t version_len;
 };
 
 struct fh_http1_ctx *fh_http1_ctx_create (pool_t *pool, struct fh_stream *stream);
