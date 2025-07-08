@@ -20,7 +20,8 @@ libhash_a_SOURCES = \
 	strtable.c \
 	strtable.h \
 	itable.c \
-	itable.h
+	itable.h \
+	rapidhash.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
