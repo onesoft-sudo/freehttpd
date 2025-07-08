@@ -88,7 +88,7 @@ strtable_hash_fnv1a (const char *key, size_t key_len, uint64_t capacity)
 static inline uint64_t
 strtable_hash_rapid (const char *key, size_t key_len, uint64_t capacity)
 {
-	return rapidhash (key, key_len) % capacity;
+	return rapidhashMicro (key, key_len) % capacity;
 }
 
 #define strtable_hash strtable_hash_rapid

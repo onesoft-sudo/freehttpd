@@ -82,7 +82,7 @@ itable_hash_fnv1a (uint64_t key, uint64_t capacity)
 static inline uint64_t
 itable_hash_rapid (uint64_t key, uint64_t capacity)
 {
-	return rapidhash (&key, sizeof key) % capacity;
+	return rapidhashMicro (&key, sizeof key) % capacity;
 }
 
 #define itable_hash itable_hash_rapid
