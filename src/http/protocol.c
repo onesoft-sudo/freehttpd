@@ -276,8 +276,8 @@ fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size
 	return NULL;
 }
 
-bool 
+void 
 fh_headers_init (struct fh_headers *headers)
 {
-	
+	memset (headers, 0, sizeof (*headers));
 }

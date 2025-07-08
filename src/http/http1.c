@@ -21,15 +21,29 @@
 #define H1_NEXT 0x0
 #define H1_RECV 0x1
 
+static const char *HTTP1_METHOD_LIST[] = {
+	[FH_METHOD_GET] = "GET",
+	[FH_METHOD_POST] = "POST",
+	[FH_METHOD_PUT] = "PUT",
+	[FH_METHOD_PATCH] = "PATCH",
+	[FH_METHOD_DELETE] = "DELETE",
+	[FH_METHOD_HEAD] = "HEAD",
+	[FH_METHOD_OPTIONS] = "OPTIONS",
+	[FH_METHOD_CONNECT] = "CONNECT",
+	[FH_METHOD_TRACE] = "TRACE",
+};
+
+static const size_t HTTP1_METHOD_LIST_SIZE = sizeof (HTTP1_METHOD_LIST) / sizeof HTTP1_METHOD_LIST[0];
+
+
 struct fh_http1_ctx *
-fh_http1_ctx_create (pool_t *pool, struct fh_stream *stream)
+fh_http1_ctx_create (struct fh_stream *stream)
 {
-	struct fh_http1_ctx *ctx = fh_pool_zalloc (pool, sizeof (*ctx));
+	struct fh_http1_ctx *ctx = fh_pool_zalloc (stream->pool, sizeof (*ctx));
 
 	if (!ctx)
 		return NULL;
 
-	ctx->pool = pool;
 	ctx->state = H1_STATE_METHOD;
 	ctx->stream = stream;
 	ctx->start = ctx->end = stream->head;
@@ -61,7 +75,7 @@ stream_memcpy (void *dest, const struct fh_link *start, size_t start_off, const 
 		if (size > 0)
 		{
 			fh_pr_debug ("Copying %zu bytes from a buffer with length: %zu%s", size, start->buf->len,
-						start == end ? " [END]" : "");
+						 start == end ? " [END]" : "");
 
 			memmove (((uint8_t *) dest) + copied, start->buf->data + start_index, size);
 			copied += size;
@@ -118,27 +132,29 @@ h1_parse_method (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_mayb
 		if (pos)
 		{
 			bool single_link = ctx->end == ctx->start;
+			size_t method_len;
+			const char *method;
 
 			if (single_link)
 			{
-				ctx->method = (const char *) (buf->data + ctx->phase_start_pos);
-				ctx->method_len = (size_t) (pos - (uint8_t *) ctx->method);
+				method = (const char *) (buf->data + ctx->phase_start_pos);
+				method_len = (size_t) (pos - (uint8_t *) method);
 			}
 			else
 			{
-				ctx->method_len = ctx->current_consumed_size;
+				method_len = ctx->current_consumed_size;
 			}
 
-			if (ctx->method_len == 0)
+			if (method_len == 0)
 			{
 				fh_pr_debug ("Request method is empty");
 				ctx->state = H1_STATE_ERROR;
 				return H1_RET (false);
 			}
 
-			if (ctx->method_len > HTTP1_METHOD_MAX_LEN)
+			if (method_len > HTTP1_METHOD_MAX_LEN)
 			{
-				fh_pr_debug ("Request method is too long");
+				fh_pr_debug ("Request method is too long: %zu", method_len);
 				ctx->state = H1_STATE_ERROR;
 				return H1_RET (false);
 			}
@@ -147,21 +163,40 @@ h1_parse_method (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_mayb
 
 			if (!single_link)
 			{
-				char *method = fh_pool_alloc (ctx->pool, ctx->method_len);
+				char *alloced_method = fh_pool_alloc (ctx->stream->pool, method_len);
 
-				if (!method)
+				if (!alloced_method)
 				{
 					fh_pr_debug ("Memory allocation failed");
 					ctx->state = H1_STATE_ERROR;
 					return H1_RET (false);
 				}
 
-				stream_memcpy (method, ctx->start, ctx->phase_start_pos, ctx->end, end_pos > 0 ? end_pos : end_pos,
-							   ctx->method_len);
-				ctx->method = method;
+				stream_memcpy (alloced_method, ctx->start, ctx->phase_start_pos, ctx->end, end_pos > 0 ? end_pos : end_pos,
+							   method_len);
+				method = alloced_method;
 			}
 
-			fh_pr_debug ("Method: (%zu)|%.*s|", ctx->method_len, (int) ctx->method_len, ctx->method);
+			fh_pr_debug ("Method: (%zu)|%.*s|", method_len, (int) method_len, method);
+
+			bool method_found = false;
+
+			for (size_t i = 0; i < HTTP1_METHOD_LIST_SIZE; i++)
+			{
+				if (strncmp (method, HTTP1_METHOD_LIST[i], method_len) == 0)
+				{
+					ctx->result.method = i;
+					method_found = true;
+					break;
+				}
+			}
+
+			if (!method_found)
+			{
+				fh_pr_debug ("Invalid HTTP method");
+				ctx->state = H1_STATE_ERROR;
+				return H1_RET (false);
+			}
 
 			ctx->start = ctx->end;
 			ctx->phase_start_pos = end_pos + 1;
@@ -241,22 +276,22 @@ h1_parse_uri (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_maybe_u
 
 			if (single_link)
 			{
-				ctx->uri = (const char *) (buf->data + ctx->phase_start_pos);
-				ctx->uri_len = (size_t) (pos - (uint8_t *) ctx->uri);
+				ctx->result.uri = (const char *) (buf->data + ctx->phase_start_pos);
+				ctx->result.uri_len = (size_t) (pos - (uint8_t *) ctx->result.uri);
 			}
 			else
 			{
-				ctx->uri_len = ctx->current_consumed_size;
+				ctx->result.uri_len = ctx->current_consumed_size;
 			}
 
-			if (ctx->uri_len == 0)
+			if (ctx->result.uri_len == 0)
 			{
 				fh_pr_debug ("Request URI is empty");
 				ctx->state = H1_STATE_ERROR;
 				return H1_RET (false);
 			}
 
-			if (ctx->uri_len > HTTP1_URI_MAX_LEN)
+			if (ctx->result.uri_len > HTTP1_URI_MAX_LEN)
 			{
 				fh_pr_debug ("Request URI is too long");
 				ctx->state = H1_STATE_ERROR;
@@ -267,7 +302,7 @@ h1_parse_uri (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_maybe_u
 
 			if (!single_link)
 			{
-				char *uri = fh_pool_alloc (ctx->pool, ctx->uri_len);
+				char *uri = fh_pool_alloc (ctx->stream->pool, ctx->result.uri_len);
 
 				if (!uri)
 				{
@@ -277,11 +312,11 @@ h1_parse_uri (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_maybe_u
 				}
 
 				stream_memcpy (uri, ctx->start, ctx->phase_start_pos, ctx->end, end_pos > 0 ? end_pos - 1 : end_pos,
-							   ctx->uri_len);
-				ctx->uri = uri;
+							   ctx->result.uri_len);
+				ctx->result.uri = uri;
 			}
 
-			fh_pr_debug ("URI: (%zu)|%.*s|", ctx->uri_len, (int) ctx->uri_len, ctx->uri);
+			fh_pr_debug ("URI: (%zu)|%.*s|", ctx->result.uri_len, (int) ctx->result.uri_len, ctx->result.uri);
 
 			ctx->start = ctx->end;
 			ctx->phase_start_pos = end_pos + 1;
@@ -361,21 +396,21 @@ h1_parse_version (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_may
 
 			if (single_link)
 			{
-				ctx->version = (const char *) (buf->data + ctx->phase_start_pos);
-				ctx->version_len = (size_t) (pos - (uint8_t *) ctx->version);
+				ctx->result.version = (const char *) (buf->data + ctx->phase_start_pos);
+				ctx->result.version_len = (size_t) (pos - (uint8_t *) ctx->result.version);
 			}
 			else
 			{
-				ctx->version_len = ctx->current_consumed_size;
+				ctx->result.version_len = ctx->current_consumed_size;
 			}
 
-			if (ctx->version_len + 2 > size || *pos != '\r' || pos[1] != '\n')
+			if (ctx->result.version_len + 2 > size || *pos != '\r' || pos[1] != '\n')
 			{
 				fh_pr_debug ("Expected newline after version");
 				goto h1_version_skip_iter;
 			}
 
-			if (ctx->version_len == 0 || ctx->version_len > HTTP1_VERSION_MAX_LEN)
+			if (ctx->result.version_len == 0 || ctx->result.version_len > HTTP1_VERSION_MAX_LEN)
 			{
 				fh_pr_debug ("Version is empty or invalid");
 				ctx->state = H1_STATE_ERROR;
@@ -386,7 +421,7 @@ h1_parse_version (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_may
 
 			if (!single_link)
 			{
-				char *version = fh_pool_alloc (ctx->pool, ctx->version_len);
+				char *version = fh_pool_alloc (ctx->stream->pool, ctx->result.version_len);
 
 				if (!version)
 				{
@@ -396,11 +431,11 @@ h1_parse_version (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_may
 				}
 
 				stream_memcpy (version, ctx->start, ctx->phase_start_pos, ctx->end, end_pos > 0 ? end_pos - 1 : end_pos,
-							   ctx->version_len);
-				ctx->version = version;
+							   ctx->result.version_len);
+				ctx->result.version = version;
 			}
 
-			fh_pr_debug ("Version: (%zu)|%.*s|", ctx->version_len, (int) ctx->version_len, ctx->version);
+			fh_pr_debug ("Version: (%zu)|%.*s|", ctx->result.version_len, (int) ctx->result.version_len, ctx->result.version);
 
 			ctx->start = ctx->end;
 			ctx->phase_start_pos = end_pos + 2;
@@ -412,8 +447,8 @@ h1_parse_version (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_may
 
 			return H1_NEXT;
 		}
-		
-		h1_version_skip_iter:
+
+	h1_version_skip_iter:
 		if (!ctx->end->next)
 		{
 			ctx->start_pos = size;
@@ -470,6 +505,21 @@ h1_parse_header_name (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute
 		uint8_t *start = buf->data + start_index;
 		uint8_t *pos = memchr (start, ':', size);
 
+		if (size >= 2 && start[0] == '\r' && start[1] == '\n')
+		{
+			fh_pr_debug ("Received \\r\\n twice, marking end of headers (EOH)");
+			ctx->state = H1_STATE_DONE;
+
+			ctx->start = ctx->end;
+			ctx->phase_start_pos = end_pos + 2;
+			ctx->start_pos = 0;
+
+			ctx->total_consumed_size += 2;
+			ctx->current_consumed_size = 0;
+
+			return H1_NEXT;
+		}
+
 		size_t consumed = (pos ? (size_t) (pos - start) : size) - ctx->start_pos;
 		ctx->current_consumed_size += consumed;
 
@@ -481,22 +531,22 @@ h1_parse_header_name (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute
 
 			if (single_link)
 			{
-				ctx->current_header_name = (const char *) (buf->data + ctx->phase_start_pos);
-				ctx->current_header_name_len = (size_t) (pos - (uint8_t *) ctx->current_header_name);
+				ctx->result.current_header_name = (const char *) (buf->data + ctx->phase_start_pos);
+				ctx->result.current_header_name_len = (size_t) (pos - (uint8_t *) ctx->result.current_header_name);
 			}
 			else
 			{
-				ctx->current_header_name_len = ctx->current_consumed_size;
+				ctx->result.current_header_name_len = ctx->current_consumed_size;
 			}
 
-			if (ctx->current_header_name_len == 0)
+			if (ctx->result.current_header_name_len == 0)
 			{
 				fh_pr_debug ("Header name is empty");
 				ctx->state = H1_STATE_ERROR;
 				return H1_RET (false);
 			}
 
-			if (ctx->current_header_name_len > HTTP1_HEADER_NAME_MAX_LEN)
+			if (ctx->result.current_header_name_len > HTTP1_HEADER_NAME_MAX_LEN)
 			{
 				fh_pr_debug ("Header name is too long");
 				ctx->state = H1_STATE_ERROR;
@@ -507,7 +557,7 @@ h1_parse_header_name (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute
 
 			if (!single_link)
 			{
-				char *current_header_name = fh_pool_alloc (ctx->pool, ctx->current_header_name_len);
+				char *current_header_name = fh_pool_alloc (ctx->stream->pool, ctx->result.current_header_name_len);
 
 				if (!current_header_name)
 				{
@@ -516,12 +566,13 @@ h1_parse_header_name (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute
 					return H1_RET (false);
 				}
 
-				stream_memcpy (current_header_name, ctx->start, ctx->phase_start_pos, ctx->end, end_pos > 0 ? end_pos - 1 : end_pos,
-							   ctx->current_header_name_len);
-				ctx->current_header_name = current_header_name;
+				stream_memcpy (current_header_name, ctx->start, ctx->phase_start_pos, ctx->end,
+							   end_pos > 0 ? end_pos - 1 : end_pos, ctx->result.current_header_name_len);
+				ctx->result.current_header_name = current_header_name;
 			}
 
-			fh_pr_debug ("[-] Current Header name: (%zu)|%.*s|", ctx->current_header_name_len, (int) ctx->current_header_name_len, ctx->current_header_name);
+			fh_pr_debug ("[-] Current Header name: (%zu)|%.*s|", ctx->result.current_header_name_len,
+						 (int) ctx->result.current_header_name_len, ctx->result.current_header_name);
 
 			ctx->start = ctx->end;
 			ctx->phase_start_pos = end_pos + 1;
@@ -533,7 +584,7 @@ h1_parse_header_name (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute
 
 			return H1_NEXT;
 		}
-		
+
 		if (!ctx->end->next)
 		{
 			ctx->start_pos = size;
@@ -635,7 +686,7 @@ h1_parse_header_value (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribut
 
 			if (!single_link)
 			{
-				char *alloc_value = fh_pool_alloc (ctx->pool, value_len);
+				char *alloc_value = fh_pool_alloc (ctx->stream->pool, value_len);
 
 				if (!alloc_value)
 				{
@@ -644,29 +695,37 @@ h1_parse_header_value (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribut
 					return H1_RET (false);
 				}
 
-				stream_memcpy (alloc_value, ctx->start, ctx->phase_start_pos, ctx->end, end_pos > 0 ? end_pos - 1 : end_pos,
-							   value_len);
+				stream_memcpy (alloc_value, ctx->start, ctx->phase_start_pos, ctx->end,
+							   end_pos > 0 ? end_pos - 1 : end_pos, value_len);
 				value = alloc_value;
 			}
 
 			size_t trimmed_value_len = 0;
 			value = str_trim_whitespace (value, value_len, &trimmed_value_len);
-			value_len = trimmed_value_len;			
+			value_len = trimmed_value_len;
 
 			fh_pr_debug ("[-] Current Header value: (%zu)|%.*s|", value_len, (int) value_len, value);
+
+			if (!fh_header_add (ctx->stream->pool, &ctx->result.headers, ctx->result.current_header_name, ctx->result.current_header_name_len, value,
+								value_len))
+			{
+				fh_pr_debug ("Memory allocation failed");
+				ctx->state = H1_STATE_ERROR;
+				return H1_RET (false);
+			}
 
 			ctx->start = ctx->end;
 			ctx->phase_start_pos = end_pos + 2;
 			ctx->start_pos = 0;
-			ctx->state = H1_STATE_DONE;
+			ctx->state = H1_STATE_HEADER_NAME;
 
 			ctx->total_consumed_size += ctx->current_consumed_size + 2; /* +2 For the "\r\n" */
 			ctx->current_consumed_size = 0;
 
 			return H1_NEXT;
 		}
-		
-		h1_header_value_skip_iter:
+
+	h1_header_value_skip_iter:
 		if (!ctx->end->next)
 		{
 			ctx->start_pos = size;
@@ -707,7 +766,8 @@ h1_recv (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 		{
 			buf = conn->stream->tail->buf->data + conn->stream->tail->buf->len;
 			readable_size = conn->stream->tail->buf->cap - conn->stream->tail->buf->len;
-			// readable_size = size + readable_size > ctx->recv_limit ? MAX_RECV_AT_ONCE - readable_size : readable_size;
+			// readable_size = size + readable_size > ctx->recv_limit ? MAX_RECV_AT_ONCE - readable_size :
+			// readable_size;
 		}
 		else
 		{
@@ -774,7 +834,8 @@ h1_recv (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 		else
 		{
 			conn->stream->tail->buf->len += (size_t) bytes_received;
-			fh_pr_debug ("connection %lu: reused buffer: %zu bytes read, %zu capacity", conn->id, readable_size, conn->stream->tail->buf->cap);
+			fh_pr_debug ("connection %lu: reused buffer: %zu bytes read, %zu capacity", conn->id, readable_size,
+						 conn->stream->tail->buf->cap);
 		}
 
 		fh_pr_debug ("connection %lu: received %zu bytes", conn->id, (size_t) bytes_received);

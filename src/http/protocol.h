@@ -97,7 +97,7 @@ bool fh_validate_header_name (const char *name, size_t len);
 const char *fh_get_status_text (enum fh_status code);
 const char *fh_get_status_description (enum fh_status code);
 
-bool fh_headers_init (struct fh_headers *headers);
+void fh_headers_init (struct fh_headers *headers);
 struct fh_header *fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value, size_t value_len);
 struct fh_header *fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value_format, ...);
 
