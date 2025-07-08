@@ -39,3 +39,4 @@ GTAGS
 /.tarball-version
 /tests/*_bin
 atconfig
+/tests/*.helper

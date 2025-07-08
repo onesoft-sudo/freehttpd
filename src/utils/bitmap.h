@@ -17,38 +17,27 @@
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#undef NDEBUG
+#ifndef FHTTPD_BITMAP_H
+#define FHTTPD_BITMAP_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
-#include "mm/pool.h"
-
-int
-main (void)
+struct bitmap
 {
-	struct fh_pool *root_pool = fh_pool_create (0);
-	assert (root_pool != NULL);
+	uint64_t *bits;
+	size_t size;
+	size_t bit_size : 6;
+};
 
-	uint32_t *ints[5000];
+typedef struct bitmap bitmap_t;
 
-	/* Allocation tests */
+bitmap_t *bitmap_create (bitmap_t *bitmap);
+void bitmap_init (bitmap_t *bitmap);
+void bitmap_free (bitmap_t *bitmap, bool in_heap);
+bool bitmap_set (bitmap_t *bitmap, size_t pos, bool bit);
+bool bitmap_get (bitmap_t *bitmap, size_t pos);
+void bitmap_print (bitmap_t *bitmap);
 
-	for (size_t i = 0; i < 5000; i++)
-	{
-		ints[i] = fh_pool_alloc (root_pool, sizeof (uint32_t));
-		assert (ints[i] != NULL);
-		*ints[i] = i * 2;
-	}
-
-	for (size_t i = 0; i < 5000; i++)
-	{
-		assert (*ints[i] == i * 2);
-	}
-
-	fh_pool_destroy (root_pool);
-	return 0;
-}
+#endif /* FHTTPD_BITMAP_H */

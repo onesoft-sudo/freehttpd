@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -66,7 +66,17 @@ itable_hash_fnv1a (uint64_t key, uint64_t capacity)
 {
 	const uint64_t FNV_OFFSET_BASIS = 0xcbf29ce484222325;
 	const uint64_t FNV_PRIME = 0x100000001b3;
-	return ((FNV_OFFSET_BASIS ^ key) * FNV_PRIME) % ((uint64_t) capacity);
+	uint64_t hash = FNV_OFFSET_BASIS;
+
+	const unsigned char *data = (const unsigned char *) &key;
+
+	for (size_t i = 0; i < sizeof (key); i++)
+	{
+		hash ^= data[i];
+		hash *= FNV_PRIME;
+	}
+
+	return hash % ((uint64_t) capacity);
 }
 
 static inline uint64_t
@@ -170,7 +180,8 @@ itable_set (struct itable *table, uint64_t key, void *data)
 	}
 
 #ifndef NDEBUG
-	fprintf (stderr, "%s: Hash table is full, cannot insert key %lu [hash %lu] [cap %lu]\n", __func__, key, init_hash, table->capacity);
+	fprintf (stderr, "%s: Hash table is full, cannot insert key %lu [hash %lu] [cap %lu]\n", __func__, key, init_hash,
+			 table->capacity);
 #endif
 
 	return false;
@@ -250,8 +261,10 @@ itable_resize (struct itable *table, uint64_t new_capacity)
 	while (head)
 	{
 		uint64_t new_hash = itable_hash (head->key, new_capacity);
+		uint64_t init_hash = new_hash;
+		bool start = false;
 
-		for (; new_hash < new_capacity; new_hash++)
+		for (;;)
 		{
 			struct itable_entry *entry = &new_buckets[new_hash];
 
@@ -274,6 +287,22 @@ itable_resize (struct itable *table, uint64_t new_capacity)
 				printf ("Moved key %" PRIu64 " to new bucket %zu\n", head->key, new_hash);
 #endif
 				break;
+			}
+
+			new_hash++;
+
+			if (start && new_hash == init_hash)
+			{
+#ifndef NDEBUG
+				fprintf (stderr, "itable_resize: No empty slot found for key %" PRIu64 "\n", head->key);
+#endif
+				break;
+			}
+
+			if (new_hash >= new_capacity)
+			{
+				new_hash = 0;
+				start = true;
 			}
 		}
 

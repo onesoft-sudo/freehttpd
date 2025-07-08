@@ -22,7 +22,9 @@ libutils_a_SOURCES = \
 	utils.c \
 	utils.h \
 	strutils.c \
-	strutils.h
+	strutils.h \
+	bitmap.c \
+	bitmap.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -23,8 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "strtable.h"
 #include "rapidhash.h"
+#include "strtable.h"
 
 struct strtable *
 strtable_create (uint64_t capacity)
@@ -70,26 +70,25 @@ strtable_destroy (struct strtable *table)
 }
 
 static inline uint64_t
-strtable_hash_fnv1a (const char *key, uint64_t capacity, size_t key_len __attribute_maybe_unused__)
+strtable_hash_fnv1a (const char *key, size_t key_len, uint64_t capacity)
 {
 	const uint64_t FNV_OFFSET_BASIS = 0xcbf29ce484222325;
 	const uint64_t FNV_PRIME = 0x100000001b3;
 	uint64_t hash = FNV_OFFSET_BASIS;
 
-	while (*key)
+	for (size_t i = 0; i < key_len; i++)
 	{
-		hash ^= (uint8_t) *key;
+		hash ^= key[i];
 		hash *= FNV_PRIME;
-		key++;
 	}
 
 	return hash % capacity;
 }
 
 static inline uint64_t
-strtable_hash_rapid (const char *key, uint64_t capacity, size_t key_len)
+strtable_hash_rapid (const char *key, size_t key_len, uint64_t capacity)
 {
-	return rapidhash (key, key_len == SIZE_MAX ? strlen (key) : key_len) % capacity;
+	return rapidhash (key, key_len) % capacity;
 }
 
 #define strtable_hash strtable_hash_rapid
@@ -97,18 +96,16 @@ strtable_hash_rapid (const char *key, uint64_t capacity, size_t key_len)
 void *
 strtable_get (struct strtable *table, const char *key)
 {
-	key = key == NULL ? "" : key;
-
-	uint64_t hash = strtable_hash (key, table->capacity, SIZE_MAX);
+    size_t key_len = strlen (key);
+	uint64_t hash = strtable_hash (key, key_len, table->capacity);
 	struct strtable_entry *entry = &table->buckets[hash];
 	bool first_iteration = true;
 
 	while (entry)
 	{
 		if (entry->key && !strcmp (entry->key, key))
-		{
 			return entry->data;
-		}
+
 		if (!first_iteration && !entry->next)
 			break;
 
@@ -127,13 +124,15 @@ strtable_get (struct strtable *table, const char *key)
 bool
 strtable_set (struct strtable *table, const char *key, void *data)
 {
+	size_t key_len = strlen (key);
+
 	if (table->count >= ((table->capacity * 75) / 100)
 		&& !strtable_resize (table,
 							 table->capacity >= 1024 * 1024 ? table->capacity + 1024 * 1024 : table->capacity * 2))
 	{
 #ifndef NDEBUG
 		uint64_t newcap = table->capacity >= 1024 * 1024 ? table->capacity + 1024 * 1024 : table->capacity * 2;
-		fprintf (stderr, "%s: Failed to resize hash table for key %s\n", __func__, key);
+		fprintf (stderr, "%s: Failed to resize hash table for key with size %zu\n", __func__, key_len);
 		fprintf (stderr, "Current capacity: %zu, count: %zu, new capacity: %zu\n", table->capacity, table->count,
 				 newcap);
 #endif
@@ -141,26 +140,17 @@ strtable_set (struct strtable *table, const char *key, void *data)
 		return false;
 	}
 
-	key = key == NULL ? "" : key;
-
-	size_t key_len = strlen (key);
-	uint64_t hash = strtable_hash (key, table->capacity, key_len);
+	uint64_t hash = strtable_hash (key, key_len, table->capacity);
 	uint64_t init_hash = hash;
 	bool start = false;
 
-	for (; hash < table->capacity; )
+	for (; hash < table->capacity;)
 	{
 		struct strtable_entry *entry = &table->buckets[hash];
 
-		if (entry->key && !strcmp (entry->key, key))
-		{
-			entry->data = data;
-			return true;
-		}
-
 		if (entry->key == NULL)
 		{
-			entry->key = strdup (key);
+			entry->key = strndup (key, key_len);
 			entry->data = data;
 			entry->key_len = key_len;
 
@@ -177,7 +167,13 @@ strtable_set (struct strtable *table, const char *key, void *data)
 
 			return true;
 		}
-		
+
+		if (entry->key && !strcmp (entry->key, key))
+		{
+			entry->data = data;
+			return true;
+		}
+
 		hash++;
 
 		if (start && hash == init_hash)
@@ -191,7 +187,8 @@ strtable_set (struct strtable *table, const char *key, void *data)
 	}
 
 #ifndef NDEBUG
-	fprintf (stderr, "%s: Hash table is full, cannot insert key %s\n", __func__, key);
+	fprintf (stderr, "%s: Hash table is full, cannot insert key %s [hash %lu] [cap %lu]\n", __func__, key, init_hash,
+			 table->capacity);
 #endif
 
 	return false;
@@ -203,9 +200,8 @@ strtable_remove (struct strtable *table, const char *key)
 	if (table->count == 0)
 		return NULL;
 
-	key = key == NULL ? "" : key;
-
-	uint64_t hash = strtable_hash (key, table->capacity, SIZE_MAX);
+	size_t key_len = strlen (key);
+	uint64_t hash = strtable_hash (key, key_len, table->capacity);
 	struct strtable_entry *entry = &table->buckets[hash];
 	bool first_iteration = true;
 
@@ -215,9 +211,10 @@ strtable_remove (struct strtable *table, const char *key)
 		{
 			void *data = entry->data;
 
-			free (entry->key);
+            free (entry->key);
 
 			entry->key = NULL;
+			entry->key_len = 0;
 			entry->data = NULL;
 
 			if (entry->prev)
@@ -272,17 +269,19 @@ strtable_resize (struct strtable *table, uint64_t new_capacity)
 
 	while (head)
 	{
-		uint64_t new_hash = strtable_hash (head->key, new_capacity, head->key_len);
+		uint64_t new_hash = strtable_hash (head->key, head->key_len, new_capacity);
+		uint64_t init_hash = new_hash;
+		bool start = false;
 
-		for (; new_hash < new_capacity; new_hash++)
+		for (;;)
 		{
 			struct strtable_entry *entry = &new_buckets[new_hash];
 
 			if (entry->key == NULL)
 			{
 				entry->key = head->key;
-				entry->data = head->data;
 				entry->key_len = head->key_len;
+				entry->data = head->data;
 
 				entry->next = NULL;
 				entry->prev = new_tail;
@@ -298,6 +297,22 @@ strtable_resize (struct strtable *table, uint64_t new_capacity)
 				printf ("Moved key %s to new bucket %zu\n", head->key, new_hash);
 #endif
 				break;
+			}
+
+			new_hash++;
+
+			if (start && new_hash == init_hash)
+			{
+#ifndef NDEBUG
+				fprintf (stderr, "strtable_resize: No empty slot found for key %s\n", head->key);
+#endif
+				break;
+			}
+
+			if (new_hash >= new_capacity)
+			{
+				new_hash = 0;
+				start = true;
 			}
 		}
 
@@ -320,9 +335,8 @@ strtable_contains (struct strtable *table, const char *key)
 	if (!table || table->count == 0)
 		return false;
 
-	key = key == NULL ? "" : key;
-
-	uint64_t hash = strtable_hash (key, table->capacity, SIZE_MAX);
+	size_t key_len = strlen (key);
+	uint64_t hash = strtable_hash (key, key_len, table->capacity);
 	struct strtable_entry *entry = &table->buckets[hash];
 	bool first_iteration = true;
 

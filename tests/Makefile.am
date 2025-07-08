@@ -22,13 +22,13 @@ AM_TESTS_ENVIRONMENT = \
   testdir=$(top_builddir)/tests \
   VALGRIND=$(top_srcdir)/build-aux/valgrind
 
-check_PROGRAMS = itable.test.helper utils.test.helper bitmap.test.helper base64.test.helper pool.test.helper
-TESTS = itable.test utils.test bitmap.test base64.test pool.test
+check_PROGRAMS = itable.test.helper utils.test.helper base64.test.helper pool.test.helper strtable.test.helper
+TESTS = itable.test utils.test base64.test pool.test strtable.test
 
-itable_test_helper_SOURCES = itable.test.c $(top_srcdir)/src/utils/itable.c $(top_srcdir)/src/utils/itable.h
+itable_test_helper_SOURCES = itable.test.c $(top_srcdir)/src/hash/itable.c $(top_srcdir)/src/hash/itable.h
+strtable_test_helper_SOURCES = strtable.test.c $(top_srcdir)/src/hash/strtable.c $(top_srcdir)/src/hash/strtable.h
 utils_test_helper_SOURCES = utils.test.c $(top_srcdir)/src/utils/utils.c $(top_srcdir)/src/utils/utils.h
-bitmap_test_helper_SOURCES = bitmap.test.c $(top_srcdir)/src/utils/bitmap.c $(top_srcdir)/src/utils/bitmap.h
-base64_test_helper_SOURCES = base64.test.c $(top_srcdir)/src/utils/base64.c $(top_srcdir)/src/utils/base64.h
+base64_test_helper_SOURCES = base64.test.c $(top_srcdir)/src/digest/base64.c $(top_srcdir)/src/digest/base64.h
 pool_test_helper_SOURCES = pool.test.c $(top_srcdir)/src/mm/pool.c $(top_srcdir)/src/mm/pool.h
 
 EXTRA_DIST = $(TESTS)
