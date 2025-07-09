@@ -1,25 +1,25 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "macros.h"
@@ -66,12 +66,22 @@ fh_pool_destroy (struct fh_pool *pool)
 
 	while (m)
 	{
+		struct fh_pool_malloc *next = m->next;
+
 		if (m->cleanup_cb)
 			m->cleanup_cb (m->mptr);
-		else
-			free (m->mptr);
+		
+		free (m->mptr);
+		m = next;
+	}
 
-		m = m->next;
+	struct fh_pool *p = pool->last_child;
+
+	while (p)
+	{
+		struct fh_pool *next = p->next;
+		fh_pool_destroy (p);
+		p = next;
 	}
 
 	free (pool);
@@ -80,20 +90,22 @@ fh_pool_destroy (struct fh_pool *pool)
 void *
 fh_pool_large_alloc (struct fh_pool *pool, size_t size, fh_pool_cleanup_cb_t cleanup_cb)
 {
-    struct fh_pool_malloc *m = malloc (sizeof (*m) + size);
+	void *mem = malloc (sizeof (struct fh_pool_malloc) + size);
 
-    if (!m)
-        return NULL;
+	if (!mem)
+		return NULL;
 
-    m->cleanup_cb = cleanup_cb;
-    m->mptr = (void *) (m + 1);
-    m->size = size;
-    m->next = pool->mallocs;
+	struct fh_pool_malloc *m = (struct fh_pool_malloc *) (((char *) (mem)) + size);
 
-    pool->mallocs = m;
-    pool->malloc_count++;
+	m->cleanup_cb = cleanup_cb;
+	m->mptr = mem;
+	m->size = size;
+	m->next = pool->mallocs;
 
-    return m->mptr;
+	pool->mallocs = m;
+	pool->malloc_count++;
+
+	return m->mptr;
 }
 
 void *
@@ -117,12 +129,35 @@ fh_pool_alloc (struct fh_pool *pool, size_t size)
 		c->next = pool->current;
 
 		pool->current = c;
-        pool->chunk_count++;
+		pool->chunk_count++;
 
 		return c->mptr;
 	}
 
 	void *mptr = (void *) (((uint8_t *) pool->current->mptr) + pool->current->used);
 	pool->current->used += size;
-    return mptr;
+	return mptr;
+}
+
+struct fh_pool *
+fh_pool_create_child (struct fh_pool *pool, size_t init_cap)
+{
+	struct fh_pool *child = fh_pool_create (init_cap);
+
+	if (!child)
+		return NULL;
+
+	if (!pool->last_child)
+	{
+		pool->last_child = child;
+		pool->child_count = 1;
+	}
+	else
+	{
+		pool->last_child->next = child;
+		pool->last_child = child;
+		pool->child_count++;
+	}
+
+	return child;
 }

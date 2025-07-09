@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -21,8 +21,8 @@
 
 #define FH_LOG_MODULE_NAME "stream"
 
-#include "mm/pool.h"
 #include "log/log.h"
+#include "mm/pool.h"
 #include "stream.h"
 
 struct fh_stream *
@@ -34,8 +34,15 @@ fh_stream_new (pool_t *pool)
 		return NULL;
 
 	stream->pool = pool;
-
 	return stream;
+}
+
+void
+fh_stream_init (struct fh_stream *stream, pool_t *pool)
+{
+	stream->pool = pool;
+	stream->head = stream->tail = NULL;
+	stream->len = 0;
 }
 
 static inline void
@@ -130,4 +137,47 @@ fh_stream_print (struct fh_stream *stream)
 		fh_pr_debug ("=======");
 		l = l->next;
 	}
+}
+
+size_t
+fh_stream_copy (void *dest, struct fh_link *start, size_t start_off, struct fh_link *end, size_t end_off,
+				size_t max_size)
+{
+	size_t copied = 0;
+	struct fh_link *link = start;
+
+	while (link && copied < max_size)
+	{
+		size_t len = 0;
+
+		if (start == end)
+		{
+			size_t s = end_off - start_off + 1;
+			len = (s > link->buf->len) ? link->buf->len : s;
+		}
+		else if (link == start)
+		{
+			len = link->buf->len - start_off;
+		}
+		else if (link == end)
+		{
+			size_t s = end_off + 1;
+			len = (s > link->buf->len) ? link->buf->len : s;
+		}
+		else
+		{
+			len = link->buf->len;
+		}
+
+		if (copied + len > max_size)
+			len = max_size - copied;
+
+		memcpy (((char *) dest) + copied, link->buf->data + start_off, len);
+		copied += len;
+
+		start_off = 0;
+		link = link->next;
+	}
+
+	return copied;
 }

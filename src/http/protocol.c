@@ -249,14 +249,15 @@ fh_headers_new_entry (pool_t *pool, struct fh_headers *headers)
 		headers->tail = header;
 		headers->count++;
 	}
-	
+
 	return header;
 }
 
 struct fh_header *
-fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value, size_t value_len)
+fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value,
+			   size_t value_len)
 {
-	struct fh_header *header = fh_headers_new_entry(pool, headers);
+	struct fh_header *header = fh_headers_new_entry (pool, headers);
 
 	if (!header)
 		return NULL;
@@ -270,13 +271,14 @@ fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_
 }
 
 struct fh_header *
-fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value_format, ...)
+fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value_format,
+				...)
 {
 	assert (false);
 	return NULL;
 }
 
-void 
+void
 fh_headers_init (struct fh_headers *headers)
 {
 	memset (headers, 0, sizeof (*headers));

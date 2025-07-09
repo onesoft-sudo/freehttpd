@@ -51,6 +51,9 @@ struct fh_pool
 	struct fh_pool_chunk *current;
 	struct fh_pool_malloc *mallocs;
 	size_t chunk_count, malloc_count;
+	struct fh_pool *last_child;
+	size_t child_count;
+	struct fh_pool *next;
 };
 
 typedef struct fh_pool pool_t;
@@ -62,6 +65,7 @@ typedef struct fh_pool pool_t;
 struct fh_pool *fh_pool_create (size_t init_cap);
 void fh_pool_destroy (struct fh_pool *pool);
 void *fh_pool_large_alloc (struct fh_pool *pool, size_t size, fh_pool_cleanup_cb_t cleanup_cb);
+struct fh_pool *fh_pool_create_child (struct fh_pool *pool, size_t init_cap);
 // void *fh_pool_alloc (struct fh_pool *pool, size_t size);
 
 // __attribute__ ((always_inline)) __attribute_maybe_unused__ static inline void

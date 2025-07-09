@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -47,8 +47,19 @@ event_recv (struct fh_server *server, const xevent_t *event)
 	fh_pr_info ("connection %lu: recv called", conn->id);
 
 	if (!conn->req_ctx)
-		conn->stream = fh_stream_new (conn->pool);
-	
+	{
+		pool_t *child = fh_pool_create_child (conn->pool, 0);
+
+		if (!child)
+		{
+			fh_pr_err ("Failed to allocate memory");
+			fh_server_close_conn (server, conn);
+			return false;
+		}
+
+		fh_stream_init (conn->stream, child);
+	}
+
 	struct fh_http1_ctx *ctx = conn->req_ctx ? conn->req_ctx : fh_http1_ctx_create (conn->stream);
 
 	if (!conn->req_ctx)
@@ -73,14 +84,15 @@ event_recv (struct fh_server *server, const xevent_t *event)
 
 		fh_pr_info ("Method: |%s|", fh_method_to_string (ctx->request.method));
 		fh_pr_info ("URI: |%.*s|", (int) ctx->request.uri_len, ctx->request.uri);
-		
+		fh_pr_info ("Protocol: %s", fh_protocol_to_string (ctx->request.protocol));
+
 		if (!xpoll_mod (server->xpoll_fd, conn->client_sockfd, XPOLLOUT))
 		{
 			fh_pr_err ("Unable to switch to write mode");
-			fh_server_close_conn (server, conn);	
+			fh_server_close_conn (server, conn);
 		}
 	}
-	else 
+	else
 	{
 		fh_pr_info ("HTTP/1.x parsing did not finish yet");
 	}

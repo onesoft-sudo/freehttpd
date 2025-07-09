@@ -61,23 +61,21 @@ struct fh_http1_result
 	struct fh_link *body_start;
 };
 
+struct fh_http1_cursor
+{
+	struct fh_link *link;
+	size_t off;
+};
+
 struct fh_http1_ctx
 {
 	struct fh_stream *stream;
-	struct fh_link *start, *end;
-
-	size_t start_pos;
-	size_t phase_start_pos;
-
-    size_t total_consumed_size;
-    size_t current_consumed_size;
-	size_t recv_limit;
-
-	const char *current_header_name;
-	size_t current_header_name_len;
-
+	struct fh_http1_cursor cur;
+	struct fh_http1_cursor arg_cur;
 	struct fh_request request;
-	
+	size_t total_consumed;
+	size_t current_consumed;
+	uint16_t suggested_code;
 	uint8_t state : 4;
 	uint8_t prev_state : 4;
 };
