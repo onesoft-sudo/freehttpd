@@ -71,6 +71,12 @@ enum fh_status
 	FH_STATUS_SERVICE_UNAVAILABLE = 503,
 };
 
+enum fh_encoding
+{
+	FH_ENCODING_PLAIN,
+	FH_ENCODING_CHUNKED
+};
+
 struct fh_header
 {
 	const char *name;
@@ -85,6 +91,19 @@ struct fh_headers
 	struct fh_header *head;
 	struct fh_header *tail;
 	size_t count;
+};
+
+struct fh_request
+{
+	const char *uri;
+	size_t uri_len;	
+	struct fh_headers headers;
+	struct fh_link *body_start;
+	
+	uint64_t content_length;
+	uint8_t transfer_encoding : 4;
+	uint8_t protocol : 4;
+	uint8_t method : 4;
 };
 
 const char *fh_protocol_to_string (enum fh_protocol protocol);

@@ -69,8 +69,10 @@ event_recv (struct fh_server *server, const xevent_t *event)
 
 	if (ctx->state == H1_STATE_DONE)
 	{
-		fh_pr_info ("Method: |%s|", fh_method_to_string (ctx->result.method));
-		fh_pr_info ("URI: |%.*s|", (int) ctx->result.uri_len, ctx->result.uri);
+		conn->stream->tail->is_eos = true;
+
+		fh_pr_info ("Method: |%s|", fh_method_to_string (ctx->request.method));
+		fh_pr_info ("URI: |%.*s|", (int) ctx->request.uri_len, ctx->request.uri);
 		
 		if (!xpoll_mod (server->xpoll_fd, conn->client_sockfd, XPOLLOUT))
 		{

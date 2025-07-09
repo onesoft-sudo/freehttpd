@@ -73,5 +73,6 @@ struct fh_stream *fh_stream_new (pool_t *pool);
 struct fh_buf *fh_stream_alloc_buf_data (struct fh_stream *stream, size_t cap);
 struct fh_buf *fh_stream_add_buf_data (struct fh_stream *stream, uint8_t *src, size_t len, size_t cap);
 struct fh_buf *fh_stream_add_buf_memcpy (struct fh_stream *stream, const uint8_t *src, size_t len, size_t cap);
+void fh_stream_print (struct fh_stream *stream);
 
 #endif /* FH_CORE_STREAM_H */

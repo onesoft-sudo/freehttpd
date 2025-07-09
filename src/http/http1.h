@@ -40,6 +40,7 @@ enum http1_state
 	H1_STATE_VERSION,
 	H1_STATE_HEADER_NAME,
 	H1_STATE_HEADER_VALUE,
+	H1_STATE_BODY,
 	H1_STATE_RECV,
 	H1_STATE_ERROR,
 	H1_STATE_DONE
@@ -47,8 +48,6 @@ enum http1_state
 
 struct fh_http1_result
 {
-	const char *current_header_name;
-	size_t current_header_name_len;
 
 	const char *uri;
 	size_t uri_len;
@@ -58,6 +57,8 @@ struct fh_http1_result
 
 	enum fh_method method;
 	struct fh_headers headers;
+
+	struct fh_link *body_start;
 };
 
 struct fh_http1_ctx
@@ -72,12 +73,16 @@ struct fh_http1_ctx
     size_t current_consumed_size;
 	size_t recv_limit;
 
-	enum http1_state state, prev_state;
-	struct fh_http1_result result;
+	const char *current_header_name;
+	size_t current_header_name_len;
+
+	struct fh_request request;
+	
+	uint8_t state : 4;
+	uint8_t prev_state : 4;
 };
 
 struct fh_http1_ctx *fh_http1_ctx_create (struct fh_stream *stream);
 bool fh_http1_parse (struct fh_http1_ctx *ctx, struct fh_conn *conn);
-bool fh_http1_is_done (const struct fh_http1_ctx *ctx);
 
 #endif /* FH_HTTP1_H */

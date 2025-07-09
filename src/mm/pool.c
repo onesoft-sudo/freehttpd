@@ -25,9 +25,9 @@
 #include "macros.h"
 #include "pool.h"
 
-// #undef fh_pool_alloc
-// #undef fh_pool_zalloc
-// #undef fh_pool_undo_last_alloc
+#undef fh_pool_alloc
+#undef fh_pool_zalloc
+#undef fh_pool_undo_last_alloc
 
 struct fh_pool *
 fh_pool_create (size_t init_cap)

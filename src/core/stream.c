@@ -110,3 +110,24 @@ fh_stream_add_buf_memcpy (struct fh_stream *stream, const uint8_t *src, size_t l
 
 	return buf;
 }
+
+void
+fh_stream_print (struct fh_stream *stream)
+{
+	struct fh_link *l = stream->head;
+	size_t i = 0;
+
+	fh_pr_debug ("Links: %zu", stream->len);
+
+	while (l)
+	{
+		fh_pr_debug ("=======");
+		fh_pr_debug ("Buffer #%zu", i++);
+		fh_pr_debug ("Length: %zu/%zu bytes", l->buf->len, l->buf->cap);
+		fh_pr_debug ("EOS: %u", l->is_eos);
+		fh_pr_debug ("Readonly: %u", l->buf->rd_only);
+		fh_pr_debug ("Data: |%.*s|", (int) l->buf->len, l->buf->data);
+		fh_pr_debug ("=======");
+		l = l->next;
+	}
+}
