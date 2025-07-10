@@ -1,0 +1,21 @@
+\input texinfo
+@setfilename manual.info
+@settitle Freehttpd Manual
+
+@copying
+Copright (C) 2025 OSN Developers.
+@end copying
+
+@titlepage
+@title Freehttpd Manual
+@author Ar Rakin
+@end titlepage
+
+@contents
+
+@node Top
+@top Freehttpd Manual
+
+Hello world!
+
+@bye

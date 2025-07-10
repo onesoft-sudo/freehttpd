@@ -1,0 +1,78 @@
+.TH FREEHTTPD 8 "9 July 2025" "freehttpd 1.0.0"
+
+.SH NAME
+freehttpd \- lightweight and fast HTTP server daemon
+
+.SH SYNOPSIS
+.B freehttpd
+[\-T]
+[\-V]
+[\-v]
+[\-F]
+[\-f \fIconfig_file\fR]
+
+.SH DESCRIPTION
+.B freehttpd
+is a fast and lightweight web server designed with modern CGI scripting and static content serving tasks in mind.
+
+.SH OPTIONS
+.TP
+.B \-f, \-\-config \fIconfig_file\fR
+Specify a configuration file path to load.  Defaults to /etc/freehttpd/fhttpd.conf, unless configured otherwise during the build process.
+
+.TP
+.B \-T, \-\-test
+Test the configuration file syntax and validity.  It will report errors if found.
+
+.TP
+.B \-F, \-\-foreground
+Runs the server in foreground.  Logs will be printed to stdout and stderr alongside the log files.  This is the default mode when using
+.BR systemd (1)
+as the service manager.
+
+.TP
+.B \-V, \-\-version
+Show version information and exit.
+
+.TP
+.B \-v, \-\-verbose
+Enable verbose mode.  This is helpful for debugging, as it will log every internal event that's considered important for debugging.
+
+.SH FILES
+.TP
+/etc/freehttpd/fhttpd.conf
+Default configuration file.
+
+.TP
+/var/log/freehttpd/fhttpd.log
+Default log file.
+
+.TP
+/var/run/freehttpd.pid
+Process ID file.
+
+.SH EXAMPLES
+Start the server with all the defaults:
+
+.NF
+  $ \fBfreehttpd\fR
+.FI
+
+Start the server with a custom configuration file path:
+
+.NF
+  $ \fBfreehttpd\fR \-f /etc/custom_path/fhttpd_custom.conf
+.FI
+
+.SH SEE ALSO
+.BR systemd (1)
+
+.SH REPORTING BUGS
+Report bugs to <rakinar2@onesoftnet.eu.org>.  GitHub: <https://github.com/onesoft-sudo/freehttpd>.
+
+.SH AUTHOR
+Written by Ar Rakin.
+
+.SH COPYRIGHT
+Copyright © 2025 OSN Developers.  Licensed under the AGPLv3+: GNU Affero General Public License version 3 or later <https://gnu.org/licenses/agpl-3.0.html>.
+This is free software: you are free to change and redistribute it.  There is NO WARRANTY, to the extent permitted by law.
