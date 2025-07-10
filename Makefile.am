@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-SUBDIRS = res conf systemd src doc tests
+SUBDIRS = res conf systemd src doc man tests
 EXTRA_DIST = README.md NEWS AUTHORS TODO bootstrap ChangeLog .tarball-version build-aux/valgrind
 
 GPG ?= @GPG@
