@@ -4,3 +4,9 @@ EXTRA_DIST = $(info_TEXINFOS)
 AM_MAKEINFOHTMLFLAGS = --no-split
 
 all-local: $(html_FILES)
+
+dvi:
+	@true
+
+pdf:
+	@true
