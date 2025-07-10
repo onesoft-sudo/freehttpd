@@ -76,6 +76,7 @@ fh_stream_alloc_buf_data (struct fh_stream *stream, size_t cap)
 
 	l->buf->type = FH_BUF_DATA;
 	l->buf->cap = cap;
+	l->is_eos = l->is_start = false;
 
 	fh_stream_insert (stream, l);
 	return l->buf;
@@ -97,6 +98,7 @@ fh_stream_add_buf_data (struct fh_stream *stream, uint8_t *src, size_t len, size
 	l->buf->data = src;
 	l->buf->len = len;
 	l->buf->cap = cap;
+	l->is_eos = l->is_start = false;
 
 	fh_stream_insert (stream, l);
 	return l->buf;
@@ -131,6 +133,7 @@ fh_stream_print (struct fh_stream *stream)
 		fh_pr_debug ("=======");
 		fh_pr_debug ("Buffer #%zu", i++);
 		fh_pr_debug ("Length: %zu/%zu bytes", l->buf->len, l->buf->cap);
+		fh_pr_debug ("Start: %u", l->is_start);
 		fh_pr_debug ("EOS: %u", l->is_eos);
 		fh_pr_debug ("Readonly: %u", l->buf->rd_only);
 		fh_pr_debug ("Data: |%.*s|", (int) l->buf->len, l->buf->data);

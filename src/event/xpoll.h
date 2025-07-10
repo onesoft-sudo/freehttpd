@@ -41,7 +41,7 @@ struct xevent
 {
     uint32_t events;
     union xevent_data data;
-    struct kevent *kevent;
+    struct kevent kevent;
 };
 
 typedef struct xevent xevent_t;
@@ -55,12 +55,14 @@ enum xpoll_evflags
     XPOLLET = EPOLLET,
     XPOLLHUP = EPOLLHUP,
     XPOLLRDHUP = EPOLLRDHUP,
+    XPOLLERR = EPOLLERR,
 #elif defined (__APPLE__) || defined (__FreeBSD__)
     XPOLLIN = 0x1,
     XPOLLOUT = 0x2,
     XPOLLET = 0x4,
     XPOLLHUP = 0,
     XPOLLRDHUP = 0,
+    XPOLLERR = 0x8,
 #endif /* defined (__APPLE__) || defined (__FreeBSD__) */
 };
 
@@ -77,5 +79,7 @@ bool xpoll_mod (xpoll_t xpoll, fd_t fd, uint32_t flags);
 #else /* not defined (__linux__) */
 int xpoll_wait (xpoll_t xpoll, xevent_t *events, int max_events, int timeout);
 #endif /* defined (__linux__) */
+
+int xpoll_get_error (xpoll_t xpoll_fd __attribute_maybe_unused__, const xevent_t *event __attribute_maybe_unused__, fd_t fd);
 
 #endif /* FH_XPOLL_H */

@@ -1,27 +1,31 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <ctype.h>
+#include <errno.h>
+#include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "calc.h"
 #include "strutils.h"
 
 const char *
@@ -146,4 +150,35 @@ str_split_free (struct str_split_result *result)
 
 	free (result->strings);
 	free (result);
+}
+
+uint64_t
+strntoull (const char *str, size_t len, int base)
+{
+	if (base > 16 || len == 0)
+	{
+		errno = EINVAL;
+		return 0;
+	}
+
+	uint64_t acc = 0;
+
+	for (size_t exp = 0; exp < len; exp++)
+	{
+		size_t i = len - exp - 1;
+		char c = str[i];
+
+		if (c >= '0' && c <= '9')
+			acc += (c - '0') * powull (base, exp);
+		else if (c >= 'A' && c <= 'F')
+			acc += (c - 'A' + 10) * powull (base, exp);
+		else
+		{
+			errno = EINVAL;
+			return 0;
+		}
+	}
+
+	errno = 0;
+	return acc;
 }

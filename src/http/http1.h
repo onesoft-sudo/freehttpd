@@ -73,11 +73,14 @@ struct fh_http1_ctx
 	struct fh_http1_cursor cur;
 	struct fh_http1_cursor arg_cur;
 	struct fh_request request;
+	const char *current_header_name;
+	size_t current_header_name_len;
 	size_t total_consumed;
 	size_t current_consumed;
 	uint16_t suggested_code;
 	uint8_t state : 4;
 	uint8_t prev_state : 4;
+	bool is_streaming_body;
 };
 
 struct fh_http1_ctx *fh_http1_ctx_create (struct fh_stream *stream);

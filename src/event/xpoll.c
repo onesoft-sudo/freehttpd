@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -56,9 +58,9 @@ xpoll_create (void)
 int
 xpoll_wait (xpoll_t xpoll, xevent_t *events, int max_events, int timeout)
 {
-#if defined(__linux__)
+	#if defined(__linux__)
 	return epoll_wait (xpoll, events, max_events, timeout);
-#elif defined(__APPLE__) || defined(__FreeBSD__)
+	#elif defined(__APPLE__) || defined(__FreeBSD__)
 	struct kevent kevents[max_events];
 	const struct timespec ts = {
 		.tv_sec = timeout / 1000,
@@ -72,14 +74,18 @@ xpoll_wait (xpoll_t xpoll, xevent_t *events, int max_events, int timeout)
 
 	for (int i = 0; i < nfds; i++)
 	{
-		events[i].events = kevents[i].filter == EVFILT_READ ? XPOLLIN : kevents[i].filter == EVFILT_WRITE ? XPOLLOUT : 0;
+		events[i].events = (kevents[i].filter == EVFILT_READ	? XPOLLIN
+							: kevents[i].filter == EVFILT_WRITE ? XPOLLOUT
+																: 0)
+						   | (kevents[i].flags & EV_ERROR && kevents[i].data != 0 ? XPOLLERR : 0);
 		events[i].data.fd = kevents[i].ident;
+		events[i].kevent = kevents[i];
 	}
 
 	return nfds;
-#else /* defined (__APPLE__) || defined (__FreeBSD__) */
-	#error "Unsupported platform"
-#endif /* not defined (__APPLE__) || defined (__FreeBSD__) */
+	#else /* defined (__APPLE__) || defined (__FreeBSD__) */
+		#error "Unsupported platform"
+	#endif /* not defined (__APPLE__) || defined (__FreeBSD__) */
 }
 #endif /* !defined(__linux__) */
 
@@ -196,4 +202,23 @@ void
 xpoll_destroy (xpoll_t xpoll)
 {
 	close (xpoll);
+}
+
+int
+xpoll_get_error (xpoll_t xpoll_fd __attribute_maybe_unused__, const xevent_t *event __attribute_maybe_unused__, fd_t fd)
+{
+#ifdef __linux__
+	int err = 0;
+	socklen_t len = sizeof err;
+
+	if (getsockopt (fd, SOL_SOCKET, SO_ERROR, &err, &len) < 0)
+		return -1;
+	
+	return err;
+#else /* not __linux__ */
+	if (event->kevent.flags & EV_ERROR)
+		return event->kevent.data;
+
+	return -1;
+#endif /* __linux__ */
 }

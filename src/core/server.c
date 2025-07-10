@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -34,13 +34,13 @@
 
 #include "compat.h"
 #include "conf.h"
+#include "conn.h"
 #include "event/accept.h"
 #include "event/recv.h"
 #include "event/send.h"
 #include "hash/itable.h"
 #include "log/log.h"
 #include "server.h"
-#include "conn.h"
 
 #define FH_SERVER_MAX_EVENTS 128
 
@@ -248,18 +248,35 @@ fh_server_loop (struct fh_server *server)
 				continue;
 			}
 
+			if (evflags & XPOLLERR)
+			{
+				int err = xpoll_get_error (server->xpoll_fd, &events[i], fd);
+				struct fh_conn *conn = itable_get (server->connections, (uint64_t) fd);
+
+				if (!conn)
+				{
+					fh_pr_debug ("Socket I/O error occurred: Socket #%d: %s", fd, strerror (err));
+					close (fd);
+					continue;
+				}
+
+				fh_pr_debug ("Socket I/O error occurred: Connection #%lu: %s", conn->id, strerror (err));
+				fh_server_close_conn (server, conn);
+				continue;
+			}
+
 			if (evflags & XPOLLIN)
 			{
 				if (!event_recv (server, &events[i]))
 					fh_pr_err ("recv event handler failed: %s", strerror (errno));
-				
+
 				continue;
 			}
 			else if (evflags & XPOLLOUT)
 			{
 				if (!event_send (server, &events[i]))
 					fh_pr_err ("send event handler failed: %s", strerror (errno));
-					
+
 				continue;
 			}
 
