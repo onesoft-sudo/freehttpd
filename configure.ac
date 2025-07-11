@@ -46,9 +46,13 @@ AC_ARG_WITH([config-file],
             [FHTTPD_MAIN_CONFIG_FILE="$withval"],
             [FHTTPD_MAIN_CONFIG_FILE="$sysconfdir/freehttpd/fhttpd.conf"])
 
-if test "x$FHTTPD_CONFIGURE_DEBUG" = "x1"; then
-    AC_MSG_NOTICE([Configuring OSN freehttpd])
-    AC_MSG_NOTICE([Version: ]FHTTPD_VERSION)
+AC_MSG_CHECKING([whether to enable debug mode])
+
+if test "x$build_type" = "xdebug"; then
+    AC_MSG_RESULT([yes])
+else
+    AC_MSG_RESULT([no])
+    CPPFLAGS="$CPPFLAGS -DNDEBUG"
 fi
 
 # Checks for programs.

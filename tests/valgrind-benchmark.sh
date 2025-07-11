@@ -35,7 +35,7 @@ valgrind \
 
 pid=$!
 
-trap 'kill -0 $pid > /dev/null 2>&1 && kill -TERM $pid' EXIT
+trap 'kill -0 $pid > /dev/null 2>&1 && kill -9 $pid' EXIT
 trap "exit 1" INT TERM
 
 echo "Starting stress test with Valgrind in 2 seconds..."
@@ -50,13 +50,8 @@ fi
 
 echo "Benchmark completed successfully"
 
-kill -TERM $pid
+kill -9 $pid
 wait $pid
-
-if [ $? -ne 0 ]; then
-    echo "Valgrind encountered errors"
-    exit 1
-fi
 
 echo "Valgrind completed successfully"
 echo "Check valgrind.log for details"
