@@ -1,1 +1,1 @@
-man_MANS = freehttpd.8
+dist_man_MANS = freehttpd.8
