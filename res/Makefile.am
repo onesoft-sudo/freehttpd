@@ -39,7 +39,10 @@ resources.c: $(RESOURCES) resources.h
 	echo '#include <stdint.h>' >> $@; \
 	for res in $(RESOURCES); do \
 	    name=$$(basename $$res | sed "s/\./_/g"); \
-		xxd -n "resource_$$name" -i $$res | sed 's/unsigned int/__attribute__\(\(section\(".rodata"\)\)\) const size_t/g' | sed 's/unsigned char/__attribute__\(\(section\(".rodata"\)\)\) const char/g' >> $@; \
+		xxd -n "resource_$$name" -i $$res \
+			| sed 's/unsigned int/__attribute__\(\(section\(".rodata"\)\)\) const size_t/g' \
+			| sed 's/unsigned char/__attribute__\(\(section\(".rodata"\)\)\) const char/g' \
+			| sed 's/};/, 0x00 };/g' >> $@; \
 	done; \
 	echo "__attribute__((section(\".rodata\"))) const struct resource_file global_resources[] = {" >> $@; \
 	for res in $(RESOURCES); do \

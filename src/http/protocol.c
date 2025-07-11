@@ -110,122 +110,180 @@ fh_validate_header_name (const char *name, size_t len)
 }
 
 const char *
-fh_get_status_text (enum fh_status code)
+fh_get_status_text (enum fh_status code, size_t *len_ptr)
 {
+	const char *text;
+	size_t len;
+
 	switch (code)
 	{
 		case FH_STATUS_OK:
-			return "OK";
+			text = "OK";
+			len = 2;
+			break;
 
 		case FH_STATUS_CREATED:
-			return "Created";
+			text = "Created";
+			len = 7;
+			break;
 
 		case FH_STATUS_ACCEPTED:
-			return "Accepted";
+			text = "Accepted";
+			len = 8;
+			break;
 
 		case FH_STATUS_NO_CONTENT:
-			return "No Content";
+			text = "No Content";
+			len = 10;
+			break;
 
 		case FH_STATUS_BAD_REQUEST:
-			return "Bad Request";
+			text = "Bad Request";
+			len = 11;
+			break;
 
 		case FH_STATUS_UNAUTHORIZED:
-			return "Unauthorized";
+			text = "Unauthorized";
+			len = 12;
+			break;
 
 		case FH_STATUS_FORBIDDEN:
-			return "Forbidden";
+			text = "Forbidden";
+			len = 9;
+			break;
 
 		case FH_STATUS_NOT_FOUND:
-			return "Not Found";
+			text = "Not Found";
+			len = 9;
+			break;
 
 		case FH_STATUS_REQUEST_URI_TOO_LONG:
-			return "Request URI Too Long";
+			text = "Request URI Too Long";
+			len = 20;
+			break;
 
 		case FH_STATUS_INTERNAL_SERVER_ERROR:
-			return "Internal Server Error";
+			text = "Internal Server Error";
+			len = 21;
+			break;
 
 		case FH_STATUS_NOT_IMPLEMENTED:
-			return "Not Implemented";
+			text = "Not Implemented";
+			len = 15;
+			break;
 
 		case FH_STATUS_SERVICE_UNAVAILABLE:
-			return "Service Unavailable";
+			text = "Service Unavailable";
+			len = 19;
+			break;
 
 		case FH_STATUS_METHOD_NOT_ALLOWED:
-			return "Method Not Allowed";
+			text = "Method Not Allowed";
+			len = 18;
+			break;
 
-			/* Only put a default case if building in non-debug mode, so that the compiler can warn about missing
-			   cases in debug mode. */
-#ifdef NDEBUG
 		default:
-			return "Unknown Status";
-#endif /* NDEBUG */
-	}
+			text = "Unknown Status";
+			len = 14;
 
 #ifndef NDEBUG
-	/* In debug mode, we want to ensure that all cases are handled, so we don't return a default case. */
-	assert (false && "Unhandled fh_status code");
-	return "Unknown Status"; /* This line will never be reached, but it satisfies the compiler. */
-#endif						 /* NDEBUG */
+			/* In debug mode, we want to ensure that all cases are handled, so we don't return a default case. */
+			assert (false && "Unhandled fh_status code");
+			return "Unknown Status"; /* This line will never be reached, but it satisfies the compiler. */
+#endif								 /* NDEBUG */
+			break;
+	}
+
+	if (len_ptr)
+		*len_ptr = len;
+
+	return text;
 }
 
 const char *
-fh_get_status_description (enum fh_status code)
+fh_get_status_description (enum fh_status code, size_t *len_ptr)
 {
+	const char *text;
+	size_t len;
+
 	switch (code)
 	{
 		case FH_STATUS_OK:
-			return "The request has succeeded.";
+			text = "The request has succeeded.";
+			len = 26;
+			break;
 
 		case FH_STATUS_CREATED:
-			return "The request has been fulfilled and resulted in a new resource being created.";
+			text = "The request has been fulfilled and resulted in a new resource being created.";
+			len = 76;
+			break;
 
 		case FH_STATUS_ACCEPTED:
-			return "The request has been accepted for processing, but the processing has not been completed.";
+			text = "The request has been accepted for processing, but the processing has not been completed.";
+			len = 88;
+			break;
 
 		case FH_STATUS_NO_CONTENT:
-			return "The server successfully processed the request, but is not returning any content.";
+			text = "The server successfully processed the request, but is not returning any content.";
+			len = 80;
+			break;
 
 		case FH_STATUS_BAD_REQUEST:
-			return "The server cannot or will not process the request due to a client error (e.g., malformed request "
+			text = "The server cannot or will not process the request due to a client error (e.g., malformed request "
 				   "syntax).";
+			len = 105;
+			break;
 
 		case FH_STATUS_UNAUTHORIZED:
-			return "The server could not verify that the client is authorized to access the requested resource.";
+			text = "The server could not verify that the client is authorized to access the requested resource.";
+			len = 91;
+			break;
 
 		case FH_STATUS_FORBIDDEN:
-			return "You don't have permission to access the requested resource on the server.";
+			text = "You don't have permission to access the requested resource on the server.";
+			len = 73;
+			break;
 
 		case FH_STATUS_NOT_FOUND:
-			return "The requested URL was not found on the server.";
+			text = "The requested URL was not found on the server.";
+			len = 46;
+			break;
 
 		case FH_STATUS_REQUEST_URI_TOO_LONG:
-			return "The request URI is too long for the server to process.";
+			text = "The request URI is too long for the server to process.";
+			len = 54;
+			break;
 
 		case FH_STATUS_INTERNAL_SERVER_ERROR:
-			return "The server encountered an unexpected condition that prevented it from fulfilling the request.";
+			text = "The server encountered an unexpected condition that prevented it from fulfilling the request.";
+			len = 93;
+			break;
 
 		case FH_STATUS_NOT_IMPLEMENTED:
-			return "The server does not support the functionality required to fulfill the request.";
+			text = "The server does not support the functionality required to fulfill the request.";
+			len = 78;
+			break;
 
 		case FH_STATUS_SERVICE_UNAVAILABLE:
-			return "The server is currently unable to handle the request due to temporary overloading or maintenance.";
+			text = "The server is currently unable to handle the request due to temporary overloading or maintenance.";
+			len = 97;
+			break;
 
 		case FH_STATUS_METHOD_NOT_ALLOWED:
-			return "The request method is not allowed or supported for the requested resource.";
+			text = "The request method is not allowed or supported for the requested resource.";
+			len = 74;
+			break;
 
-			/* Only put a default case if building in non-debug mode, so that the compiler can warn about missing
-			   cases in debug mode. */
-#ifdef NDEBUG
 		default:
-			return "Additional information is not available for this request.";
-#endif /* NDEBUG */
+			text = "Additional information is not available for this request.";
+			len = 57;
+			break;
 	}
 
-#ifndef NDEBUG
-	/* In debug mode, we want to ensure that all cases are handled, so we don't return a default case. */
-	assert (false && "Unhandled fh_status code");
-	return "Unknown Status"; /* This line will never be reached, but it satisfies the compiler. */
-#endif						 /* NDEBUG */
+	if (len_ptr)
+		*len_ptr = len;
+
+	return text;
 }
 
 static inline struct fh_header *

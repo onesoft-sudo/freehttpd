@@ -20,6 +20,8 @@
 #include <unistd.h>
 
 #include "send.h"
+#include "core/conn.h"
+#include "http/protocol.h"
 
 bool 
 event_send (struct fh_server *server, const xevent_t *event)
@@ -34,7 +36,8 @@ event_send (struct fh_server *server, const xevent_t *event)
 		return false;
 	}
 
-    send (conn->client_sockfd, "HTTP/1.1 200 OK\r\nServer: freehttpd\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", 76, 0);
+	fh_conn_send_err_response (conn, FH_STATUS_FORBIDDEN);
+    // send (conn->client_sockfd, "HTTP/1.1 200 OK\r\nServer: freehttpd\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", 76, 0);
     fh_server_close_conn (server, conn);
     return true;
 }

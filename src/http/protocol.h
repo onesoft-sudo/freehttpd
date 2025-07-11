@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -95,11 +95,17 @@ struct fh_headers
 
 struct fh_request
 {
+	pool_t *pool;
+
 	const char *uri;
-	size_t uri_len;	
+	size_t uri_len;
+	const char *host;
+	size_t full_host_len;
+	size_t host_len;
 	struct fh_headers headers;
 	struct fh_link *body_start;
-	
+	struct fh_request *next;
+
 	uint64_t content_length;
 	uint8_t transfer_encoding : 4;
 	uint8_t protocol : 4;
@@ -113,11 +119,13 @@ const char *fh_method_to_string (enum fh_method method);
 
 bool fh_validate_header_name (const char *name, size_t len);
 
-const char *fh_get_status_text (enum fh_status code);
-const char *fh_get_status_description (enum fh_status code);
+const char *fh_get_status_text (enum fh_status code, size_t *len_ptr);
+const char *fh_get_status_description (enum fh_status code, size_t *len_ptr);
 
 void fh_headers_init (struct fh_headers *headers);
-struct fh_header *fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value, size_t value_len);
-struct fh_header *fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value_format, ...);
+struct fh_header *fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len,
+								 const char *value, size_t value_len);
+struct fh_header *fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len,
+								  const char *value_format, ...);
 
 #endif /* FH_PROTOCOL_H */

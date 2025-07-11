@@ -27,6 +27,22 @@
 #include "types.h"
 #include "mm/pool.h"
 #include "stream.h"
+#include "http/protocol.h"
+
+struct fh_requests
+{
+    struct fh_request *head;
+    struct fh_request *tail;
+    size_t count;
+};
+
+struct fh_conn_extra
+{
+    const char *host;
+    size_t host_len;
+    size_t full_host_len;
+    uint16_t port;
+};
 
 struct fh_conn
 {
@@ -36,6 +52,8 @@ struct fh_conn
     const struct sockaddr_in *server_addr;
     pool_t *pool;
     struct fh_stream *stream;
+    struct fh_requests *requests;
+    struct fh_conn_extra *extra;
 
     union {
         struct fh_http1_ctx *req_ctx;
@@ -44,5 +62,8 @@ struct fh_conn
 
 struct fh_conn *fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const struct sockaddr_in *server_addr);
 void fh_conn_destroy (struct fh_conn *conn);
+void fh_conn_push_request (struct fh_requests *requests, struct fh_request *request);
+struct fh_request *fh_conn_pop_request (struct fh_requests *requests);
+bool fh_conn_send_err_response (struct fh_conn *conn, enum fh_status code);
 
 #endif /* FH_CORE_CONN_H */

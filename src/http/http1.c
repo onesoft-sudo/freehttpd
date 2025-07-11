@@ -556,7 +556,14 @@ fh_http1_parse_header_name (struct fh_http1_ctx *ctx)
 static bool
 fh_http1_populate_attrs (const struct fh_header *header, struct fh_request *request)
 {
-	if (!strncasecmp (header->name, "Content-Length", header->name_len))
+	if (!strncasecmp (header->name, "Host", header->name_len))
+	{
+		request->host = header->value;
+		request->full_host_len = header->value_len;
+		char *colon = memchr (header->value, ':', header->value_len);
+		request->host_len = colon ? (size_t) (colon - header->value) : header->value_len;
+	}
+	else if (!strncasecmp (header->name, "Content-Length", header->name_len))
 	{
 		uint64_t content_length = strntoull (header->value, header->value_len, 10);
 

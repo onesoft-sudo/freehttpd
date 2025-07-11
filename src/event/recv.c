@@ -48,16 +48,16 @@ event_recv (struct fh_server *server, const xevent_t *event)
 
 	if (!conn->req_ctx)
 	{
-		pool_t *child = fh_pool_create_child (conn->pool, 0);
+		pool_t *child_pool = fh_pool_create (0);
 
-		if (!child)
+		if (!child_pool)
 		{
 			fh_pr_err ("Failed to allocate memory");
 			fh_server_close_conn (server, conn);
 			return false;
 		}
 
-		fh_stream_init (conn->stream, child);
+		fh_stream_init (conn->stream, child_pool);
 	}
 
 	struct fh_http1_ctx *ctx = conn->req_ctx ? conn->req_ctx : fh_http1_ctx_create (conn->stream);
@@ -80,7 +80,26 @@ event_recv (struct fh_server *server, const xevent_t *event)
 
 	if (ctx->state == H1_STATE_DONE)
 	{
-		conn->stream->tail->is_eos = true;
+		struct fh_request *request = &ctx->request;
+
+		request->pool = conn->stream->pool;
+
+		if (conn->requests->count == 0)
+		{
+			if (!conn->extra->host || !conn->extra->host_len || !conn->extra->full_host_len)
+			{
+				fh_pr_debug ("Invalid or missing Host header");
+				fh_conn_send_err_response (conn, FH_STATUS_BAD_REQUEST);
+				fh_server_close_conn (server, conn);
+				return true;
+			}
+
+			conn->extra->host = request->host;
+			conn->extra->host_len = request->host_len;
+			conn->extra->full_host_len = request->full_host_len;
+		}
+
+		fh_conn_push_request (conn->requests, request);
 
 		fh_pr_info ("Method: |%s|", fh_method_to_string (ctx->request.method));
 		fh_pr_info ("URI: |%.*s|", (int) ctx->request.uri_len, ctx->request.uri);

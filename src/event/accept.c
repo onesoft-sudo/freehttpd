@@ -63,7 +63,7 @@ event_accept (struct fh_server *server, const xevent_t *ev_info, const struct so
 			if (would_block ())
 				return true;
 
-			fh_pr_err ("accept syscall failed: %s", strerror (errno));
+			fh_pr_err ("accept() syscall failed: %s", strerror (errno));
 
 			if (errors >= 5)
 				return false;
@@ -78,32 +78,39 @@ event_accept (struct fh_server *server, const xevent_t *ev_info, const struct so
 		inet_ntop (AF_INET, &client_addr.sin_addr.s_addr, ip, sizeof ip);
 		uint16_t port = ntohs (client_addr.sin_port);
 
-		fh_pr_debug ("accepted new connection from %s:%u", ip, port);
+		fh_pr_debug ("Accepted new connection from %s:%u", ip, port);
 
 		struct fh_conn *conn = fh_conn_create (client_sockfd, &client_addr, server_addr);
 
 		if (!conn)
 		{
 			close (client_sockfd);
-			fh_pr_err ("memory allocation failed");
+			fh_pr_err ("Memory allocation failed");
 			continue;
 		}
 
 		if (!itable_set (server->connections, (uint64_t) client_sockfd, conn))
 		{
 			fh_conn_destroy (conn);
-			fh_pr_err ("hash table set operation failed");
+			fh_pr_err ("Hash table set operation failed");
 			continue;
 		}
 
 		if (!xpoll_add (server->xpoll_fd, client_sockfd, XPOLLIN | XPOLLET | XPOLLHUP, fdflags))
 		{
 			fh_server_close_conn (server, conn);
-			fh_pr_err ("xpoll_add operation failed");
+			fh_pr_err ("xpoll_add() operation failed");
 			continue;
 		}
 
-		fh_pr_info ("connection established with %s:%u", ip, port);
+		struct fhttpd_bound_addr *addr = &server->config->hosts[server->config->default_host_index].bound_addrs[0];
+
+		conn->extra->host = addr->full_hostname;
+		conn->extra->port = addr->port;
+		conn->extra->host_len = addr->hostname_len;
+		conn->extra->full_host_len = addr->full_hostname_len;
+
+		fh_pr_info ("Connection established with %s:%u", ip, port);
 	}
 
 	return true;
