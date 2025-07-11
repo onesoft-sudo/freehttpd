@@ -50,7 +50,7 @@ fi
 
 echo "Benchmark completed successfully"
 
-kill -INT $pid
+kill -9 $pid
 wait $pid
 
 if [ $? -ne 0 ]; then
