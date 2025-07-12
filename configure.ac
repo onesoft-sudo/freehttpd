@@ -28,7 +28,7 @@ AC_INIT([freehttpd],
 AC_CONFIG_SRCDIR([src/freehttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([-Wall gnu 1.11 subdir-objects])
+AM_INIT_AUTOMAKE([-Wall gnu 1.11 info-in-builddir subdir-objects])
 AM_SILENT_RULES([yes])
 
 AC_ARG_ENABLE([debug],
