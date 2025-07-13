@@ -1,0 +1,5 @@
+1#!/bin/sh
+
+set -e
+
+$VALGRIND ./path.test.helper
