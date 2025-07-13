@@ -60,7 +60,7 @@ static const size_t HTTP1_METHOD_LIST_SIZE = sizeof (HTTP1_METHOD_LIST) / sizeof
 const size_t DEFAULT_BUF_SIZE = 4096;
 
 struct fh_http1_ctx *
-fh_http1_ctx_create (struct fh_stream *stream)
+fh_http1_ctx_create (struct fh_server *server, struct fh_conn *conn, struct fh_stream *stream)
 {
 	struct fh_http1_ctx *ctx = fh_pool_zalloc (stream->pool, sizeof (*ctx));
 
@@ -70,6 +70,9 @@ fh_http1_ctx_create (struct fh_stream *stream)
 	ctx->state = H1_STATE_METHOD;
 	ctx->stream = stream;
 	ctx->cur.link = stream->head;
+	ctx->server = server;
+	ctx->request.conn = conn;
+	ctx->request.host = NULL;
 
 	return ctx;
 }
@@ -554,14 +557,66 @@ fh_http1_parse_header_name (struct fh_http1_ctx *ctx)
 }
 
 static bool
-fh_http1_populate_attrs (const struct fh_header *header, struct fh_request *request)
+fh_http1_populate_attrs (struct fh_http1_ctx *ctx, const struct fh_header *header, struct fh_request *request)
 {
 	if (!strncasecmp (header->name, "Host", header->name_len))
 	{
+		if (request->host)
+		{
+			fh_pr_debug ("Multiple host headers: |%.*s|", (int) header->value_len, header->value);
+			return false;
+		}
+
+		char *colon = memchr (header->value, ':', header->value_len);
+
 		request->host = header->value;
 		request->full_host_len = header->value_len;
-		char *colon = memchr (header->value, ':', header->value_len);
 		request->host_len = colon ? (size_t) (colon - header->value) : header->value_len;
+
+		if (request->full_host_len > HTTP1_HOST_MAX_LEN || request->full_host_len == 0)
+		{
+			fh_pr_debug ("Invalid Host header value: |%.*s|", (int) header->value_len, header->value);
+			return false;
+		}
+
+		struct fh_conn *conn = request->conn;
+		char *host = fh_pool_alloc (conn->pool, request->full_host_len + 1);
+
+		if (!host)
+			return false;
+
+		strncpy (host, request->host, request->full_host_len);
+		host[request->full_host_len] = 0;
+
+		if (conn->requests->count > 0 && strncmp (host, conn->extra->host, request->full_host_len))
+		{
+			fh_pr_debug ("Invalid usage of different host than initial request: |%.*s|", (int) header->value_len,
+						 header->value);
+			return false;
+		}
+
+		strncpy (host, request->host, request->full_host_len);
+		host[request->full_host_len] = 0;
+
+		struct fh_host_config *config = strtable_get (ctx->server->host_configs, host);
+
+		if (!config)
+		{
+			fh_pr_debug ("Non-existing host: |%.*s|", (int) header->value_len, header->value);
+			return false;
+		}
+
+		conn->config = config;
+
+		if (conn->requests->count == 0)
+		{
+			conn->extra->host = host;
+			conn->extra->host_len = request->host_len;
+			conn->extra->full_host_len = request->full_host_len;
+			fh_pr_debug ("Selected canonical host: %.*s", (int) header->value_len, header->value);
+		}
+
+		fh_pr_debug ("Docroot for this request: %s", config->host_config->docroot);
 	}
 	else if (!strncasecmp (header->name, "Content-Length", header->name_len))
 	{
@@ -676,10 +731,10 @@ fh_http1_parse_header_value (struct fh_http1_ctx *ctx)
 
 				fh_pr_debug ("Header value: |%.*s|", (int) trimmed_len, trimmed_header_value);
 
-				if (!fh_http1_populate_attrs (header, &ctx->request))
+				if (!fh_http1_populate_attrs (ctx, header, &ctx->request))
 				{
 					fh_pr_debug ("Failed to validate header");
-					return H1_ERR (500);
+					return H1_ERR (400);
 				}
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
@@ -714,15 +769,39 @@ fh_http1_parse_header_value (struct fh_http1_ctx *ctx)
 }
 
 static unsigned int
-fh_http1_parse_body (struct fh_http1_ctx *ctx)
+fh_http1_validate (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_maybe_unused__)
+{
+	if (!ctx->request.host || !ctx->request.host_len || !ctx->request.full_host_len)
+	{
+		fh_pr_debug ("Invalid or missing Host header");
+		return H1_ERR (400);
+	}
+
+	return H1_NEXT;
+}
+
+static unsigned int
+fh_http1_parse_body (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 {
 	if (ctx->request.content_length == 0)
+	{
+		unsigned int rc = 0;
+
+		if ((rc = fh_http1_validate (ctx, conn)) != H1_NEXT)
+			return rc;
+
 		return H1_DONE;
+	}
 
 	struct fh_http1_cursor *cur = &ctx->arg_cur;
 
 	if (!ctx->is_streaming_body)
 	{
+		unsigned int rc = 0;
+
+		if ((rc = fh_http1_validate (ctx, conn)) != H1_NEXT)
+			return rc;
+
 		struct fh_link *current = cur->link;
 
 		if (!current)
@@ -889,7 +968,7 @@ fh_http1_parse (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 				break;
 
 			case H1_STATE_BODY:
-				ret = fh_http1_parse_body (ctx);
+				ret = fh_http1_parse_body (ctx, conn);
 				break;
 
 			case H1_STATE_RECV:

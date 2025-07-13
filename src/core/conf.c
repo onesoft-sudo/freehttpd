@@ -1481,7 +1481,7 @@ struct fhttpd_config_property
 	enum conf_value_type type;
 	bool (*validator) (struct fhttpd_conf_parser *parser,
 					   const struct conf_node *value); /* Optional validator function */
-	bool (*setter) (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+	bool (*setter) (struct fhttpd_conf_parser *parser, struct fh_config *config,
 					const struct conf_node *value); /* Setter function */
 };
 
@@ -1494,7 +1494,7 @@ struct fhttpd_config_property
 	}
 
 static bool
-fhttpd_prop_set_root (struct fhttpd_conf_parser *parser, struct fhttpd_config *config, const struct conf_node *value)
+fhttpd_prop_set_root (struct fhttpd_conf_parser *parser, struct fh_config *config, const struct conf_node *value)
 {
 	PROP_STRING_MUST_NOT_BE_EMPTY ("root", value);
 
@@ -1528,7 +1528,7 @@ fhttpd_prop_set_root (struct fhttpd_conf_parser *parser, struct fhttpd_config *c
 }
 
 static bool
-fhttpd_prop_set_logging_min_level (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+fhttpd_prop_set_logging_min_level (struct fhttpd_conf_parser *parser, struct fh_config *config,
 								   const struct conf_node *value)
 {
 	PROP_STRING_MUST_NOT_BE_EMPTY ("logging.min_level", value);
@@ -1553,7 +1553,7 @@ fhttpd_prop_set_logging_min_level (struct fhttpd_conf_parser *parser, struct fht
 }
 
 static bool
-fhttpd_prop_set_logging_file (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+fhttpd_prop_set_logging_file (struct fhttpd_conf_parser *parser, struct fh_config *config,
 							  const struct conf_node *value)
 {
 	PROP_STRING_MUST_NOT_BE_EMPTY ("logging.file", value);
@@ -1574,7 +1574,7 @@ fhttpd_prop_set_logging_file (struct fhttpd_conf_parser *parser, struct fhttpd_c
 }
 
 static bool
-fhttpd_prop_set_logging_error_file (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+fhttpd_prop_set_logging_error_file (struct fhttpd_conf_parser *parser, struct fh_config *config,
 									const struct conf_node *value)
 {
 	PROP_STRING_MUST_NOT_BE_EMPTY ("logging.error_file", value);
@@ -1596,7 +1596,7 @@ fhttpd_prop_set_logging_error_file (struct fhttpd_conf_parser *parser, struct fh
 }
 
 static bool
-fhttpd_prop_set_host_docroot (struct fhttpd_conf_parser *parser, struct fhttpd_config *config,
+fhttpd_prop_set_host_docroot (struct fhttpd_conf_parser *parser, struct fh_config *config,
 							  const struct conf_node *value)
 {
 	PROP_STRING_MUST_NOT_BE_EMPTY ("host.docroot", value);
@@ -1616,11 +1616,11 @@ fhttpd_prop_set_host_docroot (struct fhttpd_conf_parser *parser, struct fhttpd_c
 	return true;
 }
 
-static struct fhttpd_config *dfl_host_config_ptr = NULL;
+static struct fh_config *dfl_host_config_ptr = NULL;
 
 static bool
 fhttpd_prop_set_host_is_default (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-								 struct fhttpd_config *config, const struct conf_node *value)
+								 struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.bool_value)
 		dfl_host_config_ptr = config;
@@ -1630,7 +1630,7 @@ fhttpd_prop_set_host_is_default (struct fhttpd_conf_parser *parser __attribute_m
 
 static bool
 fhttpd_prop_set_security_max_response_body_size (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-												 struct fhttpd_config *config, const struct conf_node *value)
+												 struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.int_value <= 0)
 	{
@@ -1645,7 +1645,7 @@ fhttpd_prop_set_security_max_response_body_size (struct fhttpd_conf_parser *pars
 
 static bool
 fhttpd_prop_set_worker_count (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-							  struct fhttpd_config *config, const struct conf_node *value)
+							  struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.int_value <= 0 || ((size_t) value->details.literal.value.int_value) >= SIZE_MAX)
 	{
@@ -1660,7 +1660,7 @@ fhttpd_prop_set_worker_count (struct fhttpd_conf_parser *parser __attribute_mayb
 
 static bool
 fhttpd_prop_set_security_recv_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-									   struct fhttpd_config *config, const struct conf_node *value)
+									   struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.int_value <= 0 || value->details.literal.value.int_value >= UINT32_MAX)
 	{
@@ -1675,7 +1675,7 @@ fhttpd_prop_set_security_recv_timeout (struct fhttpd_conf_parser *parser __attri
 
 static bool
 fhttpd_prop_set_security_send_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-									   struct fhttpd_config *config, const struct conf_node *value)
+									   struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.int_value <= 0 || value->details.literal.value.int_value >= UINT32_MAX)
 	{
@@ -1690,7 +1690,7 @@ fhttpd_prop_set_security_send_timeout (struct fhttpd_conf_parser *parser __attri
 
 static bool
 fhttpd_prop_set_security_header_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-										 struct fhttpd_config *config, const struct conf_node *value)
+										 struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.int_value <= 0 || value->details.literal.value.int_value >= UINT32_MAX)
 	{
@@ -1705,7 +1705,7 @@ fhttpd_prop_set_security_header_timeout (struct fhttpd_conf_parser *parser __att
 
 static bool
 fhttpd_prop_set_security_body_timeout (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-									   struct fhttpd_config *config, const struct conf_node *value)
+									   struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.int_value <= 0 || value->details.literal.value.int_value >= UINT32_MAX)
 	{
@@ -1720,7 +1720,7 @@ fhttpd_prop_set_security_body_timeout (struct fhttpd_conf_parser *parser __attri
 
 static bool
 fhttpd_prop_set_security_max_connections (struct fhttpd_conf_parser *parser __attribute_maybe_unused__,
-										  struct fhttpd_config *config, const struct conf_node *value)
+										  struct fh_config *config, const struct conf_node *value)
 {
 	if (value->details.literal.value.int_value < 0 || ((size_t) value->details.literal.value.int_value) >= SIZE_MAX)
 	{
@@ -1892,7 +1892,7 @@ fhttpd_conf_expect_property (struct fhttpd_conf_parser *parser, const struct fht
 
 static bool
 fhttpd_conf_node_walk_assignment (struct fhttpd_conf_parser *parser, const struct conf_node *node,
-								  struct fhttpd_config *config)
+								  struct fh_config *config)
 {
 	assert (node != NULL);
 	assert (node->details.assignment.left != NULL && node->details.assignment.left->type == CONF_NODE_IDENTIFIER);
@@ -1982,11 +1982,11 @@ fhttpd_conf_node_walk_assignment (struct fhttpd_conf_parser *parser, const struc
 }
 
 static bool fhttpd_conf_walk (struct fhttpd_conf_parser *parser, const struct conf_node *node,
-							  struct fhttpd_config *config);
+							  struct fh_config *config);
 
 static bool
 fhttpd_conf_node_walk_include_file (struct fhttpd_conf_parser *parser, const struct conf_node *include_node,
-									struct fhttpd_config *config, const char *fullpath)
+									struct fh_config *config, const char *fullpath)
 {
 	if (parser->include_fv)
 	{
@@ -2087,7 +2087,7 @@ fhttpd_conf_node_walk_include_file (struct fhttpd_conf_parser *parser, const str
 
 static bool
 fhttpd_conf_node_walk_include_glob (struct fhttpd_conf_parser *parser, const struct conf_node *include_node,
-									struct fhttpd_config *config)
+									struct fh_config *config)
 {
 	char fullpath[PATH_MAX + 1] = { 0 };
 	glob_t glob_result;
@@ -2140,7 +2140,7 @@ fhttpd_conf_node_walk_include_glob (struct fhttpd_conf_parser *parser, const str
 }
 
 static void
-fhttpd_conf_init (struct fhttpd_config *config)
+fhttpd_conf_init (struct fh_config *config)
 {
 	config->default_host_index = -1;
 	config->worker_count = 4;
@@ -2154,7 +2154,7 @@ fhttpd_conf_init (struct fhttpd_config *config)
 }
 
 static void
-fhttpd_conf_dup (struct fhttpd_config *dest, const struct fhttpd_config *src)
+fhttpd_conf_dup (struct fh_config *dest, const struct fh_config *src)
 {
 	memcpy (dest, src, sizeof (*dest));
 
@@ -2169,7 +2169,7 @@ fhttpd_conf_dup (struct fhttpd_config *dest, const struct fhttpd_config *src)
 
 static bool
 fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct conf_node *block,
-							   struct fhttpd_config *config)
+							   struct fh_config *config)
 {
 	if (block->parent)
 	{
@@ -2185,7 +2185,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 		return false;
 	}
 
-	struct fhttpd_config_host *hosts = realloc (config->hosts, sizeof (*hosts) * (config->host_count + 1));
+	struct fh_host_config *hosts = realloc (config->hosts, sizeof (*hosts) * (config->host_count + 1));
 
 	if (!hosts)
 	{
@@ -2197,7 +2197,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 	config->hosts = hosts;
 	config->host_count++;
 
-	struct fhttpd_config_host *host = &config->hosts[config->host_count - 1];
+	struct fh_host_config *host = &config->hosts[config->host_count - 1];
 
 	memset (host, 0, sizeof (*host));
 
@@ -2257,7 +2257,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 			bool err = false;
 
 			size_t addr_index = host->bound_addr_count;
-			struct fhttpd_bound_addr *addrs
+			struct fh_bound_addr *addrs
 				= realloc (host->bound_addrs, sizeof (*addrs) * (host->bound_addr_count + ports_splitted->count));
 
 			if (!addrs)
@@ -2287,7 +2287,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 					break;
 				}
 
-				struct fhttpd_bound_addr addr = { 0 };
+				struct fh_bound_addr addr = { 0 };
 				size_t port_len = strlen (ports_splitted->strings[i]);
 
 				addr.hostname = strdup (host_entry);
@@ -2319,7 +2319,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 		}
 		else
 		{
-			struct fhttpd_bound_addr *addrs
+			struct fh_bound_addr *addrs
 				= realloc (host->bound_addrs, sizeof (*addrs) * (host->bound_addr_count + 1));
 
 			if (!addrs)
@@ -2344,7 +2344,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 		free (host_entry);
 	}
 
-	struct fhttpd_config *local_config = calloc (1, sizeof (*local_config));
+	struct fh_config *local_config = calloc (1, sizeof (*local_config));
 
 	if (!local_config)
 	{
@@ -2381,7 +2381,7 @@ fhttpd_conf_handle_host_block (struct fhttpd_conf_parser *parser, const struct c
 
 static bool
 fhttpd_conf_handle_block (struct fhttpd_conf_parser *parser, const struct conf_node *block,
-						  struct fhttpd_config *config)
+						  struct fh_config *config)
 {
 	const char *block_name = block->details.block.name->details.identifier.value;
 
@@ -2426,7 +2426,7 @@ fhttpd_conf_handle_block (struct fhttpd_conf_parser *parser, const struct conf_n
 }
 
 static bool
-fhttpd_conf_walk (struct fhttpd_conf_parser *parser, const struct conf_node *node, struct fhttpd_config *config)
+fhttpd_conf_walk (struct fhttpd_conf_parser *parser, const struct conf_node *node, struct fh_config *config)
 {
 	assert (node != NULL);
 
@@ -2475,7 +2475,7 @@ fhttpd_conf_walk (struct fhttpd_conf_parser *parser, const struct conf_node *nod
 }
 
 void
-fhttpd_conf_free_config (struct fhttpd_config *config)
+fhttpd_conf_free_config (struct fh_config *config)
 {
 	if (!config)
 		return;
@@ -2507,7 +2507,7 @@ fhttpd_conf_free_config (struct fhttpd_config *config)
 	free (config);
 }
 
-struct fhttpd_config *
+struct fh_config *
 fhttpd_conf_process (struct fhttpd_conf_parser *parser)
 {
 	struct conf_node *root = fhttpd_conf_parse (parser);
@@ -2515,7 +2515,7 @@ fhttpd_conf_process (struct fhttpd_conf_parser *parser)
 	if (!root)
 		return NULL;
 
-	struct fhttpd_config *config = calloc (1, sizeof (*config));
+	struct fh_config *config = calloc (1, sizeof (*config));
 
 	if (!config)
 	{
@@ -2547,7 +2547,7 @@ fhttpd_conf_process (struct fhttpd_conf_parser *parser)
 }
 
 void
-fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
+fhttpd_conf_print_config (const struct fh_config *config, int indent)
 {
 	fh_pr_debug ("%*sConfiguration <%p>:", (int) indent, "", (void *) config);
 
@@ -2569,7 +2569,7 @@ fhttpd_conf_print_config (const struct fhttpd_config *config, int indent)
 
 	for (size_t i = 0; i < config->host_count; i++)
 	{
-		const struct fhttpd_config_host *host = &config->hosts[i];
+		const struct fh_host_config *host = &config->hosts[i];
 		fh_pr_debug ("%*sHost [%p]%s:", (int) indent, "", (void *) host,
 						  config->default_host_index >= 0 && i == (size_t) config->default_host_index ? " [ROOT]" : "");
 

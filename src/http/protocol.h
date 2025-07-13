@@ -25,6 +25,9 @@
 #include <stdint.h>
 
 #include "types.h"
+#include "mm/pool.h"
+
+struct fh_conn;
 
 #define H2_PREFACE "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 #define H2_PREFACE_SIZE (sizeof (H2_PREFACE) - 1)
@@ -96,6 +99,7 @@ struct fh_headers
 struct fh_request
 {
 	pool_t *pool;
+	struct fh_conn *conn;
 
 	const char *uri;
 	size_t uri_len;
@@ -110,6 +114,13 @@ struct fh_request
 	uint8_t transfer_encoding : 4;
 	uint8_t protocol : 4;
 	uint8_t method : 4;
+};
+
+struct fh_response
+{
+	enum fh_status status;
+	bool use_default_error_response : 1;
+	uint64_t content_length;
 };
 
 const char *fh_protocol_to_string (enum fh_protocol protocol);

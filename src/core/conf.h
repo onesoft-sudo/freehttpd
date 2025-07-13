@@ -33,7 +33,7 @@ enum conf_parser_error
 	CONF_PARSER_ERROR_INVALID_CONFIG,
 };
 
-struct fhttpd_bound_addr
+struct fh_bound_addr
 {
 	char *hostname;
 	size_t hostname_len;
@@ -42,14 +42,14 @@ struct fhttpd_bound_addr
 	uint16_t port;
 };
 
-struct fhttpd_config_host
+struct fh_host_config
 {
-	struct fhttpd_bound_addr *bound_addrs;
+	struct fh_bound_addr *bound_addrs;
 	size_t bound_addr_count;
-	struct fhttpd_config *host_config;
+	struct fh_config *host_config;
 };
 
-struct fhttpd_config
+struct fh_config
 {
 	char *conf_root;
 	size_t worker_count;
@@ -58,7 +58,7 @@ struct fhttpd_config
 	char *logging_file;
 	char *logging_error_file;
 
-	struct fhttpd_config_host *hosts;
+	struct fh_host_config *hosts;
 	size_t host_count;
 	ssize_t default_host_index;
 
@@ -80,8 +80,8 @@ void fhttpd_conf_parser_destroy (struct fhttpd_conf_parser *parser);
 bool fhttpd_conf_parser_print_error (struct fhttpd_conf_parser *parser);
 enum conf_parser_error fhttpd_conf_parser_last_error (struct fhttpd_conf_parser *parser);
 const char *fhttpd_conf_parser_strerror (enum conf_parser_error error);
-struct fhttpd_config *fhttpd_conf_process (struct fhttpd_conf_parser *parser);
-void fhttpd_conf_print_config (const struct fhttpd_config *config, int indent);
-void fhttpd_conf_free_config (struct fhttpd_config *config);
+struct fh_config *fhttpd_conf_process (struct fhttpd_conf_parser *parser);
+void fhttpd_conf_print_config (const struct fh_config *config, int indent);
+void fhttpd_conf_free_config (struct fh_config *config);
 
 #endif /* FHTTPD_CONF_H */

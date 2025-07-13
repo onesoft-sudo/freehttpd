@@ -287,7 +287,7 @@ fh_get_status_description (enum fh_status code, size_t *len_ptr)
 }
 
 static inline struct fh_header *
-fh_headers_new_entry (pool_t *pool, struct fh_headers *headers)
+fh_headers_new_entry (pool_t *pool __attribute_maybe_unused__, struct fh_headers *headers)
 {
 	struct fh_header *header = fh_pool_alloc (pool, sizeof (struct fh_header));
 

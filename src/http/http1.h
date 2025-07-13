@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include "core/conn.h"
 #include "core/stream.h"
+#include "core/server.h"
 #include "mm/pool.h"
 #include "protocol.h"
 
@@ -32,6 +33,7 @@
 #define HTTP1_HEADER_NAME_MAX_LEN 128
 #define HTTP1_HEADER_VALUE_MAX_LEN 256
 #define HTTP1_HEADER_COUNT_MAX 128
+#define HTTP1_HOST_MAX_LEN 256
 
 enum http1_state
 {
@@ -69,6 +71,7 @@ struct fh_http1_cursor
 
 struct fh_http1_ctx
 {
+	struct fh_server *server;
 	struct fh_stream *stream;
 	struct fh_http1_cursor cur;
 	struct fh_http1_cursor arg_cur;
@@ -83,7 +86,7 @@ struct fh_http1_ctx
 	bool is_streaming_body;
 };
 
-struct fh_http1_ctx *fh_http1_ctx_create (struct fh_stream *stream);
+struct fh_http1_ctx *fh_http1_ctx_create (struct fh_server *server, struct fh_conn *conn, struct fh_stream *stream);
 bool fh_http1_parse (struct fh_http1_ctx *ctx, struct fh_conn *conn);
 
 #endif /* FH_HTTP1_H */

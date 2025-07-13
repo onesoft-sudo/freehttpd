@@ -23,6 +23,6 @@
 #include "conf.h"
 #include "compat.h"
 
-_noreturn void fh_worker_start (struct fhttpd_config *config);
+_noreturn void fh_worker_start (struct fh_config *config);
 
 #endif /* FH_CORE_WORKER_H */

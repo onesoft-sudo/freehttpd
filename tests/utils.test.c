@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "utils/utils.h"
+#include "utils/path.h"
 
 int
 main (void)

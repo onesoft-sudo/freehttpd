@@ -22,12 +22,12 @@ AM_TESTS_ENVIRONMENT = \
   testdir=$(top_builddir)/tests \
   VALGRIND=$(top_srcdir)/build-aux/valgrind
 
-check_PROGRAMS = itable.test.helper utils.test.helper base64.test.helper pool.test.helper strtable.test.helper
-TESTS = itable.test utils.test base64.test pool.test strtable.test
+check_PROGRAMS = itable.test.helper path.test.helper base64.test.helper pool.test.helper strtable.test.helper
+TESTS = itable.test path.test base64.test pool.test strtable.test
 
 itable_test_helper_SOURCES = itable.test.c $(top_srcdir)/src/hash/itable.c $(top_srcdir)/src/hash/itable.h
 strtable_test_helper_SOURCES = strtable.test.c $(top_srcdir)/src/hash/strtable.c $(top_srcdir)/src/hash/strtable.h
-utils_test_helper_SOURCES = utils.test.c $(top_srcdir)/src/utils/utils.c $(top_srcdir)/src/utils/utils.h
+path_test_helper_SOURCES = path.test.c $(top_srcdir)/src/utils/path.c $(top_srcdir)/src/utils/path.h
 base64_test_helper_SOURCES = base64.test.c $(top_srcdir)/src/digest/base64.c $(top_srcdir)/src/digest/base64.h
 pool_test_helper_SOURCES = pool.test.c $(top_srcdir)/src/mm/pool.c $(top_srcdir)/src/mm/pool.h
 

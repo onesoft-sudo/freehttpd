@@ -103,12 +103,14 @@ event_accept (struct fh_server *server, const xevent_t *ev_info, const struct so
 			continue;
 		}
 
-		struct fhttpd_bound_addr *addr = &server->config->hosts[server->config->default_host_index].bound_addrs[0];
+		struct fh_host_config *config = &server->config->hosts[server->config->default_host_index];
+		struct fh_bound_addr *addr = &config->bound_addrs[0];
 
 		conn->extra->host = addr->full_hostname;
 		conn->extra->port = addr->port;
 		conn->extra->host_len = addr->hostname_len;
 		conn->extra->full_host_len = addr->full_hostname_len;
+		conn->config = config;
 
 		fh_pr_info ("Connection established with %s:%u", ip, port);
 	}

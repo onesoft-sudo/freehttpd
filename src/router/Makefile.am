@@ -15,20 +15,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-noinst_LIBRARIES = libutils.a
-libutils_a_SOURCES = \
-	datetime.c \
-	datetime.h \
-	utils.c \
-	utils.h \
-	strutils.c \
-	strutils.h \
-	bitmap.c \
-	bitmap.h \
-	calc.c \
-	calc.h \
-	path.c \
-	path.h
+noinst_LIBRARIES = librouter.a
+librouter_a_SOURCES = \
+	router.c \
+	router.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

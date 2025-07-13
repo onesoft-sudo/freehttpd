@@ -26,6 +26,7 @@
 #include "types.h"
 #include "conf.h"
 #include "event/xpoll.h"
+#include "hash/strtable.h"
 #include "hash/itable.h"
 #include "conn.h"
 
@@ -33,7 +34,7 @@
 
 struct fh_server
 {
-    struct fhttpd_config *config;
+    struct fh_config *config;
     fd_t xpoll_fd;
     bool should_exit : 1;
     
@@ -42,9 +43,14 @@ struct fh_server
 
     /* (fd_t) => (struct fh_conn *) */
     struct itable *connections;
+
+    /* (const char *) => (struct fh_host_config *) */
+    struct strtable *host_configs;
+
+    struct fh_router *router;
 };
 
-struct fh_server *fh_server_create (struct fhttpd_config *config);
+struct fh_server *fh_server_create (struct fh_config *config);
 void fh_server_destroy (struct fh_server *server);
 void fh_server_loop (struct fh_server *server);
 bool fh_server_listen (struct fh_server *server);

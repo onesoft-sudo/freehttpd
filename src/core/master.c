@@ -133,7 +133,7 @@ fh_master_read_config (struct fh_master *master)
 		return false;
 	}
 
-	struct fhttpd_config *config = fhttpd_conf_process (parser);
+	struct fh_config *config = fhttpd_conf_process (parser);
 
 	if (!config)
 	{
@@ -173,7 +173,7 @@ fh_master_spawn_workers (struct fh_master *master)
 		{
 			local_master = NULL;
 			fh_master_reset_signal ();
-			struct fhttpd_config *config = master->config;
+			struct fh_config *config = master->config;
 			free (master->worker_pids);
 			free (master);
 			fh_worker_start (config);

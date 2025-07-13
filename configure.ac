@@ -149,6 +149,7 @@ AC_CONFIG_FILES([Makefile
                  src/include/Makefile
                  src/log/Makefile
                  src/utils/Makefile
+                 src/router/Makefile
                  doc/Makefile
                  man/Makefile
                  conf/Makefile

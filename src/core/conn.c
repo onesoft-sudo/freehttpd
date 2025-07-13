@@ -59,7 +59,8 @@ fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const
 	conn->req_ctx = NULL;
 	conn->requests = (struct fh_requests *) (conn->stream + 1);
 	conn->extra = (struct fh_conn_extra *) (conn->requests + 1);
-
+	
+	memset (conn->requests, 0, sizeof (*conn->requests) + sizeof (*conn->extra));
 	return conn;
 }
 

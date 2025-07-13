@@ -45,10 +45,11 @@ event_recv (struct fh_server *server, const xevent_t *event)
 	}
 
 	fh_pr_info ("connection %lu: recv called", conn->id);
+	pool_t *child_pool = NULL;
 
 	if (!conn->req_ctx)
 	{
-		pool_t *child_pool = fh_pool_create (0);
+		child_pool = fh_pool_create (0);
 
 		if (!child_pool)
 		{
@@ -60,7 +61,7 @@ event_recv (struct fh_server *server, const xevent_t *event)
 		fh_stream_init (conn->stream, child_pool);
 	}
 
-	struct fh_http1_ctx *ctx = conn->req_ctx ? conn->req_ctx : fh_http1_ctx_create (conn->stream);
+	struct fh_http1_ctx *ctx = conn->req_ctx ? conn->req_ctx : fh_http1_ctx_create (server, conn, conn->stream);
 
 	if (!conn->req_ctx)
 		conn->req_ctx = ctx;
@@ -70,7 +71,12 @@ event_recv (struct fh_server *server, const xevent_t *event)
 		if (ctx->state == H1_STATE_ERROR)
 		{
 			fh_pr_err ("HTTP/1.x parsing failed");
+			fh_conn_send_err_response (conn, ctx->suggested_code == 0 ? 500 : ctx->suggested_code);
 			fh_server_close_conn (server, conn);
+
+			if (child_pool)
+				fh_pool_destroy (child_pool);
+			
 			return true;
 		}
 
@@ -81,24 +87,7 @@ event_recv (struct fh_server *server, const xevent_t *event)
 	if (ctx->state == H1_STATE_DONE)
 	{
 		struct fh_request *request = &ctx->request;
-
 		request->pool = conn->stream->pool;
-
-		if (conn->requests->count == 0)
-		{
-			if (!conn->extra->host || !conn->extra->host_len || !conn->extra->full_host_len)
-			{
-				fh_pr_debug ("Invalid or missing Host header");
-				fh_conn_send_err_response (conn, FH_STATUS_BAD_REQUEST);
-				fh_server_close_conn (server, conn);
-				return true;
-			}
-
-			conn->extra->host = request->host;
-			conn->extra->host_len = request->host_len;
-			conn->extra->full_host_len = request->full_host_len;
-		}
-
 		fh_conn_push_request (conn->requests, request);
 
 		fh_pr_info ("Method: |%s|", fh_method_to_string (ctx->request.method));

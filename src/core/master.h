@@ -30,7 +30,7 @@ struct fh_master
 {
     pid_t *worker_pids;
     size_t worker_count;
-    struct fhttpd_config *config;
+    struct fh_config *config;
 };
 
 struct fh_master *fh_master_create (void);

@@ -68,7 +68,7 @@ fh_worker_setup_signal (void)
 }
 
 _noreturn void 
-fh_worker_start (struct fhttpd_config *config)
+fh_worker_start (struct fh_config *config)
 {
     pid = getpid ();
 

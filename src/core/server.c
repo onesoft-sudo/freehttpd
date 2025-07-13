@@ -40,12 +40,13 @@
 #include "event/send.h"
 #include "hash/itable.h"
 #include "log/log.h"
+#include "router/router.h"
 #include "server.h"
 
 #define FH_SERVER_MAX_EVENTS 128
 
 struct fh_server *
-fh_server_create (struct fhttpd_config *config)
+fh_server_create (struct fh_config *config)
 {
 	struct fh_server *server = calloc (1, sizeof (struct fh_server));
 
@@ -80,6 +81,30 @@ fh_server_create (struct fhttpd_config *config)
 		return NULL;
 	}
 
+	server->host_configs = strtable_create (0);
+
+	if (!server->host_configs)
+	{
+		xpoll_destroy (server->xpoll_fd);
+		itable_destroy (server->connections);
+		itable_destroy (server->sockfd_table);
+		free (server);
+		return NULL;
+	}
+
+	server->router = calloc (1, sizeof (*server->router));
+
+	if (!server->router || !fh_router_init (server->router, server))
+	{
+		xpoll_destroy (server->xpoll_fd);
+		itable_destroy (server->connections);
+		strtable_destroy (server->host_configs);
+		itable_destroy (server->sockfd_table);
+		free (server->router);
+		free (server);
+		return NULL;
+	}
+
 	return server;
 }
 
@@ -98,9 +123,34 @@ fh_server_destroy (struct fh_server *server)
 
 	itable_destroy (server->connections);
 	itable_destroy (server->sockfd_table);
+	strtable_destroy (server->host_configs);
 	xpoll_destroy (server->xpoll_fd);
 	fhttpd_conf_free_config (server->config);
+	fh_router_free (server->router);
+	free (server->router);
 	free (server);
+}
+
+static bool
+fh_server_index_config (struct fh_server *server)
+{
+	for (size_t i = 0; i < server->config->host_count; i++)
+	{
+		struct fh_host_config *config = &server->config->hosts[i];
+
+		for (size_t j = 0; j < config->bound_addr_count; j++)
+		{
+			struct fh_bound_addr *addr = &config->bound_addrs[j];
+
+			if (addr->port == 80 || addr->port == 443)
+				strtable_set (server->host_configs, addr->hostname, config);
+
+			strtable_set (server->host_configs, addr->full_hostname, config);
+			fh_pr_debug ("Loaded virtual host: %s", addr->full_hostname);
+		}
+	}
+
+	return true;
 }
 
 bool
@@ -114,7 +164,7 @@ fh_server_listen (struct fh_server *server)
 	{
 		for (size_t j = 0; j < server->config->hosts[i].bound_addr_count; j++)
 		{
-			struct fhttpd_bound_addr *addr = server->config->hosts[i].bound_addrs;
+			struct fh_bound_addr *addr = server->config->hosts[i].bound_addrs;
 
 			for (size_t k = 0; k < port_count; k++)
 			{
@@ -203,7 +253,7 @@ fh_server_listen (struct fh_server *server)
 		fh_pr_info ("Listening on 0.0.0.0:%u", ports[i]);
 	}
 
-	return true;
+	return fh_server_index_config (server);
 }
 
 void
