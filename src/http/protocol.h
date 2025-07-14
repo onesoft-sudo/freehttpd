@@ -94,6 +94,7 @@ struct fh_headers
 	struct fh_header *head;
 	struct fh_header *tail;
 	size_t count;
+	size_t total_http1_size;
 };
 
 struct fh_request
@@ -118,8 +119,14 @@ struct fh_request
 
 struct fh_response
 {
-	enum fh_status status;
+	uint16_t status;
+
+	uint8_t protocol : 4;
+	uint8_t encoding : 4;
+	bool headers_sent : 1;
 	bool use_default_error_response : 1;
+
+	struct fh_headers *headers;
 	uint64_t content_length;
 };
 
@@ -132,6 +139,8 @@ bool fh_validate_header_name (const char *name, size_t len);
 
 const char *fh_get_status_text (enum fh_status code, size_t *len_ptr);
 const char *fh_get_status_description (enum fh_status code, size_t *len_ptr);
+
+const char *fh_encoding_to_string (enum fh_encoding encoding, size_t *out_len);
 
 void fh_headers_init (struct fh_headers *headers);
 struct fh_header *fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len,

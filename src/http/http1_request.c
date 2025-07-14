@@ -26,11 +26,12 @@
 #include <strings.h>
 #include <unistd.h>
 
-#define FH_LOG_MODULE_NAME "http1"
+#define FH_LOG_MODULE_NAME "http1/request"
 
 #include "compat.h"
 #include "core/stream.h"
 #include "http1.h"
+#include "http1_request.h"
 #include "log/log.h"
 #include "macros.h"
 #include "mm/pool.h"
@@ -59,15 +60,15 @@ static const size_t HTTP1_METHOD_LIST_SIZE = sizeof (HTTP1_METHOD_LIST) / sizeof
 
 const size_t DEFAULT_BUF_SIZE = 4096;
 
-struct fh_http1_ctx *
+struct fh_http1_req_ctx *
 fh_http1_ctx_create (struct fh_server *server, struct fh_conn *conn, struct fh_stream *stream)
 {
-	struct fh_http1_ctx *ctx = fh_pool_zalloc (stream->pool, sizeof (*ctx));
+	struct fh_http1_req_ctx *ctx = fh_pool_zalloc (stream->pool, sizeof (*ctx));
 
 	if (!ctx)
 		return NULL;
 
-	ctx->state = H1_STATE_METHOD;
+	ctx->state = H1_REQ_STATE_METHOD;
 	ctx->stream = stream;
 	ctx->cur.link = stream->head;
 	ctx->server = server;
@@ -78,7 +79,7 @@ fh_http1_ctx_create (struct fh_server *server, struct fh_conn *conn, struct fh_s
 }
 
 static unsigned int
-fh_http1_parse_method (struct fh_http1_ctx *ctx)
+fh_http1_parse_method (struct fh_http1_req_ctx *ctx)
 {
 	struct fh_http1_cursor *cur = &ctx->arg_cur;
 
@@ -164,7 +165,7 @@ fh_http1_parse_method (struct fh_http1_ctx *ctx)
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
 				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the space */
-				ctx->state = H1_STATE_URI;
+				ctx->state = H1_REQ_STATE_URI;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
 
@@ -194,7 +195,7 @@ fh_http1_parse_method (struct fh_http1_ctx *ctx)
 }
 
 static unsigned int
-fh_http1_parse_uri (struct fh_http1_ctx *ctx)
+fh_http1_parse_uri (struct fh_http1_req_ctx *ctx)
 {
 	struct fh_http1_cursor *cur = &ctx->arg_cur;
 
@@ -262,7 +263,7 @@ fh_http1_parse_uri (struct fh_http1_ctx *ctx)
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
 				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the space */
-				ctx->state = H1_STATE_VERSION;
+				ctx->state = H1_REQ_STATE_VERSION;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
 
@@ -292,7 +293,7 @@ fh_http1_parse_uri (struct fh_http1_ctx *ctx)
 }
 
 static unsigned int
-fh_http1_parse_version (struct fh_http1_ctx *ctx)
+fh_http1_parse_version (struct fh_http1_req_ctx *ctx)
 {
 	struct fh_http1_cursor *cur = &ctx->arg_cur;
 
@@ -378,7 +379,7 @@ fh_http1_parse_version (struct fh_http1_ctx *ctx)
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
 				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the '\n' */
-				ctx->state = H1_STATE_HEADER_NAME;
+				ctx->state = H1_REQ_STATE_HEADER_NAME;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
 
@@ -408,7 +409,7 @@ fh_http1_parse_version (struct fh_http1_ctx *ctx)
 }
 
 static unsigned int
-fh_http1_parse_header_name (struct fh_http1_ctx *ctx)
+fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 {
 	struct fh_http1_cursor *cur = &ctx->arg_cur;
 	bool check_end = true;
@@ -452,7 +453,7 @@ fh_http1_parse_header_name (struct fh_http1_ctx *ctx)
 
 					ctx->arg_cur.link = ctx->cur.link = cur->link;
 					ctx->arg_cur.off = ctx->cur.off = cur->off + 2;
-					ctx->state = no_body ? H1_STATE_DONE : H1_STATE_BODY;
+					ctx->state = no_body ? H1_REQ_STATE_DONE : H1_REQ_STATE_BODY;
 					ctx->total_consumed += 2;
 					ctx->current_consumed = 0;
 
@@ -523,7 +524,7 @@ fh_http1_parse_header_name (struct fh_http1_ctx *ctx)
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
 				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the colon */
-				ctx->state = H1_STATE_HEADER_VALUE;
+				ctx->state = H1_REQ_STATE_HEADER_VALUE;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
 
@@ -557,7 +558,7 @@ fh_http1_parse_header_name (struct fh_http1_ctx *ctx)
 }
 
 static bool
-fh_http1_populate_attrs (struct fh_http1_ctx *ctx, const struct fh_header *header, struct fh_request *request)
+fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *header, struct fh_request *request)
 {
 	if (!strncasecmp (header->name, "Host", header->name_len))
 	{
@@ -647,7 +648,7 @@ fh_http1_populate_attrs (struct fh_http1_ctx *ctx, const struct fh_header *heade
 }
 
 static unsigned int
-fh_http1_parse_header_value (struct fh_http1_ctx *ctx)
+fh_http1_parse_header_value (struct fh_http1_req_ctx *ctx)
 {
 	struct fh_http1_cursor *cur = &ctx->arg_cur;
 
@@ -739,7 +740,7 @@ fh_http1_parse_header_value (struct fh_http1_ctx *ctx)
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
 				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the colon */
-				ctx->state = H1_STATE_HEADER_NAME;
+				ctx->state = H1_REQ_STATE_HEADER_NAME;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
 
@@ -769,7 +770,7 @@ fh_http1_parse_header_value (struct fh_http1_ctx *ctx)
 }
 
 static unsigned int
-fh_http1_validate (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_maybe_unused__)
+fh_http1_validate (struct fh_http1_req_ctx *ctx, struct fh_conn *conn __attribute_maybe_unused__)
 {
 	if (!ctx->request.host || !ctx->request.host_len || !ctx->request.full_host_len)
 	{
@@ -781,7 +782,7 @@ fh_http1_validate (struct fh_http1_ctx *ctx, struct fh_conn *conn __attribute_ma
 }
 
 static unsigned int
-fh_http1_parse_body (struct fh_http1_ctx *ctx, struct fh_conn *conn)
+fh_http1_parse_body (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 {
 	if (ctx->request.content_length == 0)
 	{
@@ -862,7 +863,7 @@ fh_http1_parse_body (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 }
 
 static unsigned int
-fh_http1_recv (struct fh_http1_ctx *ctx, struct fh_conn *conn)
+fh_http1_recv (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 {
 	uint8_t *ptr;
 	size_t readable;
@@ -939,7 +940,7 @@ fh_http1_recv (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 }
 
 bool
-fh_http1_parse (struct fh_http1_ctx *ctx, struct fh_conn *conn)
+fh_http1_parse (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 {
 	for (;;)
 	{
@@ -947,45 +948,45 @@ fh_http1_parse (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 
 		switch (ctx->state)
 		{
-			case H1_STATE_METHOD:
+			case H1_REQ_STATE_METHOD:
 				ret = fh_http1_parse_method (ctx);
 				break;
 
-			case H1_STATE_URI:
+			case H1_REQ_STATE_URI:
 				ret = fh_http1_parse_uri (ctx);
 				break;
 
-			case H1_STATE_VERSION:
+			case H1_REQ_STATE_VERSION:
 				ret = fh_http1_parse_version (ctx);
 				break;
 
-			case H1_STATE_HEADER_NAME:
+			case H1_REQ_STATE_HEADER_NAME:
 				ret = fh_http1_parse_header_name (ctx);
 				break;
 
-			case H1_STATE_HEADER_VALUE:
+			case H1_REQ_STATE_HEADER_VALUE:
 				ret = fh_http1_parse_header_value (ctx);
 				break;
 
-			case H1_STATE_BODY:
+			case H1_REQ_STATE_BODY:
 				ret = fh_http1_parse_body (ctx, conn);
 				break;
 
-			case H1_STATE_RECV:
+			case H1_REQ_STATE_RECV:
 				ret = fh_http1_recv (ctx, conn);
 				break;
 
-			case H1_STATE_DONE:
+			case H1_REQ_STATE_DONE:
 				return true;
 
-			case H1_STATE_ERROR:
+			case H1_REQ_STATE_ERROR:
 			default:
 				return false;
 		}
 
 		if (ret & (1U << 31U))
 		{
-			ctx->state = H1_STATE_ERROR;
+			ctx->state = H1_REQ_STATE_ERROR;
 			ctx->suggested_code = ret & 0xFFFF;
 			return false;
 		}
@@ -996,13 +997,13 @@ fh_http1_parse (struct fh_http1_ctx *ctx, struct fh_conn *conn)
 		if (ret == H1_RECV)
 		{
 			ctx->prev_state = ctx->state;
-			ctx->state = H1_STATE_RECV;
+			ctx->state = H1_REQ_STATE_RECV;
 			continue;
 		}
 
 		if (ret == H1_DONE)
 		{
-			ctx->state = H1_STATE_DONE;
+			ctx->state = H1_REQ_STATE_DONE;
 			continue;
 		}
 	}

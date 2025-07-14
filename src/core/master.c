@@ -31,7 +31,7 @@
 #include "master.h"
 #include "worker.h"
 
-#define FH_MASTER_SPAWN_WORKERS 4
+#define FH_MASTER_SPAWN_WORKERS 8
 
 static struct fh_master *local_master = NULL;
 static bool should_exit = false;

@@ -57,7 +57,10 @@ struct fh_conn
     const struct fh_host_config *config;
 
     union {
-        struct fh_http1_ctx *req_ctx;
+        struct {
+            struct fh_http1_req_ctx *req_ctx;
+            struct fh_http1_res_ctx *res_ctx;
+        };
     };
 };
 

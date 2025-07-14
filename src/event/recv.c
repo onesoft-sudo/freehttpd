@@ -26,7 +26,7 @@
 #include "core/conn.h"
 #include "core/server.h"
 #include "core/stream.h"
-#include "http/http1.h"
+#include "http/http1_request.h"
 #include "http/protocol.h"
 #include "log/log.h"
 #include "recv.h"
@@ -61,14 +61,14 @@ event_recv (struct fh_server *server, const xevent_t *event)
 		fh_stream_init (conn->stream, child_pool);
 	}
 
-	struct fh_http1_ctx *ctx = conn->req_ctx ? conn->req_ctx : fh_http1_ctx_create (server, conn, conn->stream);
+	struct fh_http1_req_ctx *ctx = conn->req_ctx ? conn->req_ctx : fh_http1_ctx_create (server, conn, conn->stream);
 
 	if (!conn->req_ctx)
 		conn->req_ctx = ctx;
 
 	if (!fh_http1_parse (ctx, conn))
 	{
-		if (ctx->state == H1_STATE_ERROR)
+		if (ctx->state == H1_REQ_STATE_ERROR)
 		{
 			fh_pr_err ("HTTP/1.x parsing failed");
 			fh_conn_send_err_response (conn, ctx->suggested_code == 0 ? 500 : ctx->suggested_code);
@@ -84,7 +84,7 @@ event_recv (struct fh_server *server, const xevent_t *event)
 		return true;
 	}
 
-	if (ctx->state == H1_STATE_DONE)
+	if (ctx->state == H1_REQ_STATE_DONE)
 	{
 		struct fh_request *request = &ctx->request;
 		request->pool = conn->stream->pool;

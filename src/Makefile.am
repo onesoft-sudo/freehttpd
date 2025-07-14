@@ -29,9 +29,9 @@ freehttpd_LDADD = \
 	$(top_builddir)/src/log/liblog.a \
 	$(top_builddir)/src/hash/libhash.a \
 	$(top_builddir)/src/mm/libmm.a \
+	$(top_builddir)/src/router/librouter.a \
 	$(top_builddir)/src/http/libhttp.a \
 	$(top_builddir)/src/digest/libdigest.a \
-	$(top_builddir)/src/router/librouter.a \
 	$(top_builddir)/src/utils/libutils.a \
 	$(top_builddir)/res/libresources.a \
 	$(SYSTEMD_LIBS)

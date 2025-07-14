@@ -15,6 +15,7 @@ struct fh_route
 {
 	const char *path;
 	fh_route_handler_t handler;
+	uint32_t flags;
 };
 
 struct fh_router
@@ -31,6 +32,10 @@ bool fh_router_handle (struct fh_router *router, struct fh_conn *conn, const str
 
 bool fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn, const struct fh_request *request, struct fh_response *response);
 
+#define FH_ROUTE_CALL_ONCE 0x1
+
 #define FH_HANDLER_FILESYSTEM (&fh_router_handle_filesystem)
+
+#define FH_HANDLER_FILESYSTEM_FLAGS FH_ROUTE_CALL_ONCE
 
 #endif /* FH_ROUTER_H */

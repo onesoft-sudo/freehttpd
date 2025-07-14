@@ -28,6 +28,7 @@
 
 #include "conn.h"
 #include "http/protocol.h"
+#include "http/http1_response.h"
 #include "log/log.h"
 
 #ifdef HAVE_RESOURCES
@@ -57,6 +58,7 @@ fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const
 	conn->pool = pool;
 	conn->server_addr = server_addr;
 	conn->req_ctx = NULL;
+	conn->res_ctx = NULL;
 	conn->requests = (struct fh_requests *) (conn->stream + 1);
 	conn->extra = (struct fh_conn_extra *) (conn->requests + 1);
 	
@@ -81,6 +83,9 @@ fh_conn_destroy (struct fh_conn *conn)
 
 		r = r_next;
 	}
+
+	if (conn->res_ctx)
+		fh_pool_destroy (conn->res_ctx->pool);
 
 	pool_t *pool = conn->pool;
 	close (conn->client_sockfd);

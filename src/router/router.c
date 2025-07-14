@@ -6,6 +6,8 @@
 
 #include "core/conf.h"
 #include "core/conn.h"
+#include "http/http1_request.h"
+#include "http/http1_response.h"
 #include "log/log.h"
 #include "router.h"
 #include "utils/utils.h"
@@ -24,6 +26,7 @@ fh_router_init (struct fh_router *router, struct fh_server *server)
 		return false;
 
 	router->default_route->handler = FH_HANDLER_FILESYSTEM;
+	router->default_route->flags = FH_HANDLER_FILESYSTEM_FLAGS;
 	router->default_route->path = NULL;
 	router->server = server;
 	return true;
@@ -39,30 +42,66 @@ fh_router_free (struct fh_router *router)
 bool
 fh_router_handle (struct fh_router *router, struct fh_conn *conn, const struct fh_request *request)
 {
-	const char *path = request->uri;
-	struct fh_route *route = strtable_get (router->routes, path);
-	struct fh_response response = { 0 };
+	struct fh_route *route = NULL;
+	struct fh_http1_res_ctx *ctx = conn->res_ctx;
+	pool_t *child_pool = NULL;
+
+	if (!ctx)
+	{
+		child_pool = fh_pool_create (0);
+
+		if (!child_pool)
+		{
+			fh_server_close_conn (router->server, conn);
+			return true;
+		}
+
+		ctx = fh_http1_res_ctx_create (child_pool);
+
+		if (!ctx)
+		{
+			fh_server_close_conn (router->server, conn);
+			return true;
+		}
+	}
+
+	bool initial_call = !conn->res_ctx;
+
+	if (!conn->res_ctx)
+		conn->res_ctx = ctx;
 
 	if (!route)
 		route = router->default_route;
 
-	if (!route->handler (router, conn, request, &response))
+	if ((initial_call || route->flags & ~FH_ROUTE_CALL_ONCE))
 	{
+		if (!route->handler (router, conn, request, ctx->response))
+		{
+			fh_server_close_conn (router->server, conn);
+			return true;
+		}
+	}
+	
+	if (!fh_http1_send_response (ctx, conn))
+	{
+		fh_pr_err ("Failed to send response");
 		fh_server_close_conn (router->server, conn);
 		return true;
 	}
 
-	if (response.use_default_error_response)
+	if (ctx->state == FH_RES_STATE_DONE)
 	{
-		fh_conn_send_err_response (conn, response.status);
+		fh_pr_debug ("Response sent successfully");
 		fh_server_close_conn (router->server, conn);
 		return true;
 	}
 
-	/* TODO */
-	dprintf (conn->client_sockfd, "HTTP/1.1 %d %s\r\nServer: freehttpd\r\nContent-Length: 13\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nHello world!\n",
-			 response.status, fh_get_status_text (response.status, NULL));
-	fh_server_close_conn (router->server, conn);
+	if (would_block ())
+	{
+		fh_pr_debug ("Need to wait to send further data");
+		return true;
+	}
+
 	return true;
 }
 
@@ -77,10 +116,13 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn, con
 	int path_buf_len = 0;
 	size_t normalized_path_len = 0;
 
+	response->content_length = 0;
+
 	if (request->uri_len >= INT32_MAX
-		|| (path_buf_len = snprintf (path_buf, sizeof path_buf, "%s/%.*s", conn->config->host_config->docroot, (int) request->uri_len,
-					 request->uri))
-			   >= PATH_MAX || path_buf_len < 0) 
+		|| (path_buf_len = snprintf (path_buf, sizeof path_buf, "%s/%.*s", conn->config->host_config->docroot,
+									 (int) request->uri_len, request->uri))
+			   >= PATH_MAX
+		|| path_buf_len < 0)
 	{
 		fh_pr_debug ("Path too long");
 		response->status = FH_STATUS_REQUEST_URI_TOO_LONG;
@@ -98,5 +140,8 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn, con
 
 	fh_pr_debug ("Path: %s", normalized_path);
 	response->status = FH_STATUS_OK;
+
+	/* TODO */
+
 	return true;
 }

@@ -17,7 +17,10 @@
 
 noinst_LIBRARIES = libhttp.a
 libhttp_a_SOURCES = \
-	http1.c \
+	http1_request.c \
+	http1_request.h \
+	http1_response.c \
+	http1_response.h \
 	http1.h \
 	protocol.c \
 	protocol.h

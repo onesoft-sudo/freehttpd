@@ -332,6 +332,12 @@ struct fh_header *
 fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len, const char *value_format,
 				...)
 {
+	(void) pool;
+	(void) headers;
+	(void) name;
+	(void) name_len;
+	(void) value_format;
+
 	assert (false);
 	return NULL;
 }
@@ -340,4 +346,34 @@ void
 fh_headers_init (struct fh_headers *headers)
 {
 	memset (headers, 0, sizeof (*headers));
+}
+
+const char *
+fh_encoding_to_string (enum fh_encoding encoding, size_t *out_len)
+{
+	const char *out;
+	size_t len = 0;
+
+	switch (encoding)
+	{
+		case FH_ENCODING_PLAIN:
+			out = "plain";
+			len = 5;
+			break;
+
+		case FH_ENCODING_CHUNKED:
+			out = "chunked";
+			len = 7;
+			break;
+
+		default:
+			out = "unknown";
+			len = 7;
+			break;
+	}
+
+	if (out_len)
+		*out_len = len;
+
+	return out;
 }
