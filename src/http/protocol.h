@@ -123,7 +123,6 @@ struct fh_response
 
 	uint8_t protocol : 4;
 	uint8_t encoding : 4;
-	bool headers_sent : 1;
 	bool use_default_error_response : 1;
 
 	struct fh_headers *headers;

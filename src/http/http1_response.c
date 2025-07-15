@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/uio.h>
+#include <time.h>
 #include <unistd.h>
 
 #define FH_LOG_MODULE_NAME "http1/response"
@@ -45,20 +47,23 @@
 #define H1_RES_AGAIN 0x3
 #define H1_RES_WRITE(next_state) ((1 << 31) | (next_state))
 
-#define fh_prep_write(ctx, buf, len)                                                                                   \
-	(ctx)->buffer = (buf);                                                                                             \
-	(ctx)->buffer_len = (len);
+#define fh_prep_write(ctx, _iov, size, data_size)                                                                      \
+	(ctx)->iov = (_iov);                                                                                               \
+	(ctx)->iov_size = (size);                                                                                          \
+	(ctx)->iov_data_size = (data_size);
+
+static char default_date_header_value[64] = { 0 };
 
 static struct fh_header default_headers[] = {
 	{ .name = "Server", .name_len = 6, .value = "freehttpd", .value_len = 9 },
-	{ .name = "Content-Length", .name_len = 14, .value = "0", .value_len = 1 },
+	{ .name = "Date", .name_len = 4, .value = default_date_header_value, .value_len = 29 },
 	{ .name = "X-Thank-You", .name_len = 11, .value = "For using freehttpd!", .value_len = 20 },
 };
 
 static const size_t default_header_count = sizeof (default_headers) / sizeof (default_headers[0]);
-static struct fh_header *default_headers_tail = default_headers + 2;
-
+static struct fh_header *default_headers_tail = default_headers + (default_header_count - 1);
 static size_t default_headers_http_size = 0;
+static time_t last_date_header_update_time = 0;
 
 static void __attribute__ ((constructor))
 fh_default_headers_init (void)
@@ -70,25 +75,31 @@ fh_default_headers_init (void)
 	}
 }
 
-static inline char *
-fh_gen_res_header (char *h_buf, const char *name, size_t name_len, const char *value, size_t value_len, size_t max_len)
+__always_inline static inline size_t
+fh_add_header_iov (struct iovec *iov, size_t iov_index, const char *name, size_t name_len, const char *value,
+				   size_t value_len)
 {
-    if (max_len > 0 && 4 + name_len + value_len > max_len)
-    {
-        return NULL;
-    }
+	iov[iov_index++] = (struct iovec) {
+		.iov_base = (void *) name,
+		.iov_len = name_len,
+	};
 
-	memcpy (h_buf, name, name_len);
-	h_buf += name_len;
-	*h_buf = ':';
-	*(h_buf + 1) = ' ';
-	h_buf += 2;
-	memcpy (h_buf, value, value_len);
-	h_buf += value_len;
-	*h_buf = '\r';
-	*(h_buf + 1) = '\n';
-	h_buf += 2;
-	return h_buf;
+	iov[iov_index++] = (struct iovec) {
+		.iov_base = ": ",
+		.iov_len = 2,
+	};
+
+	iov[iov_index++] = (struct iovec) {
+		.iov_base = (void *) value,
+		.iov_len = value_len,
+	};
+
+	iov[iov_index++] = (struct iovec) {
+		.iov_base = "\r\n",
+		.iov_len = 2,
+	};
+
+	return iov_index;
 }
 
 struct fh_http1_res_ctx *
@@ -101,13 +112,72 @@ fh_http1_res_ctx_create (pool_t *pool)
 
 	ctx->response = (struct fh_response *) (ctx + 1);
 	ctx->pool = pool;
-	ctx->buffer_len = 0;
-	ctx->header_buffer = NULL;
-	ctx->header_buffer_len = 0;
+	ctx->iov = NULL;
+	ctx->iov_size = 0;
+	ctx->iov_data_size = 0;
 	ctx->state = FH_RES_STATE_HEADERS;
 	ctx->response->headers = NULL;
+	ctx->response->content_length = 0;
 
 	return ctx;
+}
+
+__always_inline static inline void
+fh_update_date_header_value (time_t now)
+{
+	struct tm gmt_tm;
+	const char *months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+	const char *days[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+
+	gmtime_r (&now, &gmt_tm);
+	snprintf (default_date_header_value, sizeof (default_date_header_value), "%3s, %02d %3s %04d %02d:%02d:%02d GMT",
+			  days[gmt_tm.tm_wday], gmt_tm.tm_mday, months[gmt_tm.tm_mon], gmt_tm.tm_year + 1900, gmt_tm.tm_hour,
+			  gmt_tm.tm_min, gmt_tm.tm_sec);
+}
+
+__always_inline static inline void
+fh_update_static_headers (void)
+{
+	time_t now = time (NULL);
+
+	if (now != last_date_header_update_time)
+	{
+		fh_update_date_header_value (now);
+		last_date_header_update_time = now;
+	}
+}
+
+__always_inline static inline bool
+fh_add_misc_headers (struct fh_response *response, struct iovec *iov, size_t *iov_index_ptr, bool set_transfer_encoding)
+{
+	size_t iov_index = *iov_index_ptr;
+
+	if (set_transfer_encoding)
+	{
+		size_t encoding_len = 0;
+		const char *transfer_encoding = fh_encoding_to_string (response->encoding, &encoding_len);
+		fh_add_header_iov (iov, iov_index, "Transfer-Encoding", 17, transfer_encoding, encoding_len);
+		iov_index += 4;
+	}
+	else
+	{
+		static char content_length[64] = "0";
+		int content_length_len = 1;
+
+		if (response->content_length)
+		{
+			content_length_len = snprintf (content_length, sizeof content_length, "%lu", response->content_length);
+
+			if (content_length_len < 0)
+				return false;
+		}
+
+		fh_add_header_iov (iov, iov_index, "Content-Length", 14, content_length, (size_t) content_length_len);
+		iov_index += 4;
+	}
+
+	*iov_index_ptr = iov_index;
+	return true;
 }
 
 static unsigned int
@@ -116,46 +186,53 @@ fh_res_send_headers (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 	(void) conn;
 
 	struct fh_response *response = ctx->response;
+	struct fh_headers *headers = response->headers;
+	const bool set_transfer_encoding = response->encoding != FH_ENCODING_PLAIN;
+	const size_t generated_header_count = 1 + (set_transfer_encoding ? 1 : 0);
+	const size_t header_count = (headers ? headers->count : 0) + default_header_count + generated_header_count;
 	size_t status_text_len = 0;
 	const char *status_text = fh_get_status_text (response->status, &status_text_len);
-	const struct fh_headers *headers = response->headers;
 	const size_t status_line_len = 8 + 1 + 3 + 1 + status_text_len + 2;
-	const size_t total_http1_size = (headers == NULL ? 0 : headers->total_http1_size) + default_headers_http_size;
-	const size_t buf_size = ctx->header_buffer_len ? ctx->header_buffer_len : (status_line_len + total_http1_size);
-	char *buf = ctx->header_buffer ? (char *) ctx->header_buffer : fh_pool_alloc (ctx->pool, buf_size);
+	const size_t iov_count = (4 * header_count) + 2;
+	size_t iov_index = 0;
+	struct iovec *iov = fh_pool_alloc (ctx->pool, (sizeof (struct iovec) * iov_count) + status_line_len + 1);
 
-	if (!buf)
+	if (!iov)
 		return H1_RES_ERR;
 
-	if (!ctx->header_buffer)
-	{
-		ctx->header_buffer = (uint8_t *) buf;
-		ctx->header_buffer_len = buf_size;
-	}
+	const size_t total_data_size
+		= status_line_len + default_headers_http_size + (headers ? headers->total_http1_size : 0) + 2;
+	char *status_line_buf = (char *) (iov + iov_count);
 
-	size_t len = status_line_len + total_http1_size;
-
-	if (snprintf (buf, status_line_len, "HTTP/1.%c %3u %s\r\n", response->protocol == FH_PROTOCOL_HTTP_1_0 ? '0' : '1',
-				  response->status, status_text)
+	if (snprintf (status_line_buf, status_line_len + 1, "HTTP/1.%c %3u %s\r\n",
+				  response->protocol == FH_PROTOCOL_HTTP_1_0 ? '0' : '1', response->status, status_text)
 		< 0)
 		return H1_RES_ERR;
 
-	buf[status_line_len - 1] = '\n';
-	char *h_buf = buf + status_line_len;
+	iov[iov_index++] = (struct iovec) {
+		.iov_base = status_line_buf,
+		.iov_len = status_line_len,
+	};
+
+	fh_update_static_headers ();
 
 	if (headers)
 		default_headers_tail->next = headers->head;
 
-	for (struct fh_header *h = default_headers; h; h = h->next)
-		h_buf = fh_gen_res_header (h_buf, h->name, h->name_len, h->value, h->value_len, 0);
+	for (struct fh_header *h = default_headers; h; h = h->next, iov_index += 4)
+	{
+		fh_add_header_iov (iov, iov_index, h->name, h->name_len, h->value, h->value_len);
+	}
 
-	default_headers_tail->next = NULL;
-	assert ((size_t) (h_buf - buf) == buf_size && "Invalid write operations performed");
-
-	if (!buf)
+	if (!fh_add_misc_headers (response, iov, &iov_index, set_transfer_encoding))
 		return H1_RES_ERR;
 
-	fh_prep_write (ctx, (const uint8_t *) buf, len);
+	iov[iov_index++] = (struct iovec) {
+		.iov_base = "\r\n",
+		.iov_len = 2,
+	};
+
+	fh_prep_write (ctx, iov, iov_count, total_data_size);
 	return H1_RES_WRITE (FH_RES_STATE_BODY);
 }
 
@@ -164,8 +241,12 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 {
 	(void) conn;
 
-	fh_prep_write (ctx, (const uint8_t *) "\r\n", 2);
-	return H1_RES_WRITE (FH_RES_STATE_DONE);
+	struct fh_response *response = ctx->response;
+
+	(void) response;
+
+	fh_pr_debug ("Reached body");
+	return H1_RES_DONE;
 }
 
 static unsigned int
@@ -175,7 +256,7 @@ fh_res_write_data (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 
 	for (;;)
 	{
-		ssize_t wrote = write (sockfd, ctx->buffer, ctx->buffer_len);
+		ssize_t wrote = writev (sockfd, ctx->iov, ctx->iov_size);
 
 		if (wrote < 1)
 		{
@@ -190,17 +271,38 @@ fh_res_write_data (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 
 		fh_pr_debug ("Wrote %zu bytes", (size_t) wrote);
 
-		if (((size_t) wrote) >= ctx->buffer_len)
+		if (((size_t) wrote) >= ctx->iov_data_size)
 		{
-			ctx->buffer_len = 0;
-			ctx->buffer = NULL;
+			ctx->iov_data_size = 0;
+			ctx->iov = NULL;
 			ctx->state = ctx->next_state;
 			return H1_RES_NEXT;
 		}
 		else
 		{
-			ctx->buffer += (size_t) wrote;
-			ctx->buffer_len -= (size_t) wrote;
+			ctx->iov_data_size -= (size_t) wrote;
+			size_t size = (size_t) wrote;
+
+			while (size > 0)
+			{
+				if (ctx->iov_size && ctx->iov->iov_len < size)
+				{
+					size -= ctx->iov->iov_len;
+					ctx->iov++;
+					ctx->iov_size--;
+					fh_pr_debug ("Removed 1 iovec");
+					continue;
+				}
+
+				if (!ctx->iov_size)
+					break;
+
+				ctx->iov->iov_len -= size;
+				ctx->iov->iov_base = (void *) (((char *) ctx->iov->iov_base) + size);
+				size = 0;
+				fh_pr_debug ("Adjusted 1 iovec");
+				break;
+			}
 		}
 	}
 }
@@ -222,7 +324,7 @@ fh_http1_send_response (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 				rc = fh_res_send_body (ctx, conn);
 				break;
 
-			case H1_RES_STATE_WRITE:
+			case FH_RES_STATE_WRITE:
 				rc = fh_res_write_data (ctx, conn);
 				break;
 
@@ -246,7 +348,7 @@ fh_http1_send_response (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 		if (rc >> 31)
 		{
 			ctx->next_state = rc & 0xFFFF;
-			ctx->state = H1_RES_STATE_WRITE;
+			ctx->state = FH_RES_STATE_WRITE;
 			continue;
 		}
 

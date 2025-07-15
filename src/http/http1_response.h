@@ -16,7 +16,7 @@ enum fh_http1_res_state
     FH_RES_STATE_BODY,
     FH_RES_STATE_ERROR,
     FH_RES_STATE_DONE,
-    H1_RES_STATE_WRITE
+    FH_RES_STATE_WRITE
 };
 
 struct fh_http1_res_ctx
@@ -24,10 +24,8 @@ struct fh_http1_res_ctx
     pool_t *pool;
     uint8_t state : 4;
     uint8_t next_state : 4;
-    const uint8_t *buffer;
-    size_t buffer_len;
-    uint8_t *header_buffer;
-    size_t header_buffer_len;
+    struct iovec *iov;
+    size_t iov_size, iov_data_size;
     struct fh_link *link;
     struct fh_response *response;
 };
