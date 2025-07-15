@@ -124,7 +124,7 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
 	int path_buf_len = 0;
 	size_t normalized_path_len = 0;
 
-	response->content_length = 0;
+	response->use_default_error_response = true;
 
 	if (request->uri_len >= INT32_MAX
 		|| (path_buf_len = snprintf (path_buf, sizeof path_buf, "%s/%.*s",
@@ -147,20 +147,25 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
 		return true;
 	}
 
+	/* At this point, we have successfully normalized the file path under the
+	 * docroot. */
 	fh_pr_debug ("Path: %s", normalized_path);
-	response->status = FH_STATUS_OK;
 
 	fd_t fd = open (normalized_path, O_RDONLY);
 
 	if (fd < 0)
-		return false;
+	{
+		response->status = errno == ENOENT ? FH_STATUS_NOT_FOUND : (errno == EACCES || errno == EPERM) ? FH_STATUS_FORBIDDEN : FH_STATUS_INTERNAL_SERVER_ERROR;
+		return true;
+	}
 
 	struct stat64 st;
 
 	if (fstat64 (fd, &st) < 0)
 	{
+		response->status = errno == ENOENT ? FH_STATUS_NOT_FOUND : (errno == EACCES || errno == EPERM) ? FH_STATUS_FORBIDDEN : FH_STATUS_INTERNAL_SERVER_ERROR;
 		close (fd);
-		return false;
+		return true;
 	}
 
 	response->body_start = fh_pool_alloc (
@@ -168,8 +173,9 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
 
 	if (!response->body_start)
 	{
+		response->status = FH_STATUS_INTERNAL_SERVER_ERROR;
 		close (fd);
-		return false;
+		return true;
 	}
 
 	response->body_start->buf = (struct fh_buf *) (response->body_start + 1);
@@ -181,9 +187,11 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
 	buf->file_len = st.st_size;
 
 	response->body_start->next = NULL;
-	response->body_start->is_eos = true;	
+	response->body_start->is_eos = true;
 	response->content_length = st.st_size;
-	
+	response->use_default_error_response = false;
+	response->status = FH_STATUS_OK;
+
 	fh_pr_debug ("Successfully generated response");
 	return true;
 }

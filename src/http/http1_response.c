@@ -45,6 +45,10 @@
 #include "utils/strutils.h"
 #include "utils/utils.h"
 
+#ifdef HAVE_RESOURCES
+	#include "resources.h"
+#endif /* HAVE_RESOURCES */
+
 #define H1_RES_NEXT 0x0
 #define H1_RES_ERR 0x1
 #define H1_RES_DONE 0x2
@@ -59,15 +63,30 @@
 static char default_date_header_value[64] = { 0 };
 
 static struct fh_header default_headers[] = {
-	{ .name = "Server", .name_len = 6, .value = "freehttpd", .value_len = 9 },
-	{ .name = "Date",
-	  .name_len = 4,
-	  .value = default_date_header_value,
-	  .value_len = 29 },
-	{ .name = "X-Thank-You",
-	  .name_len = 11,
-	  .value = "For using freehttpd!",
-	  .value_len = 20 },
+	{
+		.name = "Server",
+		.name_len = 6,
+		.value = "freehttpd",
+		.value_len = 9,
+	},
+	{
+		.name = "Date",
+		.name_len = 4,
+		.value = default_date_header_value,
+		.value_len = 29,
+	},
+	{
+		.name = "Connection",
+		.name_len = 10,
+		.value = "close",
+		.value_len = 5,
+	},
+	{
+		.name = "X-Thank-You",
+		.name_len = 11,
+		.value = "For using freehttpd!",
+		.value_len = 20,
+	},
 };
 
 static const size_t default_header_count
@@ -76,6 +95,16 @@ static struct fh_header *default_headers_tail
 	= default_headers + (default_header_count - 1);
 static size_t default_headers_http_size = 0;
 static time_t last_date_header_update_time = 0;
+
+static struct fh_buf default_error_response_buf = {
+	.type = FH_BUF_DATA,
+};
+static struct fh_link default_error_response_link = {
+	.buf = &default_error_response_buf,
+	.is_eos = true,
+	.is_start = false,
+	.next = NULL,
+};
 
 static void __attribute__ ((constructor))
 fh_default_headers_init (void)
@@ -224,6 +253,47 @@ fh_add_misc_headers (struct fh_response *response, struct iovec *iov,
 	return true;
 }
 
+__always_inline static inline bool
+fh_use_default_error_response (struct fh_http1_res_ctx *ctx,
+							   struct fh_conn *conn,
+							   struct fh_response *response)
+{
+	size_t status_text_len = 0;
+	size_t description_len = 0;
+	const char *status_text
+		= fh_get_status_text (response->status, &status_text_len);
+	const char *description
+		= fh_get_status_description (response->status, &description_len);
+	uint16_t port = conn->extra->port;
+	const char *host = conn->extra->host;
+	size_t host_len = conn->extra->host_len;
+	size_t buf_len = resource_error_html_len - 16 + (status_text_len * 2)
+					 + (3 * 2) + description_len
+					 + (port < 10	   ? 1
+						: port < 100   ? 2
+						: port < 1000  ? 3
+						: port < 10000 ? 4
+									   : 5)
+					 + host_len;
+	char *data = fh_pool_alloc (ctx->pool, buf_len + 1);
+
+	if (!data)
+		return false;
+
+	if (snprintf (data, buf_len + 1, resource_error_html, response->status,
+				  status_text, response->status, status_text, description,
+				  (int) host_len, host, port)
+		< 0)
+		return false;
+
+	default_error_response_buf.data = (uint8_t *) data;
+	default_error_response_buf.len = buf_len;
+	default_error_response_buf.cap = buf_len;
+	response->content_length = buf_len;
+
+	return true;
+}
+
 static unsigned int
 fh_res_send_headers (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 {
@@ -263,6 +333,12 @@ fh_res_send_headers (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 		.iov_len = status_line_len,
 	};
 
+	if (response->use_default_error_response)
+	{
+		if (!fh_use_default_error_response (ctx, conn, response))
+			return H1_RES_ERR;
+	}
+
 	fh_update_static_headers ();
 
 	if (headers)
@@ -292,10 +368,12 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 	fd_t sockfd = conn->client_sockfd;
 	struct fh_response *response = ctx->response;
 
-	if (!response->content_length)
+	if (!response->use_default_error_response && !response->content_length)
 		return H1_RES_DONE;
 
-	struct fh_link *link = response->body_start;
+	struct fh_link *link = response->use_default_error_response
+							   ? &default_error_response_link
+							   : response->body_start;
 
 	if (!link)
 	{
