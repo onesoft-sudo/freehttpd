@@ -9,7 +9,7 @@ AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-ColumnLimit: 120
+ColumnLimit: 80
 SortIncludes: true
 BasedOnStyle: GNU
 IndentGotoLabels: true

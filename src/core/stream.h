@@ -20,9 +20,16 @@
 #ifndef FH_CORE_STREAM_H
 #define FH_CORE_STREAM_H
 
+#define _GNU_SOURCE
+
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdbool.h>
+#include <sys/types.h>
+#include <sys/sendfile.h>
+
+#undef _GNU_SOURCE
 
 #include "types.h"
 #include "mm/pool.h"
@@ -41,7 +48,7 @@ struct fh_buf
 	union {
 		struct {
 			fd_t file_fd;
-			size_t file_start;
+			loff_t file_off;
 			size_t file_len;
 		};
 

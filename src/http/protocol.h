@@ -24,8 +24,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "types.h"
 #include "mm/pool.h"
+#include "types.h"
 
 struct fh_conn;
 
@@ -119,6 +119,7 @@ struct fh_request
 
 struct fh_response
 {
+	pool_t *pool;
 	uint16_t status;
 
 	uint8_t protocol : 4;
@@ -127,6 +128,8 @@ struct fh_response
 
 	struct fh_headers *headers;
 	uint64_t content_length;
+
+	struct fh_link *body_start;
 };
 
 const char *fh_protocol_to_string (enum fh_protocol protocol);
@@ -142,9 +145,11 @@ const char *fh_get_status_description (enum fh_status code, size_t *len_ptr);
 const char *fh_encoding_to_string (enum fh_encoding encoding, size_t *out_len);
 
 void fh_headers_init (struct fh_headers *headers);
-struct fh_header *fh_header_add (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len,
+struct fh_header *fh_header_add (pool_t *pool, struct fh_headers *headers,
+								 const char *name, size_t name_len,
 								 const char *value, size_t value_len);
-struct fh_header *fh_header_addf (pool_t *pool, struct fh_headers *headers, const char *name, size_t name_len,
+struct fh_header *fh_header_addf (pool_t *pool, struct fh_headers *headers,
+								  const char *name, size_t name_len,
 								  const char *value_format, ...);
 
 #endif /* FH_PROTOCOL_H */

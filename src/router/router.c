@@ -1,6 +1,12 @@
+#define _GNU_SOURCE
+
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define FH_LOG_MODULE_NAME "router"
 
@@ -40,7 +46,8 @@ fh_router_free (struct fh_router *router)
 }
 
 bool
-fh_router_handle (struct fh_router *router, struct fh_conn *conn, const struct fh_request *request)
+fh_router_handle (struct fh_router *router, struct fh_conn *conn,
+				  const struct fh_request *request)
 {
 	struct fh_route *route = NULL;
 	struct fh_http1_res_ctx *ctx = conn->res_ctx;
@@ -81,7 +88,7 @@ fh_router_handle (struct fh_router *router, struct fh_conn *conn, const struct f
 			return true;
 		}
 	}
-	
+
 	if (!fh_http1_send_response (ctx, conn))
 	{
 		fh_pr_err ("Failed to send response");
@@ -106,7 +113,8 @@ fh_router_handle (struct fh_router *router, struct fh_conn *conn, const struct f
 }
 
 bool
-fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn, const struct fh_request *request,
+fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
+							 const struct fh_request *request,
 							 struct fh_response *response)
 {
 	(void) router;
@@ -119,7 +127,8 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn, con
 	response->content_length = 0;
 
 	if (request->uri_len >= INT32_MAX
-		|| (path_buf_len = snprintf (path_buf, sizeof path_buf, "%s/%.*s", conn->config->host_config->docroot,
+		|| (path_buf_len = snprintf (path_buf, sizeof path_buf, "%s/%.*s",
+									 conn->config->host_config->docroot,
 									 (int) request->uri_len, request->uri))
 			   >= PATH_MAX
 		|| path_buf_len < 0)
@@ -141,7 +150,40 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn, con
 	fh_pr_debug ("Path: %s", normalized_path);
 	response->status = FH_STATUS_OK;
 
-	/* TODO */
+	fd_t fd = open (normalized_path, O_RDONLY);
 
+	if (fd < 0)
+		return false;
+
+	struct stat64 st;
+
+	if (fstat64 (fd, &st) < 0)
+	{
+		close (fd);
+		return false;
+	}
+
+	response->body_start = fh_pool_alloc (
+		response->pool, sizeof (struct fh_link) + sizeof (struct fh_buf));
+
+	if (!response->body_start)
+	{
+		close (fd);
+		return false;
+	}
+
+	response->body_start->buf = (struct fh_buf *) (response->body_start + 1);
+	struct fh_buf *buf = response->body_start->buf;
+
+	buf->type = FH_BUF_FILE;
+	buf->file_fd = fd;
+	buf->file_off = 0;
+	buf->file_len = st.st_size;
+
+	response->body_start->next = NULL;
+	response->body_start->is_eos = true;	
+	response->content_length = st.st_size;
+	
+	fh_pr_debug ("Successfully generated response");
 	return true;
 }

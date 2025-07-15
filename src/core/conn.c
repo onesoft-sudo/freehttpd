@@ -27,8 +27,8 @@
 #define FH_LOG_MODULE_NAME "conn"
 
 #include "conn.h"
-#include "http/protocol.h"
 #include "http/http1_response.h"
+#include "http/protocol.h"
 #include "log/log.h"
 
 #ifdef HAVE_RESOURCES
@@ -38,15 +38,17 @@
 static object_id_t next_conn_id = 0;
 
 struct fh_conn *
-fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const struct sockaddr_in *server_addr)
+fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr,
+				const struct sockaddr_in *server_addr)
 {
 	pool_t *pool = fh_pool_create (0);
 
 	if (!pool)
 		return NULL;
 
-	struct fh_conn *conn = fh_pool_alloc (pool, sizeof (*conn) + sizeof (*client_addr) + sizeof (*conn->stream)
-													+ sizeof (*conn->requests) + sizeof (*conn->extra));
+	struct fh_conn *conn = fh_pool_alloc (
+		pool, sizeof (*conn) + sizeof (*client_addr) + sizeof (*conn->stream)
+				  + sizeof (*conn->requests) + sizeof (*conn->extra));
 
 	if (!conn)
 		return NULL;
@@ -61,8 +63,9 @@ fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const
 	conn->res_ctx = NULL;
 	conn->requests = (struct fh_requests *) (conn->stream + 1);
 	conn->extra = (struct fh_conn_extra *) (conn->requests + 1);
-	
-	memset (conn->requests, 0, sizeof (*conn->requests) + sizeof (*conn->extra));
+
+	memset (conn->requests, 0,
+			sizeof (*conn->requests) + sizeof (*conn->extra));
 	return conn;
 }
 
@@ -85,7 +88,10 @@ fh_conn_destroy (struct fh_conn *conn)
 	}
 
 	if (conn->res_ctx)
+	{
+		fh_http1_res_ctx_clean (conn->res_ctx);
 		fh_pool_destroy (conn->res_ctx->pool);
+	}
 
 	pool_t *pool = conn->pool;
 	close (conn->client_sockfd);
@@ -132,27 +138,31 @@ fh_conn_send_err_response (struct fh_conn *conn, enum fh_status code)
 {
 	size_t status_text_len = 0, description_len = 0;
 	const char *status_text = fh_get_status_text (code, &status_text_len);
-	const char *description = fh_get_status_description (code, &description_len);
-	const size_t host_len = conn->extra->host_len < INT32_MAX ? conn->extra->host_len : INT32_MAX;
+	const char *description
+		= fh_get_status_description (code, &description_len);
+	const size_t host_len
+		= conn->extra->host_len < INT32_MAX ? conn->extra->host_len : INT32_MAX;
 	const size_t port_len = conn->extra->port < 10		? 1
 							: conn->extra->port < 100	? 2
 							: conn->extra->port < 1000	? 3
 							: conn->extra->port < 10000 ? 4
 														: 5;
-	const size_t response_len = resource_error_html_len - (2 * 7) - 2 + (2 * 3) + (2 * status_text_len) + description_len
+	const size_t response_len = resource_error_html_len - (2 * 7) - 2 + (2 * 3)
+								+ (2 * status_text_len) + description_len
 								+ host_len + port_len;
 	int rc;
 
-	rc = dprintf (
-		conn->client_sockfd,
-		"HTTP/1.1 %d %s\r\nServer: freehttpd\r\nContent-Length: %zu\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n",
-		code, status_text, response_len);
+	rc = dprintf (conn->client_sockfd,
+				  "HTTP/1.1 %d %s\r\nServer: freehttpd\r\nContent-Length: "
+				  "%zu\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n",
+				  code, status_text, response_len);
 
 	if (rc < 0)
 		return false;
 
-	rc = dprintf (conn->client_sockfd, resource_error_html, code, status_text, code, status_text, description,
-				  (int) host_len, conn->extra->host, conn->extra->port);
+	rc = dprintf (conn->client_sockfd, resource_error_html, code, status_text,
+				  code, status_text, description, (int) host_len,
+				  conn->extra->host, conn->extra->port);
 
 	return rc >= 0;
 }
