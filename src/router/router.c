@@ -70,6 +70,8 @@ fh_router_handle (struct fh_router *router, struct fh_conn *conn,
 			fh_server_close_conn (router->server, conn);
 			return true;
 		}
+
+		ctx->response->protocol = request->protocol;
 	}
 
 	bool initial_call = !conn->io_ctx.h1.res_ctx;
