@@ -23,7 +23,7 @@ struct fh_router
 {
 	struct fh_server *server;
 	/* (const char *) => (struct fh_route *) */
-	struct strtable *routes;
+	struct strtable *static_routes;
 	struct fh_route *default_route;
 };
 

@@ -26,9 +26,9 @@ fh_router_init (struct fh_router *router, struct fh_server *server)
 	if (!router->default_route)
 		return false;
 
-	router->routes = strtable_create (0);
+	router->static_routes = strtable_create (0);
 
-	if (!router->routes)
+	if (!router->static_routes)
 		return false;
 
 	router->default_route->handler = FH_HANDLER_FILESYSTEM;
@@ -42,7 +42,7 @@ void
 fh_router_free (struct fh_router *router)
 {
 	free (router->default_route);
-	strtable_destroy (router->routes);
+	strtable_destroy (router->static_routes);
 }
 
 bool
