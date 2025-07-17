@@ -271,6 +271,7 @@ fh_autoindex_handle_chunked (struct fh_autoindex *autoindex)
 				  "</tr>\r\n";
 
 			link->buf = (struct fh_buf *) (link + 1);
+			link->buf->type = FH_BUF_DATA;
 			link->buf->attrs.mem.data = (uint8_t *) data;
 			link->buf->attrs.mem.cap = link->buf->attrs.mem.len
 				= sizeof (data) - 1;
@@ -510,7 +511,6 @@ fh_autoindex_handle_plain (struct fh_autoindex *autoindex)
 			}
 
 			link->buf = (struct fh_buf *) (link + 1);
-			link->buf->type = FH_BUF_DATA;
 			link->buf->attrs.mem.data = (uint8_t *) data;
 			link->buf->attrs.mem.len = link->buf->attrs.mem.cap
 				= sizeof (data) - 1;
@@ -563,6 +563,7 @@ fh_autoindex_handle_plain (struct fh_autoindex *autoindex)
 			content_length += entry_len;
 		}
 
+		link->buf->type = FH_BUF_DATA;
 		link->is_eos = false;
 		link->is_start = false;
 
