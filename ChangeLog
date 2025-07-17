@@ -1,4 +1,337 @@
+17-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] ci: fix benchmarking issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: fix benchmarking issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix(autoindex): uninitialized memory usage
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(autoindex): both http/1.0 plain and http/1.1 chunked encoding support
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: generate chunk sizes dynamically
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: fix benchmarks
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: choose protocols correctly
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(modules): autoindex.c
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: correctly handle other HTTP methods
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: rename route struct members
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: port back to c99
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+15-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: error pages and better static routing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: static routing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: finalizing header writing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+14-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] chore: update todos
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: aggressively optimized http1.x response sending and generation
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+13-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] test: fix tests for path.c
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: router with different handlers
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+12-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] build: use automake option to put .info files in builddir
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: send error handler does not free sockfds correctly
+         
+
+11-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: error responses
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix debug builds
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] tests: benchmark end signal set to SIGTERM
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: fix workflows
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] tests: benchmark end signal set to SIGKILL
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix manpage installation
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: ensure siege is available
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] tests: fix benchmarking logic
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+10-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] man: separate man pages
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix texlive issues
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: ignore output files
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: finalize http1 parser
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: finalize http1 parser
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: add initial docs
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+09-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] refactor(http1): better parsing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: http1.c
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+08-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] style: add license comments
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: include missing files in dist
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: use rapidhashMicro
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add rapidhash.h
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: correct bugs and add proper tests in modules
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(digest): base64.c
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(http1): header parsing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+07-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat(http1): partial http1 header parsing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: request-line parsing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+05-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: http1 parser
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+03-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: connections
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+02-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat(events): accept.c
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: config loading
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+01-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: basic log and master instance
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: cleanup
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] style: add license comments
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(mm): pool_alloc optimizations
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+30-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] fix: better space management
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: rename structs
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat: ready for http parsing
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+29-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: re-implement basic event loop
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] feat(event): accept.c
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
 28-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] chore: fix test builds
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] merge: branch 'main' of github.com:onesoft-sudo/freehttpd
+         
+
+     [*] refactor: subdirectories
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
 
      [*] fix: missing includes
          
@@ -6,6 +339,13 @@
          
 
      [*] feat(mm): hierarchy-based memory pools
+         
+
+28-06-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v1.3.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
          
 
 27-06-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
