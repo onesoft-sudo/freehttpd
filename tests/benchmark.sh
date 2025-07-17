@@ -25,7 +25,7 @@ fi
 
 pid=$!
 
-trap 'kill -0 $pid > /dev/null 2>&1 && kill -9 $pid' EXIT
+trap 'kill -0 $pid > /dev/null 2>&1 && kill -9 $pid && ps aux | grep freehttpd | awk "{ print \$2 }" | xargs kill -9' EXIT
 trap "exit 1" INT TERM
 
 echo "Starting stress test in 2 seconds..."
@@ -41,6 +41,7 @@ fi
 echo "Benchmark completed successfully"
 
 kill -9 $pid
+ps aux | grep freehttpd | awk "{ print \$2 }" | xargs kill -9
 wait $pid
 
 echo "Benchmark completed successfully"

@@ -34,10 +34,10 @@ pool_test_helper_SOURCES = pool.test.c $(top_srcdir)/src/mm/pool.c $(top_srcdir)
 EXTRA_DIST = $(TESTS)
 
 check-valgrind-benchmark:
-	BINDIR=$(bindir) $(SHELL) valgrind-benchmark.sh
+	BINDIR=$(top_srcdir)/src $(SHELL) valgrind-benchmark.sh
 
 check-benchmark:
-	BINDIR=$(bindir) $(SHELL) benchmark.sh
+	BINDIR=$(top_srcdir)/src $(SHELL) benchmark.sh
 
 .PHONY: check-valgrind-benchmark check-benchmark
 
