@@ -64,7 +64,7 @@ fh_worker_setup_signal (void)
 	act.sa_handler = SIG_IGN;
 	sigemptyset (&act.sa_mask);
 
-	return sigaction (SIGHUP, &act, NULL) == 0;
+	return sigaction (SIGHUP, &act, NULL) == 0 && sigaction (SIGPIPE, &act, NULL) == 0;
 }
 
 _noreturn void 

@@ -1,6 +1,7 @@
 TODOs for freehttpd
 ===================
 
+* http1_request.c: parse query strings
 * server: use writev and sendfile for fast I/O
 * server: default index file
 * autoindex: parent directory link icon

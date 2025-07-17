@@ -16,8 +16,8 @@
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
 RESOURCES = index_start.html index_end.html error.html
-CLEANFILE = resources.c resources.h
 BUILT_SOURCES = resources.c resources.h
+CLEANFILES = $(BUILT_SOURCES)
 
 EXTRA_DIST = \
 	$(RESOURCES) \
@@ -75,4 +75,3 @@ resources.h: $(RESOURCES)
 
 clean-local:
 	rm -rf .deps
-	rm -f $(CLEANFILE)
