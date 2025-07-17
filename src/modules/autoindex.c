@@ -19,8 +19,22 @@
 #include "autoindex.h"
 #include "log/log.h"
 
-bool
-fh_autoindex_handle (struct fh_autoindex *autoindex)
+static struct fh_link end_chunk_link = {
+	.is_eos = true,
+	.is_start = false,
+	.next = NULL,
+	.buf = & (struct fh_buf) {
+		.type = FH_BUF_DATA,
+		.freeable = false,
+		.attrs.mem.cap = 5,
+		.attrs.mem.len = 5,
+		.attrs.mem.rd_only = true,
+		.attrs.mem.data = (uint8_t *) "0\r\n\r\n", 
+	},
+};
+
+static bool
+fh_autoindex_handle_chunked (struct fh_autoindex *autoindex)
 {
 	const struct fh_request *request = autoindex->request;
 	struct fh_response *response = autoindex->response;
@@ -43,8 +57,8 @@ fh_autoindex_handle (struct fh_autoindex *autoindex)
 	pool_t *pool = autoindex->response->pool;
 	uint16_t port = autoindex->conn->extra->port;
 	size_t index_start_chunk_len
-		= resource_index_start_html_len - 23 + (3 * request->uri_len);
-	size_t index_end_chunk_len = resource_index_end_html_len - 17
+		= resource_index_start_html_len - 12 + (3 * request->uri_len);
+	size_t index_end_chunk_len = resource_index_end_html_len - 6
 								 + autoindex->conn->extra->host_len
 								 + (port < 10	   ? 1
 									: port < 100   ? 2
@@ -56,12 +70,10 @@ fh_autoindex_handle (struct fh_autoindex *autoindex)
 	size_t index_end_len = index_end_chunk_len + 32 + 4;
 
 	struct fh_link *end_link;
-	struct fh_link *end_chunk_link;
-	struct fh_link *start_link = fh_pool_alloc (
-		pool,
-		(sizeof (*start_link) + sizeof (*start_link->buf) + index_start_len + 1
-		 + sizeof (*end_link) + sizeof (*end_link->buf) + index_end_len + 1
-		 + sizeof (*end_chunk_link) + sizeof (*end_chunk_link->buf)));
+	struct fh_link *start_link
+		= fh_pool_alloc (pool, (sizeof (*start_link) + sizeof (*start_link->buf)
+								+ index_start_len + 1 + sizeof (*end_link)
+								+ sizeof (*end_link->buf) + index_end_len + 1));
 
 	if (!start_link)
 	{
@@ -83,44 +95,57 @@ fh_autoindex_handle (struct fh_autoindex *autoindex)
 	end_link->next = NULL;
 	end_link->is_eos = false;
 
-	end_chunk_link = (struct fh_link *) (end_link->buf->attrs.mem.data
-										 + index_end_len + 1);
-	end_chunk_link->buf = (struct fh_buf *) (end_chunk_link + 1);
-	end_chunk_link->buf->attrs.mem.data = (uint8_t *) "0\r\n\r\n";
-	end_chunk_link->buf->type = FH_BUF_DATA;
-	end_chunk_link->buf->attrs.mem.cap = end_chunk_link->buf->attrs.mem.len = 5;
-	end_chunk_link->next = NULL;
-	end_chunk_link->is_eos = true;
-	end_chunk_link->buf->attrs.mem.rd_only = true;
+	end_chunk_link.buf->attrs.mem.data = (uint8_t *) "0\r\n\r\n";
+	end_chunk_link.buf->attrs.mem.cap = end_chunk_link.buf->attrs.mem.len = 5;
 
-	int rc;
+	int rc1, rc2;
 
-	if ((rc = snprintf (
-			 (char *) start_link->buf->attrs.mem.data, index_start_len + 1,
-			 resource_index_start_html, index_start_chunk_len, '\r', '\n',
-			 (int) request->uri_len, request->uri, (int) request->uri_len,
-			 request->uri, (int) request->uri_len, request->uri, '\r', '\n'))
+	if ((rc1 = snprintf ((char *) start_link->buf->attrs.mem.data, 34,
+						 "%zx\r\n", index_start_chunk_len))
 		< 0)
 	{
 		response->status = FH_STATUS_INTERNAL_SERVER_ERROR;
 		return true;
 	}
 
+	if ((rc2 = snprintf ((char *) start_link->buf->attrs.mem.data + rc1,
+						 index_start_len + 1 - rc1, resource_index_start_html,
+						 (int) request->uri_len, request->uri,
+						 (int) request->uri_len, request->uri,
+						 (int) request->uri_len, request->uri))
+		< 0)
+	{
+		response->status = FH_STATUS_INTERNAL_SERVER_ERROR;
+		return true;
+	}
+
+	start_link->buf->attrs.mem.data[rc1 + rc2] = '\r';
+	start_link->buf->attrs.mem.data[rc1 + rc2 + 1] = '\n';
 	start_link->buf->attrs.mem.cap = start_link->buf->attrs.mem.len
-		= (size_t) rc;
+		= (size_t) (rc1 + rc2 + 2);
 
-	if ((rc
-		 = snprintf ((char *) end_link->buf->attrs.mem.data, index_end_len + 1,
-					 resource_index_end_html, index_end_chunk_len, '\r', '\n',
-					 (int) autoindex->conn->extra->host_len,
-					 autoindex->conn->extra->host, port, '\r', '\n'))
+	if ((rc1 = snprintf ((char *) end_link->buf->attrs.mem.data, 34, "%zx\r\n",
+						 index_end_chunk_len))
 		< 0)
 	{
 		response->status = FH_STATUS_INTERNAL_SERVER_ERROR;
 		return true;
 	}
 
-	end_link->buf->attrs.mem.cap = end_link->buf->attrs.mem.len = (size_t) rc;
+	if ((rc2 = snprintf ((char *) end_link->buf->attrs.mem.data + rc1,
+						 index_end_len + 1 - rc1, resource_index_end_html,
+						 (int) autoindex->conn->extra->host_len,
+						 autoindex->conn->extra->host, port))
+		< 0)
+	{
+		response->status = FH_STATUS_INTERNAL_SERVER_ERROR;
+		return true;
+	}
+
+	end_link->buf->attrs.mem.data[rc1 + rc2] = '\r';
+	end_link->buf->attrs.mem.data[rc1 + rc2 + 1] = '\n';
+	end_link->buf->attrs.mem.cap = end_link->buf->attrs.mem.len
+		= (size_t) (rc1 + rc2 + 2);
 
 	struct dirent64 **namelist;
 	int namelist_count = 0;
@@ -309,8 +334,8 @@ fh_autoindex_handle (struct fh_autoindex *autoindex)
 	tail->next = end_link;
 	tail = end_link;
 
-	tail->next = end_chunk_link;
-	tail = end_chunk_link;
+	tail->next = &end_chunk_link;
+	tail = &end_chunk_link;
 
 	response->encoding = FH_ENCODING_CHUNKED;
 	response->body_start = start_link;
@@ -319,4 +344,26 @@ fh_autoindex_handle (struct fh_autoindex *autoindex)
 
 	fh_pr_debug ("Response generated successfully");
 	return true;
+}
+
+static bool
+fh_autoindex_handle_plain (struct fh_autoindex *autoindex)
+{
+	const struct fh_request *request = autoindex->request;
+	struct fh_response *response = autoindex->response;
+
+	return true;
+}
+
+bool
+fh_autoindex_handle (struct fh_autoindex *autoindex)
+{
+	switch (autoindex->request->protocol)
+	{
+		case FH_PROTOCOL_HTTP_1_0:
+			return fh_autoindex_handle_plain (autoindex);
+
+		default:
+			return fh_autoindex_handle_chunked (autoindex);
+	}
 }
