@@ -155,12 +155,13 @@ AC_CONFIG_FILES([Makefile
                  src/event/Makefile
                  src/hash/Makefile
                  src/mm/Makefile
-				 src/http/Makefile
-				 src/digest/Makefile
+                 src/http/Makefile
+                 src/digest/Makefile
                  src/include/Makefile
                  src/log/Makefile
                  src/utils/Makefile
                  src/router/Makefile
+                 src/modules/Makefile
                  doc/Makefile
                  man/Makefile
                  conf/Makefile

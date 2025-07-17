@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-RESOURCES = index.html error.html
+RESOURCES = index_start.html index_end.html error.html
 CLEANFILE = resources.c resources.h
 BUILT_SOURCES = resources.c resources.h
 

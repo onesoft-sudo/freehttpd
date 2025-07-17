@@ -160,6 +160,9 @@ fh_http1_res_ctx_create (pool_t *pool)
 	ctx->iov_size = 0;
 	ctx->iov_data_size = 0;
 	ctx->state = FH_RES_STATE_HEADERS;
+	ctx->response->protocol = FH_PROTOCOL_HTTP_1_1;
+	ctx->response->encoding = FH_ENCODING_PLAIN;
+	ctx->response->no_send_body = false;
 	ctx->response->headers = NULL;
 	ctx->response->content_length = 0;
 	ctx->response->pool = pool;
@@ -289,6 +292,7 @@ fh_use_default_error_response (struct fh_http1_res_ctx *ctx,
 	default_error_response_buf.attrs.mem.data = (uint8_t *) data;
 	default_error_response_buf.attrs.mem.len = buf_len;
 	default_error_response_buf.attrs.mem.cap = buf_len;
+	response->encoding = FH_ENCODING_PLAIN;
 	response->content_length = buf_len;
 
 	return true;
@@ -302,7 +306,7 @@ fh_res_send_headers (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 	struct fh_response *response = ctx->response;
 	struct fh_headers *headers = response->headers;
 	const bool set_transfer_encoding = response->encoding != FH_ENCODING_PLAIN;
-	const size_t generated_header_count = 1 + (set_transfer_encoding ? 1 : 0);
+	const size_t generated_header_count = 1;
 	const size_t header_count = (headers ? headers->count : 0)
 								+ default_header_count + generated_header_count;
 	size_t status_text_len = 0;
@@ -368,7 +372,9 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 	fd_t sockfd = conn->client_sockfd;
 	struct fh_response *response = ctx->response;
 
-	if ((!response->use_default_error_response && !response->content_length) || response->no_send_body)
+	if ((!response->use_default_error_response && !response->content_length
+		 && response->encoding != FH_ENCODING_CHUNKED)
+		|| response->no_send_body)
 		return H1_RES_DONE;
 
 	struct fh_link *link = response->use_default_error_response
@@ -458,7 +464,9 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 							struct fh_buf *buf = response->body_start->buf;
 
 							buf->attrs.mem.len -= size;
-							buf->attrs.mem.data = (void *) (((char *) buf->attrs.mem.data) + size);
+							buf->attrs.mem.data
+								= (void *) (((char *) buf->attrs.mem.data)
+											+ size);
 							iov->iov_len = buf->attrs.mem.len;
 							iov->iov_base = buf->attrs.mem.data;
 						}
@@ -491,9 +499,9 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 
 					fh_pr_debug ("Sending fd #%d", in_fd);
 
-					ssize_t sent
-						= sendfile64 (sockfd, in_fd, (off64_t *) &buf->attrs.file.file_off,
-									  buf->attrs.file.file_len);
+					ssize_t sent = sendfile64 (
+						sockfd, in_fd, (off64_t *) &buf->attrs.file.file_off,
+						buf->attrs.file.file_len);
 
 					if (sent < 1 || ((size_t) sent) < buf->attrs.file.file_len)
 					{
@@ -550,6 +558,8 @@ fh_res_write_data (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 
 	for (;;)
 	{
+		fh_pr_debug ("ctx->iov_size: %zu", ctx->iov_size);
+
 		ssize_t wrote = writev (sockfd, ctx->iov, ctx->iov_size);
 
 		if (wrote < 1)

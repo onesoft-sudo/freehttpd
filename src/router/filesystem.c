@@ -1,31 +1,56 @@
 #define _GNU_SOURCE
 
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <limits.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
-#include "router.h"
-#include "utils/utils.h"
-#include "filesystem.h"
-#include "core/stream.h"
 #include "core/conn.h"
+#include "core/stream.h"
+#include "filesystem.h"
 #include "http/http1_request.h"
 #include "http/http1_response.h"
+#include "modules/autoindex.h"
+#include "router.h"
+#include "utils/utils.h"
+
+static inline bool
+fh_router_handle_directory_index (struct fh_router *router,
+								  struct fh_conn *conn,
+								  const struct fh_request *request,
+								  struct fh_response *response,
+								  const char *filename, size_t filename_len,
+								  const struct stat64 *st)
+{
+	struct fh_autoindex autoindex = {
+		.conn = conn,
+		.filename = filename,
+		.filename_len = filename_len,
+		.request = request,
+		.response = response,
+		.router = router,
+		.st = st,
+	};
+
+	return fh_autoindex_handle (&autoindex);
+}
 
 static bool
 fh_router_handle_static_file (struct fh_router *router, struct fh_conn *conn,
-							 const struct fh_request *request,
-							 struct fh_response *response, fd_t fd, const struct stat64 *st)
+							  const struct fh_request *request,
+							  struct fh_response *response,
+							  const char *filename, size_t filename_len,
+							  const struct stat64 *st)
 {
-    (void) router;
-    (void) request;
-    (void) conn;
+	(void) router;
+	(void) request;
+	(void) conn;
+	(void) filename_len;
 
 	response->content_length = st->st_size;
 	response->status = FH_STATUS_OK;
@@ -37,18 +62,28 @@ fh_router_handle_static_file (struct fh_router *router, struct fh_conn *conn,
 		return true;
 	}
 
-    response->body_start = fh_pool_alloc (
+	response->body_start = fh_pool_alloc (
 		response->pool, sizeof (struct fh_link) + sizeof (struct fh_buf));
 
 	if (unlikely (!response->body_start))
 	{
 		response->status = FH_STATUS_INTERNAL_SERVER_ERROR;
-		close (fd);
 		return true;
 	}
 
 	response->body_start->buf = (struct fh_buf *) (response->body_start + 1);
 	struct fh_buf *buf = response->body_start->buf;
+
+	fd_t fd = open (filename, O_RDONLY);
+
+	if (fd < 0)
+	{
+		response->status = errno == ENOENT ? FH_STATUS_NOT_FOUND
+						   : (errno == EACCES || errno == EPERM)
+							   ? FH_STATUS_FORBIDDEN
+							   : FH_STATUS_INTERNAL_SERVER_ERROR;
+		return true;
+	}
 
 	buf->type = FH_BUF_FILE;
 	buf->attrs.file.file_fd = fd;
@@ -62,7 +97,7 @@ fh_router_handle_static_file (struct fh_router *router, struct fh_conn *conn,
 	response->status = FH_STATUS_OK;
 
 	fh_pr_debug ("Successfully generated response");
-    return true;
+	return true;
 }
 
 bool
@@ -113,30 +148,25 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
 	/* At this point, we have successfully normalized the file path under the
 	 * docroot. */
 	fh_pr_debug ("Path: %s", normalized_path);
-
-	fd_t fd = open (normalized_path, O_RDONLY);
-
-	if (fd < 0)
-	{
-		response->status = errno == ENOENT ? FH_STATUS_NOT_FOUND
-						   : (errno == EACCES || errno == EPERM)
-							   ? FH_STATUS_FORBIDDEN
-							   : FH_STATUS_INTERNAL_SERVER_ERROR;
-		return true;
-	}
-
 	struct stat64 st;
 
-	if (fstat64 (fd, &st) < 0)
+	if (stat64 (normalized_path, &st) < 0)
 	{
 		response->status = errno == ENOENT ? FH_STATUS_NOT_FOUND
 						   : (errno == EACCES || errno == EPERM)
 							   ? FH_STATUS_FORBIDDEN
 							   : FH_STATUS_INTERNAL_SERVER_ERROR;
-		close (fd);
 		return true;
 	}
 
-	fh_router_handle_static_file (router, conn, request, response, fd, &st);
+	if (S_ISDIR (st.st_mode))
+		return fh_router_handle_directory_index (router, conn, request,
+												 response, normalized_path,
+												 normalized_path_len, &st);
+	else
+		return fh_router_handle_static_file (router, conn, request, response,
+											 normalized_path,
+											 normalized_path_len, &st);
+
 	return true;
 }

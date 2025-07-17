@@ -38,7 +38,7 @@
 
 bool fd_set_nonblocking (int fd);
 _noreturn void freeze (void);
-bool format_size (size_t size, char buf[64], size_t *num, char unit[3]);
+bool format_size (size_t size, char buf[64], size_t *num, char unit[3], size_t *out_len);
 const char *get_file_extension (const char *filename);
 
 #endif /* FHTTPD_UTILS_H */
