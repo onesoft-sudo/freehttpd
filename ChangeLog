@@ -1,5 +1,10 @@
 17-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
 
+     [*] feat!: force release v2.0.0
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
      [*] ci: fix benchmarking issues
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
@@ -53,6 +58,13 @@
      [*] refactor: port back to c99
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+17-07-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v1.26.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
          
 
 15-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
