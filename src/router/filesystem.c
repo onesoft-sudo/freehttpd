@@ -27,10 +27,20 @@ fh_router_handle_static_file (struct fh_router *router, struct fh_conn *conn,
     (void) request;
     (void) conn;
 
+	response->content_length = st->st_size;
+	response->status = FH_STATUS_OK;
+
+	if (request->method == FH_METHOD_HEAD)
+	{
+		response->body_start = NULL;
+		response->use_default_error_response = false;
+		return true;
+	}
+
     response->body_start = fh_pool_alloc (
 		response->pool, sizeof (struct fh_link) + sizeof (struct fh_buf));
 
-	if (!response->body_start)
+	if (unlikely (!response->body_start))
 	{
 		response->status = FH_STATUS_INTERNAL_SERVER_ERROR;
 		close (fd);
@@ -62,12 +72,22 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
 {
 	(void) router;
 
-	char path_buf[PATH_MAX + 1] = { 0 };
-	char normalized_path[PATH_MAX + 1] = { 0 };
+	response->use_default_error_response = true;
+
+	if (request->method != FH_METHOD_GET && request->method != FH_METHOD_HEAD)
+	{
+		fh_pr_debug ("Not GET or HEAD");
+		response->status = FH_STATUS_METHOD_NOT_ALLOWED;
+		return true;
+	}
+
+	if (request->method == FH_METHOD_HEAD)
+		response->no_send_body = true;
+
 	int path_buf_len = 0;
 	size_t normalized_path_len = 0;
-
-	response->use_default_error_response = true;
+	char path_buf[PATH_MAX + 1] = { 0 };
+	char normalized_path[PATH_MAX + 1] = { 0 };
 
 	if (request->uri_len >= INT32_MAX
 		|| (path_buf_len = snprintf (path_buf, sizeof path_buf, "%s/%.*s",

@@ -38,8 +38,8 @@ freehttpd_LDADD = \
 
 FHTTPD_MAIN_CONFIG_FILE = @FHTTPD_MAIN_CONFIG_FILE@
 
-export EXPORTED_AM_CFLAGS = -O3 -Wall -Wextra -pedantic -std=gnu99 -flto -march=native $(SYSTEMD_CFLAGS)
-export EXPORTED_AM_LDFLAGS = -flto -march=native -z now
+export EXPORTED_AM_CFLAGS = 
+export EXPORTED_AM_LDFLAGS = 
 export EXPORTED_AM_CPPFLAGS = -I$(ABS_SRCDIR)/src/include -I$(ABS_SRCDIR)/src -I$(ABS_SRCDIR)/res -DHAVE_RESOURCES '-DFHTTPD_MAIN_CONFIG_FILE="$(FHTTPD_MAIN_CONFIG_FILE)"'
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)

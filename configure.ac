@@ -36,6 +36,14 @@ AC_ARG_ENABLE([debug],
               [build_type=debug],
               [build_type=release])
 
+AC_ARG_ENABLE([optimizations],
+              [AS_HELP_STRING([--enable-optimizations], [Enable the highest optimization flags (default: no)])],
+              [
+                : ${CFLAGS="-g -Ofast -flto -march=native -z now -Wall -Wextra -pedantic -std=gnu99"}
+                : ${LDFLAGS="-flto -march=native -z now"}
+              ],
+              [])
+
 AC_ARG_ENABLE([systemd],
               [AS_HELP_STRING([--enable-systemd], [Enable systemd support (default: no)])],
               [enable_systemd="$enableval"],
@@ -82,6 +90,9 @@ if test "x$enable_systemd" = "xyes"; then
     AC_MSG_RESULT([$systemdsystemunitdir])
 
     AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])
+
+    CFLAGS="$CFLAGS $SYSTEMD_CFLAGS"
+    LIBS="$LIBS $SYSTEMD_LIBS"
 fi
 
 AM_CONDITIONAL([ENABLE_SYSTEMD], [test "x$enable_systemd" = "xyes"])
@@ -162,11 +173,11 @@ AC_MSG_NOTICE([Configuration summary:
   Version: $VERSION
   Build type: $build_type
   Compiler: $CC
-  Compiler flags: $CFLAGS $SYSTEMD_CFLAGS
-  Linker flags: $LDFLAGS $SYSTEMD_LDLAGS
+  Compiler flags: $CFLAGS
+  Linker flags: $LDFLAGS
   Preprocessor flags: $CPPFLAGS
   Libraries: $LIBS $SYSTEMD_LIBS
   Installation prefix: $prefix
   Main Configuration file: $FHTTPD_MAIN_CONFIG_FILE
-  systemd support: $enable_systemd
+  Optional systemd support: $enable_systemd
 ])

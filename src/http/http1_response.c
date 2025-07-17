@@ -368,7 +368,7 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 	fd_t sockfd = conn->client_sockfd;
 	struct fh_response *response = ctx->response;
 
-	if (!response->use_default_error_response && !response->content_length)
+	if ((!response->use_default_error_response && !response->content_length) || response->no_send_body)
 		return H1_RES_DONE;
 
 	struct fh_link *link = response->use_default_error_response
