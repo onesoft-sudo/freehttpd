@@ -35,7 +35,7 @@ valgrind \
 
 pid=$!
 
-trap 'kill -0 $pid > /dev/null 2>&1 && kill -9 $pid && ps aux | grep valgrind | awk "{ print \$2 }" | xargs kill -9' EXIT
+trap 'kill -0 $pid > /dev/null 2>&1 && kill -9 $pid && ps aux | grep freehttpd | awk "{ print \$2 }" | xargs kill -9' EXIT
 trap "exit 1" INT TERM
 
 echo "Starting stress test with Valgrind in 2 seconds..."
@@ -51,7 +51,7 @@ fi
 echo "Benchmark completed successfully"
 
 kill -9 $pid
-ps aux | grep valgrind | awk '{ print $2 }' | xargs kill -9
+ps aux | grep freehttpd | awk '{ print $2 }' | xargs kill -9
 
 echo "Valgrind completed successfully"
 echo "Check valgrind.log for details"
