@@ -6,6 +6,7 @@
 #include "http/protocol.h"
 #include "core/conn.h"
 #include "core/server.h"
+#include "filesystem.h"
 
 struct fh_router;
 

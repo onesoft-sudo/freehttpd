@@ -87,10 +87,10 @@ fh_http1_parse_method (struct fh_http1_req_ctx *ctx)
 	{
 		struct fh_buf *buf = cur->link->buf;
 
-		if (cur->off < buf->len)
+		if (cur->off < buf->attrs.mem.len)
 		{
-			size_t len = buf->len - cur->off;
-			uint8_t *start_ptr = buf->data + cur->off;
+			size_t len = buf->attrs.mem.len - cur->off;
+			uint8_t *start_ptr = buf->attrs.mem.data + cur->off;
 			uint8_t *pos_ptr = memchr (start_ptr, ' ', len);
 
 			if (pos_ptr)
@@ -203,10 +203,10 @@ fh_http1_parse_uri (struct fh_http1_req_ctx *ctx)
 	{
 		struct fh_buf *buf = cur->link->buf;
 
-		if (cur->off < buf->len)
+		if (cur->off < buf->attrs.mem.len)
 		{
-			size_t len = buf->len - cur->off;
-			uint8_t *start_ptr = buf->data + cur->off;
+			size_t len = buf->attrs.mem.len - cur->off;
+			uint8_t *start_ptr = buf->attrs.mem.data + cur->off;
 			uint8_t *pos_ptr = memchr (start_ptr, ' ', len);
 
 			if (pos_ptr)
@@ -301,10 +301,10 @@ fh_http1_parse_version (struct fh_http1_req_ctx *ctx)
 	{
 		struct fh_buf *buf = cur->link->buf;
 
-		if (cur->off < buf->len)
+		if (cur->off < buf->attrs.mem.len)
 		{
-			size_t len = buf->len - cur->off;
-			uint8_t *start_ptr = buf->data + cur->off;
+			size_t len = buf->attrs.mem.len - cur->off;
+			uint8_t *start_ptr = buf->attrs.mem.data + cur->off;
 			uint8_t *pos_ptr = memchr (start_ptr, '\n', len);
 
 			if (pos_ptr)
@@ -418,10 +418,10 @@ fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 	{
 		struct fh_buf *buf = cur->link->buf;
 
-		if (cur->off < buf->len)
+		if (cur->off < buf->attrs.mem.len)
 		{
-			size_t len = buf->len - cur->off;
-			uint8_t *start_ptr = buf->data + cur->off;
+			size_t len = buf->attrs.mem.len - cur->off;
+			uint8_t *start_ptr = buf->attrs.mem.data + cur->off;
 
 			if (check_end)
 			{
@@ -656,10 +656,10 @@ fh_http1_parse_header_value (struct fh_http1_req_ctx *ctx)
 	{
 		struct fh_buf *buf = cur->link->buf;
 
-		if (cur->off < buf->len)
+		if (cur->off < buf->attrs.mem.len)
 		{
-			size_t len = buf->len - cur->off;
-			uint8_t *start_ptr = buf->data + cur->off;
+			size_t len = buf->attrs.mem.len - cur->off;
+			uint8_t *start_ptr = buf->attrs.mem.data + cur->off;
 			uint8_t *pos_ptr = memchr (start_ptr, '\n', len);
 
 			if (pos_ptr)
@@ -810,8 +810,8 @@ fh_http1_parse_body (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 
 		struct fh_buf *buf = current->buf;
 
-		uint8_t *start = buf->data + cur->off;
-		size_t len = cur->off < buf->len ? buf->len - cur->off : 0;
+		uint8_t *start = buf->attrs.mem.data + cur->off;
+		size_t len = cur->off < buf->attrs.mem.len ? buf->attrs.mem.len - cur->off : 0;
 
 		struct fh_buf *new_buf;
 
@@ -825,7 +825,7 @@ fh_http1_parse_body (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 
 		if (len > 0)
 		{
-			buf->len -= len;
+			buf->attrs.mem.len -= len;
 			ctx->current_consumed += len;
 		}
 	}
@@ -834,9 +834,9 @@ fh_http1_parse_body (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 	{
 		struct fh_buf *buf = cur->link->buf;
 
-		if (cur->off < buf->len)
+		if (cur->off < buf->attrs.mem.len)
 		{
-			size_t len = buf->len - cur->off;
+			size_t len = buf->attrs.mem.len - cur->off;
 
 			if (len > 0)
 			{
@@ -870,10 +870,10 @@ fh_http1_recv (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 	bool is_allocated = false;
 	struct fh_buf *tail_buf = ctx->stream->tail ? ctx->stream->tail->buf : NULL;
 
-	if (tail_buf && tail_buf->len < tail_buf->cap)
+	if (tail_buf && tail_buf->attrs.mem.len < tail_buf->attrs.mem.cap)
 	{
-		ptr = tail_buf->data + tail_buf->len;
-		readable = tail_buf->cap - tail_buf->len;
+		ptr = tail_buf->attrs.mem.data + tail_buf->attrs.mem.len;
+		readable = tail_buf->attrs.mem.cap - tail_buf->attrs.mem.len;
 	}
 	else
 	{
@@ -930,7 +930,7 @@ fh_http1_recv (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 	}
 	else
 	{
-		tail_buf->len += (size_t) bytes_read;
+		tail_buf->attrs.mem.len += (size_t) bytes_read;
 	}
 
 	fh_pr_debug ("Read %zu bytes", (size_t) bytes_read);

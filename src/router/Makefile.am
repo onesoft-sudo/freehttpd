@@ -18,10 +18,13 @@
 noinst_LIBRARIES = librouter.a
 librouter_a_SOURCES = \
 	router.c \
-	router.h
+	router.h \
+	filesystem.c \
+	filesystem.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
+AM_LDFLAGS = $(EXPORTED_AM_LDFLAGS)
 
 clean-local:
 	rm -rf .deps

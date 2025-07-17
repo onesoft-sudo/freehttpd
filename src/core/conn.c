@@ -59,8 +59,8 @@ fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr,
 	conn->client_sockfd = client_sockfd;
 	conn->pool = pool;
 	conn->server_addr = server_addr;
-	conn->req_ctx = NULL;
-	conn->res_ctx = NULL;
+	conn->io_ctx.h1.req_ctx = NULL;
+	conn->io_ctx.h1.res_ctx = NULL;
 	conn->requests = (struct fh_requests *) (conn->stream + 1);
 	conn->extra = (struct fh_conn_extra *) (conn->requests + 1);
 
@@ -87,10 +87,10 @@ fh_conn_destroy (struct fh_conn *conn)
 		r = r_next;
 	}
 
-	if (conn->res_ctx)
+	if (conn->io_ctx.h1.res_ctx)
 	{
-		fh_http1_res_ctx_clean (conn->res_ctx);
-		fh_pool_destroy (conn->res_ctx->pool);
+		fh_http1_res_ctx_clean (conn->io_ctx.h1.res_ctx);
+		fh_pool_destroy (conn->io_ctx.h1.res_ctx->pool);
 	}
 
 	pool_t *pool = conn->pool;

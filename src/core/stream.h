@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/sendfile.h>
 
 #undef _GNU_SOURCE
@@ -48,17 +49,17 @@ struct fh_buf
 	union {
 		struct {
 			fd_t file_fd;
-			loff_t file_off;
+			size_t file_off;
 			size_t file_len;
-		};
+		} file;
 
 		struct {
 			bool rd_only : 1;
 			uint8_t *data;
 			size_t len;
 			size_t cap;
-		};
-	};
+		} mem;
+	} attrs;
 };
 
 struct fh_link

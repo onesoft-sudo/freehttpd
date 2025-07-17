@@ -47,7 +47,7 @@ event_recv (struct fh_server *server, const xevent_t *event)
 	fh_pr_info ("connection %lu: recv called", conn->id);
 	pool_t *child_pool = NULL;
 
-	if (!conn->req_ctx)
+	if (!conn->io_ctx.h1.req_ctx)
 	{
 		child_pool = fh_pool_create (0);
 
@@ -61,10 +61,10 @@ event_recv (struct fh_server *server, const xevent_t *event)
 		fh_stream_init (conn->stream, child_pool);
 	}
 
-	struct fh_http1_req_ctx *ctx = conn->req_ctx ? conn->req_ctx : fh_http1_ctx_create (server, conn, conn->stream);
+	struct fh_http1_req_ctx *ctx = conn->io_ctx.h1.req_ctx ? conn->io_ctx.h1.req_ctx : fh_http1_ctx_create (server, conn, conn->stream);
 
-	if (!conn->req_ctx)
-		conn->req_ctx = ctx;
+	if (!conn->io_ctx.h1.req_ctx)
+		conn->io_ctx.h1.req_ctx = ctx;
 
 	if (!fh_http1_parse (ctx, conn))
 	{

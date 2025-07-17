@@ -286,9 +286,9 @@ fh_use_default_error_response (struct fh_http1_res_ctx *ctx,
 		< 0)
 		return false;
 
-	default_error_response_buf.data = (uint8_t *) data;
-	default_error_response_buf.len = buf_len;
-	default_error_response_buf.cap = buf_len;
+	default_error_response_buf.attrs.mem.data = (uint8_t *) data;
+	default_error_response_buf.attrs.mem.len = buf_len;
+	default_error_response_buf.attrs.mem.cap = buf_len;
 	response->content_length = buf_len;
 
 	return true;
@@ -396,8 +396,8 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 		{
 			case FH_BUF_DATA:
 				iov[iov_count++] = (struct iovec) {
-					.iov_base = buf->data,
-					.iov_len = buf->len,
+					.iov_base = buf->attrs.mem.data,
+					.iov_len = buf->attrs.mem.len,
 				};
 
 				break;
@@ -457,10 +457,10 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 						{
 							struct fh_buf *buf = response->body_start->buf;
 
-							buf->len -= size;
-							buf->data = (void *) (((char *) buf->data) + size);
-							iov->iov_len = buf->len;
-							iov->iov_base = buf->data;
+							buf->attrs.mem.len -= size;
+							buf->attrs.mem.data = (void *) (((char *) buf->attrs.mem.data) + size);
+							iov->iov_len = buf->attrs.mem.len;
+							iov->iov_base = buf->attrs.mem.data;
 						}
 						else
 						{
@@ -487,20 +487,20 @@ fh_res_send_body (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 
 				if (buf)
 				{
-					fd_t in_fd = buf->file_fd;
+					fd_t in_fd = buf->attrs.file.file_fd;
 
 					fh_pr_debug ("Sending fd #%d", in_fd);
 
 					ssize_t sent
-						= sendfile64 (sockfd, in_fd, (off64_t *) &buf->file_off,
-									  buf->file_len);
+						= sendfile64 (sockfd, in_fd, (off64_t *) &buf->attrs.file.file_off,
+									  buf->attrs.file.file_len);
 
-					if (sent < 1 || ((size_t) sent) < buf->file_len)
+					if (sent < 1 || ((size_t) sent) < buf->attrs.file.file_len)
 					{
 						if (would_block ())
 						{
 							if (sent)
-								buf->file_len -= sent;
+								buf->attrs.file.file_len -= sent;
 
 							return H1_RES_AGAIN;
 						}
@@ -664,8 +664,8 @@ fh_http1_res_ctx_clean (struct fh_http1_res_ctx *ctx)
 	{
 		if (link->buf->type == FH_BUF_FILE)
 		{
-			close (link->buf->file_fd);
-			fh_pr_debug ("Closed fd %d", link->buf->file_fd);
+			close (link->buf->attrs.file.file_fd);
+			fh_pr_debug ("Closed fd %d", link->buf->attrs.file.file_fd);
 		}
 
 		link = link->next;

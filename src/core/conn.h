@@ -60,8 +60,8 @@ struct fh_conn
         struct {
             struct fh_http1_req_ctx *req_ctx;
             struct fh_http1_res_ctx *res_ctx;
-        };
-    };
+        } h1;
+    } io_ctx;
 };
 
 struct fh_conn *fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr, const struct sockaddr_in *server_addr);

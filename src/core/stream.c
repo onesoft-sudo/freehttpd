@@ -69,13 +69,13 @@ fh_stream_alloc_buf_data (struct fh_stream *stream, size_t cap)
 
 	l->next = NULL;
 	l->buf = (struct fh_buf *) (l + 1);
-	l->buf->data = is_big ? fh_pool_alloc (stream->pool, cap) : ((uint8_t *) (l->buf + 1));
+	l->buf->attrs.mem.data = is_big ? fh_pool_alloc (stream->pool, cap) : ((uint8_t *) (l->buf + 1));
 
-	if (!l->buf->data)
+	if (!l->buf->attrs.mem.data)
 		return NULL;
 
 	l->buf->type = FH_BUF_DATA;
-	l->buf->cap = cap;
+	l->buf->attrs.mem.cap = cap;
 	l->is_eos = l->is_start = false;
 
 	fh_stream_insert (stream, l);
@@ -94,10 +94,10 @@ fh_stream_add_buf_data (struct fh_stream *stream, uint8_t *src, size_t len, size
 
 	l->next = NULL;
 	l->buf = (struct fh_buf *) (l + 1);
-	l->buf->rd_only = true;
-	l->buf->data = src;
-	l->buf->len = len;
-	l->buf->cap = cap;
+	l->buf->attrs.mem.rd_only = true;
+	l->buf->attrs.mem.data = src;
+	l->buf->attrs.mem.len = len;
+	l->buf->attrs.mem.cap = cap;
 	l->is_eos = l->is_start = false;
 
 	fh_stream_insert (stream, l);
@@ -114,8 +114,8 @@ fh_stream_add_buf_memcpy (struct fh_stream *stream, const uint8_t *src, size_t l
 	if (!buf)
 		return NULL;
 
-	buf->len = len;
-	memcpy (buf->data, src, len);
+	buf->attrs.mem.len = len;
+	memcpy (buf->attrs.mem.data, src, len);
 
 	return buf;
 }
@@ -132,11 +132,11 @@ fh_stream_print (struct fh_stream *stream)
 	{
 		fh_pr_debug ("=======");
 		fh_pr_debug ("Buffer #%zu", i++);
-		fh_pr_debug ("Length: %zu/%zu bytes", l->buf->len, l->buf->cap);
+		fh_pr_debug ("Length: %zu/%zu bytes", l->buf->attrs.mem.len, l->buf->attrs.mem.cap);
 		fh_pr_debug ("Start: %u", l->is_start);
 		fh_pr_debug ("EOS: %u", l->is_eos);
-		fh_pr_debug ("Readonly: %u", l->buf->rd_only);
-		fh_pr_debug ("Data: |%.*s|", (int) l->buf->len, l->buf->data);
+		fh_pr_debug ("Readonly: %u", l->buf->attrs.mem.rd_only);
+		fh_pr_debug ("Data: |%.*s|", (int) l->buf->attrs.mem.len, l->buf->attrs.mem.data);
 		fh_pr_debug ("=======");
 		l = l->next;
 	}
@@ -156,26 +156,26 @@ fh_stream_copy (void *dest, struct fh_link *start, size_t start_off, struct fh_l
 		if (start == end)
 		{
 			size_t s = end_off - start_off + 1;
-			len = (s > link->buf->len) ? link->buf->len : s;
+			len = (s > link->buf->attrs.mem.len) ? link->buf->attrs.mem.len : s;
 		}
 		else if (link == start)
 		{
-			len = link->buf->len - start_off;
+			len = link->buf->attrs.mem.len - start_off;
 		}
 		else if (link == end)
 		{
 			size_t s = end_off + 1;
-			len = (s > link->buf->len) ? link->buf->len : s;
+			len = (s > link->buf->attrs.mem.len) ? link->buf->attrs.mem.len : s;
 		}
 		else
 		{
-			len = link->buf->len;
+			len = link->buf->attrs.mem.len;
 		}
 
 		if (copied + len > max_size)
 			len = max_size - copied;
 
-		memcpy (((char *) dest) + copied, link->buf->data + start_off, len);
+		memcpy (((char *) dest) + copied, link->buf->attrs.mem.data + start_off, len);
 		copied += len;
 
 		start_off = 0;
