@@ -126,7 +126,7 @@ fh_router_handle_filesystem (struct fh_router *router, struct fh_conn *conn,
 
 	if (request->uri_len >= INT32_MAX
 		|| (path_buf_len = snprintf (path_buf, sizeof path_buf, "%s/%.*s",
-									 conn->config->host_config->docroot,
+									 conn->config->docroot,
 									 (int) request->uri_len, request->uri))
 			   >= PATH_MAX
 		|| path_buf_len < 0)

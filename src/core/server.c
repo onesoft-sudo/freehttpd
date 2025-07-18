@@ -54,6 +54,7 @@ fh_server_create (struct fh_config *config)
 		return NULL;
 
 	server->config = config;
+	server->host_configs = config->hosts;
 	server->sockfd_table = itable_create (0);
 
 	if (!server->sockfd_table)
@@ -75,17 +76,6 @@ fh_server_create (struct fh_config *config)
 
 	if (server->xpoll_fd < 0)
 	{
-		itable_destroy (server->connections);
-		itable_destroy (server->sockfd_table);
-		free (server);
-		return NULL;
-	}
-
-	server->host_configs = strtable_create (0);
-
-	if (!server->host_configs)
-	{
-		xpoll_destroy (server->xpoll_fd);
 		itable_destroy (server->connections);
 		itable_destroy (server->sockfd_table);
 		free (server);
@@ -123,9 +113,8 @@ fh_server_destroy (struct fh_server *server)
 
 	itable_destroy (server->connections);
 	itable_destroy (server->sockfd_table);
-	strtable_destroy (server->host_configs);
 	xpoll_destroy (server->xpoll_fd);
-	fhttpd_conf_free_config (server->config);
+	fh_conf_free (server->config);
 	fh_router_free (server->router);
 	free (server->router);
 	free (server);
@@ -134,20 +123,17 @@ fh_server_destroy (struct fh_server *server)
 static bool
 fh_server_index_config (struct fh_server *server)
 {
-	for (size_t i = 0; i < server->config->host_count; i++)
+	for (struct strtable_entry *entry = server->host_configs->head; entry;
+			 entry = entry->next)
 	{
-		struct fh_host_config *config = &server->config->hosts[i];
+		struct fh_config_host *config = entry->data;
+		struct fh_bound_addr *addr = &config->addr;
 
-		for (size_t j = 0; j < config->bound_addr_count; j++)
-		{
-			struct fh_bound_addr *addr = &config->bound_addrs[j];
+		if (addr->port == 80 || addr->port == 443)
+			strtable_set (server->host_configs, addr->hostname, config);
 
-			if (addr->port == 80 || addr->port == 443)
-				strtable_set (server->host_configs, addr->hostname, config);
-
-			strtable_set (server->host_configs, addr->full_hostname, config);
-			fh_pr_debug ("Loaded virtual host: %s", addr->full_hostname);
-		}
+		strtable_set (server->host_configs, addr->full_hostname, config);
+		fh_pr_debug ("Loaded virtual host: %s", addr->full_hostname);
 	}
 
 	return true;
@@ -160,25 +146,24 @@ fh_server_listen (struct fh_server *server)
 	uint16_t ports[socket_cap];
 	size_t port_count = 0;
 
-	for (size_t i = 0; i < server->config->host_count; i++)
+	for (struct strtable_entry *entry = server->host_configs->head; entry;
+			 entry = entry->next)
 	{
-		for (size_t j = 0; j < server->config->hosts[i].bound_addr_count; j++)
+		struct fh_config_host *config = entry->data;
+		struct fh_bound_addr *addr = &config->addr;
+
+		for (size_t k = 0; k < port_count; k++)
 		{
-			struct fh_bound_addr *addr = server->config->hosts[i].bound_addrs;
+			if (ports[k] == addr->port)
+				goto skip_addr;
+		}
 
-			for (size_t k = 0; k < port_count; k++)
-			{
-				if (ports[k] == addr->port)
-					goto skip_addr;
-			}
+		if (port_count >= socket_cap)
+			return false;
 
-			if (port_count >= socket_cap)
-				return false;
-
-			ports[port_count++] = addr->port;
+		ports[port_count++] = addr->port;
 		skip_addr:
 			continue;
-		}
 	}
 
 	for (size_t i = 0; i < port_count; i++)

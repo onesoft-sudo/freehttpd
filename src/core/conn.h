@@ -54,7 +54,7 @@ struct fh_conn
     struct fh_stream *stream;
     struct fh_requests *requests;
     struct fh_conn_extra *extra;
-    const struct fh_host_config *config;
+    const struct fh_config_host *config;
 
     union {
         struct {

@@ -103,8 +103,8 @@ event_accept (struct fh_server *server, const xevent_t *ev_info, const struct so
 			continue;
 		}
 
-		struct fh_host_config *config = &server->config->hosts[server->config->default_host_index];
-		struct fh_bound_addr *addr = &config->bound_addrs[0];
+		struct fh_config_host *config = server->config->default_host_config;
+		struct fh_bound_addr *addr = &config->addr;
 
 		conn->extra->host = addr->full_hostname;
 		conn->extra->port = addr->port;

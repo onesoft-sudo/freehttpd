@@ -599,7 +599,7 @@ fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *h
 		strncpy (host, request->host, request->full_host_len);
 		host[request->full_host_len] = 0;
 
-		struct fh_host_config *config = strtable_get (ctx->server->host_configs, host);
+		struct fh_config_host *config = strtable_get (ctx->server->host_configs, host);
 
 		if (!config)
 		{
@@ -617,7 +617,7 @@ fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *h
 			fh_pr_debug ("Selected canonical host: %.*s", (int) header->value_len, header->value);
 		}
 
-		fh_pr_debug ("Docroot for this request: %s", config->host_config->docroot);
+		fh_pr_debug ("Docroot for this request: %s", config->docroot);
 	}
 	else if (!strncasecmp (header->name, "Content-Length", header->name_len))
 	{

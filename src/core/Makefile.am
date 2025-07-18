@@ -27,6 +27,8 @@ libcore_a_SOURCES = \
 	conf.h \
 	conn.c \
 	conn.h \
+	confproc.c \
+	confproc.h \
 	stream.c \
 	stream.h
 

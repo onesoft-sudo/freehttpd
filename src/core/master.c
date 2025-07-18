@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -27,6 +27,7 @@
 #define FH_LOG_MODULE_NAME "master"
 
 #include "conf.h"
+#include "confproc.h"
 #include "log/log.h"
 #include "master.h"
 #include "worker.h"
@@ -60,8 +61,8 @@ fh_master_destroy (struct fh_master *master)
 	}
 
 	if (master->config)
-    	fhttpd_conf_free_config (master->config);
-	
+    	fh_conf_free (master->config);
+
 	free (master);
 }
 
@@ -118,7 +119,7 @@ fh_master_read_config (struct fh_master *master)
 
 	const char *config_file = FHTTPD_MAIN_CONFIG_FILE;
 
-	struct fhttpd_conf_parser *parser = fhttpd_conf_parser_create (config_file);
+	struct fh_conf_parser *parser = fh_conf_parser_create (config_file);
 
 	if (!parser)
 	{
@@ -126,28 +127,28 @@ fh_master_read_config (struct fh_master *master)
 		return false;
 	}
 
-	if (fhttpd_conf_parser_read (parser) < 0)
+	if (fh_conf_parser_read (parser) < 0)
 	{
 		fh_pr_err ("Failed to read configuration file: %s", strerror (errno));
-		fhttpd_conf_parser_destroy (parser);
+		fh_conf_parser_destroy (parser);
 		return false;
 	}
 
-	struct fh_config *config = fhttpd_conf_process (parser);
+	struct fh_config *config = fh_conf_process (parser, NULL, NULL);
 
 	if (!config)
 	{
 		fh_pr_err ("Failed to parse configuration file:");
-		fhttpd_conf_parser_print_error (parser);
-		fhttpd_conf_parser_destroy (parser);
+		fh_conf_parser_print_error (parser);
+		fh_conf_parser_destroy (parser);
 		return false;
 	}
 
 	master->config = config;
-	fhttpd_conf_parser_destroy (parser);
+	fh_conf_parser_destroy (parser);
 
 	fh_pr_info ("Read configuration file successfully");
-	fhttpd_conf_print_config (config, 0);
+	fh_conf_print (config, 0);
 
 	return true;
 }

@@ -25,6 +25,7 @@
 
 #include "types.h"
 #include "conf.h"
+#include "confproc.h"
 #include "event/xpoll.h"
 #include "hash/strtable.h"
 #include "hash/itable.h"
@@ -44,7 +45,7 @@ struct fh_server
     /* (fd_t) => (struct fh_conn *) */
     struct itable *connections;
 
-    /* (const char *) => (struct fh_host_config *) */
+    /* (const char *) => (struct fh_config_host *) */
     struct strtable *host_configs;
 
     struct fh_router *router;
