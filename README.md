@@ -9,6 +9,7 @@ freehttpd is a lightweight and high-performance HTTP server, written in C.
 </p>
 
 <br />
+
 Please refer to the [plain-text README](./README).
 
 ## Licensing
