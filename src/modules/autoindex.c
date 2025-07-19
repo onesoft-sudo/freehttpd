@@ -375,8 +375,6 @@ fh_autoindex_handle_plain (struct fh_autoindex *autoindex)
 	const struct fh_request *request = autoindex->request;
 	const struct fh_conn *conn = autoindex->conn;
 	struct fh_response *response = autoindex->response;
-	const char *host = conn->extra->host;
-	const size_t host_len = conn->extra->host_len;
 	const uint16_t port = conn->extra->port;
 	pool_t *pool = autoindex->response->pool;
 	const char entry_format[] = "<tr>"

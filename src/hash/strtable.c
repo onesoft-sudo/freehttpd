@@ -23,8 +23,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "rapidhash.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "strtable.h"
+
+#ifdef HAVE_RAPIDHASH_H
+#include "rapidhash.h"
+#endif
 
 struct strtable *
 strtable_create (uint64_t capacity)
@@ -85,6 +92,7 @@ strtable_hash_fnv1a (const char *key, size_t key_len, uint64_t capacity)
 	return hash % capacity;
 }
 
+#ifdef HAVE_RAPIDHASH_H
 static inline uint64_t
 strtable_hash_rapid (const char *key, size_t key_len, uint64_t capacity)
 {
@@ -92,6 +100,9 @@ strtable_hash_rapid (const char *key, size_t key_len, uint64_t capacity)
 }
 
 #define strtable_hash strtable_hash_rapid
+#else
+#define strtable_hash strtable_hash_fnv1a
+#endif
 
 void *
 strtable_get (struct strtable *table, const char *key)

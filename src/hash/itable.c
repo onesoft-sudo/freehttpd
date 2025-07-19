@@ -23,8 +23,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "itable.h"
+
+#ifdef HAVE_RAPIDHASH_H
 #include "rapidhash.h"
+#endif
 
 struct itable *
 itable_create (uint64_t capacity)
@@ -79,6 +86,7 @@ itable_hash_fnv1a (uint64_t key, uint64_t capacity)
 	return hash % ((uint64_t) capacity);
 }
 
+#ifdef HAVE_RAPIDHASH_H
 static inline uint64_t
 itable_hash_rapid (uint64_t key, uint64_t capacity)
 {
@@ -86,6 +94,9 @@ itable_hash_rapid (uint64_t key, uint64_t capacity)
 }
 
 #define itable_hash itable_hash_rapid
+#else
+#define itable_hash itable_hash_fnv1a
+#endif
 
 void *
 itable_get (struct itable *table, uint64_t key)

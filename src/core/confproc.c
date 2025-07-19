@@ -1038,13 +1038,13 @@ fh_conf_print_security (struct fh_config_security *security, int indent)
 				 security->max_response_body_size);
 	fh_pr_debug ("%*smax_connections = %zu", indent + 2, "",
 				 security->max_connections);
-	fh_pr_debug ("%*sheader_timeout = %lu", indent + 2, "",
+	fh_pr_debug ("%*sheader_timeout = %u", indent + 2, "",
 				 security->header_timeout);
-	fh_pr_debug ("%*sbody_timeout = %lu", indent + 2, "",
+	fh_pr_debug ("%*sbody_timeout = %u", indent + 2, "",
 				 security->body_timeout);
-	fh_pr_debug ("%*srecv_timeout = %lu", indent + 2, "",
+	fh_pr_debug ("%*srecv_timeout = %u", indent + 2, "",
 				 security->recv_timeout);
-	fh_pr_debug ("%*ssend_timeout = %lu", indent + 2, "",
+	fh_pr_debug ("%*ssend_timeout = %u", indent + 2, "",
 				 security->send_timeout);
 }
 
@@ -1055,7 +1055,7 @@ fh_conf_print_logging (struct fh_config_logging *logging, int indent)
 	fh_pr_debug ("%*senabled = %s", indent + 2, "",
 				 logging && logging->enabled ? "true" : "false");
 	fh_pr_debug ("%*smin_level = %d", indent + 2, "",
-				 logging ? logging->min_level : -1);
+				 logging ? logging->min_level : 0);
 	fh_pr_debug ("%*sfile = %s", indent + 2, "",
 				 logging ? logging->file : "[default]");
 	fh_pr_debug ("%*serror_file = %s", indent + 2, "",
