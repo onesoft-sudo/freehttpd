@@ -20,7 +20,13 @@
 
 AC_PREREQ([2.61])
 
-define([FHTTPD_VERSION], m4_esyscmd([if test -f "$srcdir/.tarball-version"; then head -n1 "$srcdir/.tarball-version" | tr -d '\n'; else jq -r '.version' .github/version.json | tr -d '\n'; fi]))
+define([FHTTPD_VERSION],
+	m4_esyscmd([
+		if test -f "$srcdir/.tarball-version"; then
+		   head -n1 "$srcdir/.tarball-version" | tr -d '\n';
+		else
+			jq -r '.version' .github/version.json | tr -d '\n';
+		fi]))
 
 AC_INIT([freehttpd],
   FHTTPD_VERSION,
@@ -28,8 +34,11 @@ AC_INIT([freehttpd],
 AC_CONFIG_SRCDIR([src/freehttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall gnu 1.11 info-in-builddir subdir-objects])
 AM_SILENT_RULES([yes])
+
+# Options
 
 AC_ARG_ENABLE([debug],
               [AS_HELP_STRING([--enable-debug], [Enable debug build mode (default: no)])],
@@ -49,6 +58,11 @@ AC_ARG_ENABLE([systemd],
               [enable_systemd="$enableval"],
               [enable_systemd=no])
 
+AC_ARG_ENABLE([rapidhash],
+			  [AS_HELP_STRING([--enable-rapidhash], [Enable rapidhash algorithm (downloads the required header files).])],
+			  [enable_rapidhash=1],
+			  [enable_rapidhash=0])
+
 AC_ARG_WITH([config-file],
             [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
             [FHTTPD_MAIN_CONFIG_FILE="$withval"],
@@ -56,35 +70,49 @@ AC_ARG_WITH([config-file],
 
 AC_MSG_CHECKING([whether to enable debug mode])
 
-if test "x$build_type" = "xdebug"; then
+AS_IF([test "x$build_type" = "xdebug"], [
     AC_MSG_RESULT([yes])
-else
+], [
     AC_MSG_RESULT([no])
     CPPFLAGS="$CPPFLAGS -DNDEBUG"
-fi
+])
 
 # Checks for programs.
-AC_PROG_CC
 
+AC_PROG_CC
 AM_PROG_AR
 AC_PROG_RANLIB
 
 AC_CHECK_PROGS([GPG], [gpg gpg2], [no])
-
-if test "x$GPG" = "xno"; then
-  GPG=""
-fi
-
+AS_IF([test "x$GPG" = "xno"], [GPG=""], [])
 AC_SUBST([GPG])
+
+AC_CHECK_PROGS([CURL], [curl], [no])
+AC_CHECK_PROGS([WGET], [wget], [no])
+
+AS_IF([test "x$enable_rapidhash" = "x1"], [
+    AS_IF([test "x$CURL" = "xno" && test "x$WGET" = "xno"], [
+        AC_MSG_ERROR([curl or wget is required to fetch external files into the source tree])
+        exit 1
+    ])
+
+    AC_DEFINE_UNQUOTED([HAVE_RAPIDHASH_H], [1], [Define to 1 if rapidhash algorithm is enabled])
+])
+
+AM_CONDITIONAL([ENABLE_RAPIDHASH], [test "$enable_rapidhash" = "1"])
+
+AC_SUBST([WGET])
+AC_SUBST([CURL])
 
 # Checks for libraries.
 
-if test "x$enable_systemd" = "xyes"; then
+AS_IF([test "x$enable_systemd" = "xyes"], [
     PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [], [
         AC_MSG_ERROR([libsystemd is required for systemd support. Please install it or disable systemd support with --disable-systemd.])
     ])
 
     AC_MSG_CHECKING([for systemd unit directory])
+
     systemdsystemunitdir="$libdir/systemd/system"
     AC_SUBST([systemdsystemunitdir])
     AC_MSG_RESULT([$systemdsystemunitdir])
@@ -93,14 +121,12 @@ if test "x$enable_systemd" = "xyes"; then
 
     CFLAGS="$CFLAGS $SYSTEMD_CFLAGS"
     LIBS="$LIBS $SYSTEMD_LIBS"
-fi
+])
 
 AM_CONDITIONAL([ENABLE_SYSTEMD], [test "x$enable_systemd" = "xyes"])
 
 AC_SUBST([SYSTEMD_CFLAGS])
 AC_SUBST([SYSTEMD_LIBS])
-
-# Define macros
 AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
 
 ABS_SRCDIR=`cd "$srcdir" && pwd`
@@ -109,27 +135,14 @@ ABS_BUILDDIR=`pwd`
 AC_SUBST([ABS_SRCDIR])
 AC_SUBST([ABS_BUILDDIR])
 
+# Define macros
+
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
 AC_CHECK_HEADERS([stdnoreturn.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_MSG_CHECKING([whether the compiler supports VLAs])
-
-AC_COMPILE_IFELSE(
-    [AC_LANG_PROGRAM(
-        [[
-            #ifdef __STDC_NO_VLA__
-            #error "No VLA support"
-            #endif
-        ]]
-    )],
-    [AC_MSG_RESULT([yes])],
-    [
-        AC_MSG_RESULT([no])
-        AC_MSG_ERROR([The compiler does not support VLAs (variable-length arrays)])
-    ]
-)
+STDC_CHECK_VLA_SUPPORT
 
 AC_CHECK_HEADER_STDBOOL
 AC_TYPE_OFF_T
@@ -147,6 +160,29 @@ AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
+
+AC_CONFIG_COMMANDS([fetchfiles], [
+    if test "$enable_rapidhash" = "1" && ! test -f src/hash/rapidhash.h; then
+	    code=0
+
+        if test "x$CURL" != "xno"; then
+	       "$CURL" -fSsL https://raw.githubusercontent.com/Nicoshev/rapidhash/refs/heads/master/rapidhash.h -o src/hash/rapidhash.h
+	       code=$?
+     	elif test "x$WGET" != "xno"; then
+	       "$WGET" -q https://raw.githubusercontent.com/Nicoshev/rapidhash/refs/heads/master/rapidhash.h -O src/hash/rapidhash.h
+	       code=$?
+	    fi
+
+	    if test "$code" != "0"; then
+	       echo "Failed to fetch required files" >&2
+	       exit 1
+	    fi
+	fi
+], [
+   enable_rapidhash=$enable_rapidhash
+   CURL="$CURL"
+   WGET="$WGET"
+])
 
 AC_CONFIG_FILES([Makefile
                  res/Makefile

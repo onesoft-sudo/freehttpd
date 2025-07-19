@@ -17,6 +17,7 @@
 
 SUBDIRS = res conf systemd src doc man tests
 EXTRA_DIST = README.md NEWS AUTHORS TODO bootstrap ChangeLog .tarball-version build-aux/valgrind
+ACLOCAL_AMFLAGS = -I m4
 
 GPG ?= @GPG@
 GPG_LOCAL_USER ?=

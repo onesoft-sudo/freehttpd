@@ -8,9 +8,3 @@ AM_MAKEINFOHTMLFLAGS = --no-split
 all-local: $(html_FILES)
 
 CLEANFILES = $(html_FILES) $(info_FILES)
-
-dvi:
-	@true
-
-pdf:
-	@true
