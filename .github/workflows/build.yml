@@ -16,17 +16,7 @@ jobs:
       - name: Install Tools
         run: |
           sudo apt update
-          sudo apt install -y xxd valgrind apache2-utils gcc-14 build-essential siege texlive \
-            texlive-base \
-            texlive-latex-base \
-            texlive-latex-recommended \
-            texlive-fonts-recommended \
-            texlive-fonts-extra \
-            texlive-generic-recommended \
-            texlive-plain-generic \
-            texinfo \
-            ghostscript \
-            dvipng
+          sudo apt install -y xxd valgrind apache2-utils gcc-14 build-essential siege
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 500
           gcc --version
 
