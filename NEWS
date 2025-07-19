@@ -1,3 +1,10 @@
-# NEWS for freehttpd
+==================
+NEWS for freehttpd
+==================
 
-Nothing yet.
+This file keeps a history of user-visible changes.
+
+* Version 2.0.0 (2025-07-17)
+  - A lot of rewrites
+  - Improved event loop
+  - Support for HTTP/1.1 chunked encoding

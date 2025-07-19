@@ -8,33 +8,7 @@
 freehttpd is a lightweight and high-performance HTTP server, written in C.
 </p>
 
-## Installation
-
-#### Requirements
-
-- GCC 14+ or Clang 19+
-- OpenSSL
-- libsystemd (if using systemd)
-
-#### Building from source
-
-Clone this repository and run `./bootstrap` (not required if you're using a source tarball):
-
-```bash
-git clone https://github.com/onesoft-sudo/freehttpd.git
-cd freehttpd/
-./bootstrap
-```
-
-Then run the build:
-
-```bash
-./configure             # Use `--help' to see the available build options
-make
-make install
-```
-
-This should install all programs necessary to operate freehttpd, in `/usr/local`. You can change the destination by using the `--prefix` option with `./configure`.
+Please refer to the [plain-text README](./README).
 
 ## Licensing
 

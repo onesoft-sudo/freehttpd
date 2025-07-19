@@ -39,46 +39,9 @@ AM_INIT_AUTOMAKE([-Wall gnu 1.11 info-in-builddir subdir-objects])
 AM_SILENT_RULES([yes])
 
 # Options
-
-AC_ARG_ENABLE([debug],
-              [AS_HELP_STRING([--enable-debug], [Enable debug build mode (default: no)])],
-              [build_type=debug],
-              [build_type=release])
-
-AC_ARG_ENABLE([optimizations],
-              [AS_HELP_STRING([--enable-optimizations], [Enable the highest optimization flags (default: no)])],
-              [
-                : ${CFLAGS="-g -Ofast -flto -march=native -z now -Wall -Wextra -pedantic -std=gnu99"}
-                : ${LDFLAGS="-flto -march=native -z now"}
-              ],
-              [])
-
-AC_ARG_ENABLE([systemd],
-              [AS_HELP_STRING([--enable-systemd], [Enable systemd support (default: no)])],
-              [enable_systemd="$enableval"],
-              [enable_systemd=no])
-
-AC_ARG_ENABLE([rapidhash],
-			  [AS_HELP_STRING([--enable-rapidhash], [Enable rapidhash algorithm (downloads the required header files).])],
-			  [enable_rapidhash=1],
-			  [enable_rapidhash=0])
-
-AC_ARG_WITH([config-file],
-            [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
-            [FHTTPD_MAIN_CONFIG_FILE="$withval"],
-            [FHTTPD_MAIN_CONFIG_FILE="$sysconfdir/freehttpd/fhttpd.conf"])
-
-AC_MSG_CHECKING([whether to enable debug mode])
-
-AS_IF([test "x$build_type" = "xdebug"], [
-    AC_MSG_RESULT([yes])
-], [
-    AC_MSG_RESULT([no])
-    CPPFLAGS="$CPPFLAGS -DNDEBUG"
-])
+DEFINE_OPTIONS
 
 # Checks for programs.
-
 AC_PROG_CC
 AM_PROG_AR
 AC_PROG_RANLIB
@@ -162,22 +125,9 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
 
 AC_CONFIG_COMMANDS([fetchfiles], [
-    if test "$enable_rapidhash" = "1" && ! test -f src/hash/rapidhash.h; then
-	    code=0
-
-        if test "x$CURL" != "xno"; then
-	       "$CURL" -fSsL https://raw.githubusercontent.com/Nicoshev/rapidhash/refs/heads/master/rapidhash.h -o src/hash/rapidhash.h
-	       code=$?
-     	elif test "x$WGET" != "xno"; then
-	       "$WGET" -q https://raw.githubusercontent.com/Nicoshev/rapidhash/refs/heads/master/rapidhash.h -O src/hash/rapidhash.h
-	       code=$?
-	    fi
-
-	    if test "$code" != "0"; then
-	       echo "Failed to fetch required files" >&2
-	       exit 1
-	    fi
-	fi
+    AS_IF([test "$enable_rapidhash" = "1" && ! test -f src/hash/rapidhash.h], [
+        NETWORK_FETCH([https://raw.githubusercontent.com/Nicoshev/rapidhash/refs/heads/master/rapidhash.h], [src/hash/rapidhash.h])
+    ])
 ], [
    enable_rapidhash=$enable_rapidhash
    CURL="$CURL"
