@@ -23,9 +23,11 @@ SUBDIRS = \
 	conf \
 	systemd \
 	src \
-	doc \
-	man \
 	tests
+
+if ENABLE_DOC
+SUBDIRS += doc man
+endif
 
 EXTRA_DIST = \
 	README \
@@ -68,7 +70,7 @@ check-benchmark: all
 check-valgrind-benchmark: all
 	$(MAKE) -C tests check-valgrind-benchmark
 
-.PHONY: vcs-clean check-benchmark check-valgrind-benchmark dist-fhttpd dist-fhttpd-sign
+.PHONY: vcs-clean check-benchmark check-valgrind-benchmark dist-fhttpd dist-fhttpd-sign changelog
 
 .tarball-version:
 	echo "@VERSION@" > .tarball-version
@@ -76,8 +78,15 @@ check-valgrind-benchmark: all
 distclean-local:
 	rm -f .tarball-version
 
+changelog:
+	@echo "  UPDATE   ChangeLog" && \
+		"$(top_srcdir)/build-aux/genchangelog" -f plain -o "$(top_srcdir)/ChangeLog"
+
 dist-hook:
-	@echo "  UPDATE   ChangeLog" && "$(top_srcdir)/build-aux/genchangelog" -f plain -o "$(top_srcdir)/ChangeLog"
+	@echo "  UPDATE   ChangeLog" && \
+		chmod u+w $(distdir)/ChangeLog && \
+		"$(distdir)/build-aux/genchangelog" -f plain -o "$(distdir)/ChangeLog" && \
+		chmod u-w $(distdir)/ChangeLog
 
 dist-fhttpd: dist dist-shar
 dist-fhttpd-sign: dist-fhttpd

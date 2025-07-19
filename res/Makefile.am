@@ -35,7 +35,7 @@ EXTRA_DIST = \
 noinst_LIBRARIES = libresources.a
 nodist_libresources_a_SOURCES = resources.c resources.h
 BUILT_SOURCES = $(nodist_libresources_a_SOURCES)
-CLEANFILES = $(nodist_SOURCES)
+CLEANFILES = $(BUILT_SOURCES)
 
 resources.c: $(RESOURCES) resources.h
 	@echo "  GEN      resources.c" && echo '#include "resources.h"' > $@; \
@@ -43,7 +43,7 @@ resources.c: $(RESOURCES) resources.h
 	echo '#include <stdint.h>' >> $@; \
 	for res in $(RESOURCES); do \
 	    name=$$(basename $$res | sed "s/\./_/g"); \
-		xxd -n "resource_$$name" -i $$res \
+		xxd -n "resource_$$name" -i "$(srcdir)/$$res" \
 			| sed 's/unsigned int/__attribute__\(\(section\(".rodata"\)\)\) const size_t/g' \
 			| sed 's/unsigned char/__attribute__\(\(section\(".rodata"\)\)\) const char/g' \
 			| sed 's/};/, 0x00 };/g' >> $@; \
@@ -52,7 +52,7 @@ resources.c: $(RESOURCES) resources.h
 	for res in $(RESOURCES); do \
 	    name=$$(basename $$res | sed "s/\./_/g"); \
 		name_len=$$(echo "$$name" | wc -c | sed 's/ //g'); \
-		size=$$(stat -c %s $$res); \
+		size=$$(stat -c %s "$(srcdir)/$$res"); \
 		echo "  { .name = \"resource_$$name\", .name_len = $$name_len, .data = resource_$$name, .data_len = $$size, }," >> $@; \
 	done; \
 	echo "};" >> $@; \

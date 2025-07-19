@@ -1,5 +1,20 @@
 19-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
 
+     [*] build: fix distcheck errors
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: revert build workflow changes
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: improvements and license comments
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
      [*] style: add license comments
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
