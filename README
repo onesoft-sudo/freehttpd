@@ -4,18 +4,15 @@ freehttpd
 
 freehttpd is a lightweight and high-performance HTTP server, written in C.
 
-Installation
-------------
-
 Requirements
-~~~~~~~~~~~~
+------------
 
 -   GCC 14+ or Clang 19+
 -   OpenSSL
 -   libsystemd (if using systemd)
 
 Building from source
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 Clone this repository and run ./bootstrap (not required if you're using
 a source tarball):
