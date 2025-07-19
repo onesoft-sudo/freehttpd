@@ -16,3 +16,19 @@ AC_DEFUN([NETWORK_FETCH], [
         exit 1
     ])
 ])
+
+AC_DEFUN([PRINT_SUMMARY], [
+	AC_MSG_NOTICE([Configuration summary:
+
+  Version: $VERSION
+  Build type: $build_type
+  Compiler: $CC
+  Compiler flags: $CFLAGS
+  Linker flags: $LDFLAGS
+  Preprocessor flags: $CPPFLAGS
+  Libraries: $LIBS $SYSTEMD_LIBS
+  Installation prefix: $prefix
+  Main Configuration file: $FHTTPD_MAIN_CONFIG_FILE
+  Optional systemd support: $enable_systemd
+	])
+])

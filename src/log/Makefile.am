@@ -1,3 +1,6 @@
+#                                               -*- Automake -*-
+# Process this file with automake to produce Makefile.in.
+#
 # This file is part of OSN freehttpd.
 #
 # Copyright (C) 2025  OSN Developers.

@@ -1,0 +1,490 @@
+#!/usr/bin/env node
+
+/**
+ *  Copyright (C) 2024  OSN Developers.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+"use strict";
+
+const path = require("path");
+const { existsSync } = require("fs");
+const { exit } = require("process");
+const { execSync, exec, spawn } = require("child_process");
+const { writeFile } = require("fs/promises");
+const { parseArgs } = require("util");
+const crypto = require("crypto");
+
+const ME = path.basename(process.argv[1]);
+const GIT_COMMIT_BOUNDARY = crypto.randomBytes(64).toString("hex");
+const GIT_SPACE_BOUNDARY = crypto.randomBytes(64).toString("hex");
+
+function print(...args) {
+    console.log(`${ME}: ${args.join(" ")}`);
+}
+
+function perror(...args) {
+    console.error(`\x1b[0m${ME}: error: ${args.join(" ")}`);
+}
+
+function findInPath(executable) {
+    for (const segment of process.env.PATH?.split(
+        process.platform === "win32" ? ";" : ":",
+    ) ?? []) {
+        const executablePath = path.join(
+            segment,
+            executable + (process.platform === "win32" ? ".exe" : ""),
+        );
+
+        if (existsSync(executablePath)) {
+            return executablePath;
+        }
+    }
+
+    return null;
+}
+
+function checkForGit() {
+    const gitPath = findInPath("git");
+
+    if (!gitPath) {
+        perror("could not find git in $PATH");
+        perror("please make sure git is installed and available in $PATH");
+        exit(1);
+    }
+
+    return gitPath;
+}
+
+async function getGitLog(gitPath) {
+    try {
+        let output = "";
+
+        const child = spawn(
+            gitPath,
+            [
+                "--no-pager",
+                "log",
+                `--pretty=format:%h %H %an${GIT_SPACE_BOUNDARY} %ae %ad${GIT_SPACE_BOUNDARY} %B${GIT_COMMIT_BOUNDARY}`,
+            ],
+            { encoding: "utf8", stdio: "pipe" },
+        );
+
+        child.stdout.on("data", (data) => {
+            output += data;
+        });
+
+        child.stderr.on("data", (data) => {
+            console.error(data);
+        });
+
+        await new Promise((resolve) => {
+            child.on("close", (code) => {
+                if (code !== 0) {
+                    perror("command `git log' failed with exit code " + code);
+                    exit(1);
+                } else {
+                    resolve();
+                }
+            });
+        });
+
+        return output;
+    } catch (error) {
+        console.error(error);
+        perror("command `git log' failed");
+        exit(1);
+    }
+}
+
+function strUntil(str, boundary) {
+    let output = "";
+    let i = 0;
+
+    for (i = 0; i < str.length; i++) {
+        if (str[i] === boundary[0]) {
+            let boundaryIndex = 0;
+            let previousI = i;
+
+            while (
+                boundaryIndex < boundary.length &&
+                i < str.length &&
+                str[i] === boundary[boundaryIndex]
+            ) {
+                i++;
+                boundaryIndex++;
+            }
+
+            if (boundaryIndex === boundary.length) {
+                return { output, size: i };
+            }
+
+            i = previousI;
+        }
+
+        output += str[i];
+    }
+
+    return { output, size: i };
+}
+
+function parseGitLog(gitLog) {
+    const commits = [];
+
+    let i = 0;
+
+    while (i < gitLog.length) {
+        const { output, size } = strUntil(gitLog.slice(i), GIT_COMMIT_BOUNDARY);
+        i += size;
+
+        let outputIndex = 0;
+
+        const shortIdSpaceIndex = output.indexOf(" ");
+        const idSpaceIndex = output.indexOf(" ", shortIdSpaceIndex + 1);
+        const shortId = output.slice(outputIndex, shortIdSpaceIndex);
+        const id = output.slice(shortIdSpaceIndex + 1, idSpaceIndex);
+
+        outputIndex += shortId.length + id.length + 2;
+
+        const { output: authorName, size: authorNameSize } = strUntil(
+            output.slice(outputIndex),
+            GIT_SPACE_BOUNDARY,
+        );
+
+        outputIndex += authorNameSize + 1;
+
+        const authorEmailSpaceIndex = output.indexOf(" ", outputIndex + 1);
+        const authorEmail = output.slice(outputIndex, authorEmailSpaceIndex);
+
+        outputIndex += authorEmail.length + 1;
+
+        const { output: date, size: dateSize } = strUntil(
+            output.slice(outputIndex),
+            GIT_SPACE_BOUNDARY,
+        );
+
+        outputIndex += dateSize + 1;
+
+        const message = output.slice(outputIndex);
+        const newlineIndex = message.indexOf("\n");
+        const subject = message.slice(
+            0,
+            newlineIndex === -1 ? undefined : newlineIndex,
+        );
+        const body = newlineIndex === -1 ? "" : message.slice(newlineIndex + 1);
+
+        const validFooterProps = [
+            "signed-off-by",
+            "co-authored-by",
+            "on-behalf-of",
+        ];
+        const footerProps = {};
+        const coAuthors = [];
+
+        for (const line of body.split("\n")) {
+            const colonIndex = line.indexOf(":");
+            const key = line.slice(0, colonIndex).trim().toLowerCase();
+            const value = line.slice(colonIndex + 1).trim();
+
+            if (validFooterProps.includes(key)) {
+                footerProps[key] = value;
+            }
+
+            if (key === "co-authored-by") {
+                const name = value.slice(0, value.lastIndexOf(" ")).trim();
+
+                coAuthors.push({
+                    name,
+                    email: value
+                        .slice(name.length)
+                        .trim()
+                        .replace(/^<|>$/g, ""),
+                });
+            }
+        }
+
+        commits.push({
+            shortId,
+            id,
+            author: {
+                name: authorName,
+                email: authorEmail,
+            },
+            date: new Date(date),
+            subject,
+            body,
+            footerProps,
+            message,
+            coAuthors,
+            authors: [
+                {
+                    name: authorName,
+                    email: authorEmail,
+                },
+                ...coAuthors,
+            ],
+        });
+    }
+
+    return commits;
+}
+
+function escapeMarkdown(str) {
+    return str.replace(/([_*~`])/g, "\\$1");
+}
+
+function generateMarkdownChangelog(commits) {
+    let output = "# Changelog\n\n";
+
+    const grouppedCommitsByDate = {};
+
+    for (const commit of commits) {
+        const key = `${commit.date.getUTCDate().toString().padStart(2, 0)}-${(
+            commit.date.getUTCMonth() + 1
+        )
+            .toString()
+            .padStart(2, "0")}-${commit.date.getUTCFullYear()}::${commit.authors
+            .map((a) => `[${escapeMarkdown(a.name)}](mailto:${a.email})`)
+            .join(":")}`;
+        grouppedCommitsByDate[key] ??= [];
+        grouppedCommitsByDate[key].push(commit);
+    }
+
+    for (const key in grouppedCommitsByDate) {
+        const [date, author] = key.split("::");
+        output += `### ${date} - [${author}]\n\n`;
+
+        for (const commit of grouppedCommitsByDate[key]) {
+            const conventionalCommitType = commit.subject.match(
+                /^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test|release|deps)(\(.+\))?:/,
+            );
+            let needsBreakingChangeWarning = conventionalCommitType?.[0]
+                ?.trim()
+                ?.endsWith("!:");
+
+            if (conventionalCommitType) {
+                output += `  * **${conventionalCommitType[0]}**${commit.subject.slice(conventionalCommitType[0].length)}`;
+            } else {
+                output += `  * ${commit.subject}`;
+            }
+
+            if (commit.body) {
+                output += "    \n";
+
+                for (const line of commit.body.split("\n")) {
+                    const colonIndex = line.indexOf(":");
+
+                    if (colonIndex !== -1) {
+                        const name = line.slice(0, colonIndex);
+                        const value = line.slice(colonIndex + 1);
+                        output += `    **${name}:** ${value}  \n`;
+
+                        if (name === "BREAKING CHANGE") {
+                            needsBreakingChangeWarning = false;
+                        }
+                    } else {
+                        output += `    ${line}  \n`;
+                    }
+                }
+            }
+
+            if (needsBreakingChangeWarning) {
+                output += "    **This is a breaking change.**  \n";
+                output += "    \n";
+            }
+
+            if (!commit.body && !needsBreakingChangeWarning) {
+                output += "\n";
+            }
+        }
+
+        output += "\n";
+    }
+
+    return output.trimEnd();
+}
+
+function generateChangelog(commits) {
+    let output = "";
+
+    const grouppedCommitsByDate = {};
+
+    for (const commit of commits) {
+        const key = `${commit.date.getUTCDate().toString().padStart(2, 0)}-${(
+            commit.date.getUTCMonth() + 1
+        )
+            .toString()
+            .padStart(
+                2,
+                "0",
+            )}-${commit.date.getUTCFullYear()}::${commit.authors.map((a) => `${a.name} <${a.email}>`).join(":")}`;
+        grouppedCommitsByDate[key] ??= [];
+        grouppedCommitsByDate[key].push(commit);
+    }
+
+    for (const key in grouppedCommitsByDate) {
+        const separatorPosition = key.indexOf("::");
+        const date = key.slice(0, separatorPosition);
+        const commits = grouppedCommitsByDate[key];
+
+        output += `${date}  ${commits[0].authors
+            .map((a) => `${a.name} <${a.email}>`)
+            .join(", ")}\n\n`;
+
+        for (const commit of commits) {
+            output += `     [*] ${commit.subject}\n${commit.body
+                .split("\n")
+                .map((part) => `         ${part}`)
+                .join("\n")}\n\n`;
+        }
+    }
+
+    return output.trim();
+}
+
+function printHelp() {
+    console.log("Usage:");
+    console.log(`  ${ME} [OPTION]...`);
+    console.log("Generate a formatted ChangeLog from Git commit logs.");
+    console.log();
+    console.log("Options:");
+    console.log("  -h, --help           Show this help and exit.");
+    console.log("  -v, --version        Show this script's version.");
+    console.log("  -f, --format         Set the changelog format.");
+    console.log("                       Supported formats are: plain,");
+    console.log("                       markdown.");
+    console.log("  -o, --output=<FILE>  Write the generated changelog to");
+    console.log("                       a file instead of standard output.");
+    console.log("      --no-overwrite   Disallow overwriting of the output");
+    console.log("                       file if it exists already.");
+    console.log();
+    console.log("Send general inquiries, questions and bug reports");
+    console.log("to <commons@onesoftnet.eu.org>.");
+}
+
+function printVersion() {
+    console.log("Copyright (C) 2024 OSN, Inc.");
+    console.log(
+        "License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.",
+    );
+    console.log(
+        "This is free software: you are free to change and redistribute it.",
+    );
+    console.log("There is NO WARRANTY, to the extent permitted by law.");
+    console.log();
+    console.log("Written by Ar Rakin.");
+}
+
+async function main() {
+    let options;
+
+    try {
+        options = parseArgs({
+            argv: process.argv.slice(1),
+            strict: true,
+            allowPositionals: false,
+            options: {
+                help: {
+                    type: "boolean",
+                    alias: "h",
+                },
+                version: {
+                    type: "boolean",
+                    alias: "v",
+                },
+                output: {
+                    type: "string",
+                    short: "o",
+                },
+                "no-overwrite": {
+                    type: "boolean",
+                },
+                format: {
+                    type: "string",
+                    short: "f",
+                },
+            },
+        }).values;
+    } catch (error) {
+        perror(`${error?.message ?? error}`);
+        exit(1);
+    }
+
+    if (options.help) {
+        printHelp();
+        exit(0);
+    }
+
+    if (options.version) {
+        printVersion();
+        exit(0);
+    }
+
+    if (options.format && !["markdown", "plain"].includes(options.format)) {
+        perror(
+            "option `--format` or `-f` only accepts one of the following: markdown, plain",
+        );
+        exit(1);
+    }
+
+    if (!options.output && options["no-overwrite"]) {
+        perror(
+            "option `--no-overwrite' without `--output` does not make sense",
+        );
+        exit(1);
+    }
+
+    if (
+        options.output &&
+        options["no-overwrite"] &&
+        existsSync(options.output)
+    ) {
+        perror(`${options.output}: cannot write changelog: File exists`);
+        exit(1);
+    }
+
+    const gitPath = checkForGit();
+    const gitLog = await getGitLog(gitPath);
+    const commits = parseGitLog(gitLog);
+    const filteredCommits = commits.filter(
+        (commit) =>
+            !/Merge pull request #\d+ from|Merge branch '\S+' of/.test(
+                commit.message,
+            ),
+    );
+    const changelog =
+        options.format === "markdown"
+            ? generateMarkdownChangelog(filteredCommits)
+            : generateChangelog(filteredCommits);
+
+    if (options.output) {
+        try {
+            await writeFile(options.output, changelog);
+        } catch (error) {
+            perror(
+                `${options.output}: failed to write changelog: ${
+                    error?.message ?? error
+                }`,
+            );
+            exit(1);
+        }
+
+        print(`wrote generated changelog to ${options.output}`);
+    } else {
+        console.log(changelog);
+    }
+}
+
+main();

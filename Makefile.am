@@ -1,3 +1,6 @@
+#                                               -*- Automake -*-
+# Process this file with automake to produce Makefile.in.
+#
 # This file is part of OSN freehttpd.
 #
 # Copyright (C) 2025  OSN Developers.
@@ -15,8 +18,27 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-SUBDIRS = res conf systemd src doc man tests
-EXTRA_DIST = README NEWS AUTHORS TODO bootstrap ChangeLog .tarball-version build-aux/valgrind
+SUBDIRS = \
+	res \
+	conf \
+	systemd \
+	src \
+	doc \
+	man \
+	tests
+
+EXTRA_DIST = \
+	README \
+	NEWS \
+	AUTHORS \
+	TODO \
+	bootstrap \
+	ChangeLog \
+	.tarball-version \
+	build-aux/valgrind \
+	build-aux/genchangelog \
+	build-aux/update-license-comments
+
 ACLOCAL_AMFLAGS = -I m4
 
 GPG ?= @GPG@
@@ -49,22 +71,22 @@ check-valgrind-benchmark: all
 .PHONY: vcs-clean check-benchmark check-valgrind-benchmark dist-fhttpd dist-fhttpd-sign
 
 .tarball-version:
-	echo '1.0.0' > .tarball-version
+	echo "@VERSION@" > .tarball-version
 
-clean-local:
+distclean-local:
 	rm -f .tarball-version
 
-dist-fhttpd:
-	$(MAKE) dist-gzip
-	$(MAKE) dist-xz
-	$(MAKE) dist-bzip2
+dist-hook:
+	@echo "  UPDATE   ChangeLog" && "$(top_srcdir)/build-aux/genchangelog" -f plain -o "$(top_srcdir)/ChangeLog"
 
+dist-fhttpd: dist dist-shar
 dist-fhttpd-sign: dist-fhttpd
 	if test -z "$(GPG_LOCAL_USER)"; then \
 		echo "The GPG_LOCAL_USER variable is not set - please set it to your GPG key ID."; \
 		exit 1; \
 	fi
 
-	$(GPG) -a -b --local-user $(GPG_LOCAL_USER) "$(distdir).tar.gz"
-	$(GPG) -a -b --local-user $(GPG_LOCAL_USER) "$(distdir).tar.bz2"
-	$(GPG) -a -b --local-user $(GPG_LOCAL_USER) "$(distdir).tar.xz"
+	@for format in tar.gz tar.xz tar.bz2 shar.gz; do \
+		echo "  SIGN     $(distdir).$$format"; \
+		$(GPG) --batch --yes -a -b --local-user $(GPG_LOCAL_USER) "$(distdir).$$format"; \
+	done

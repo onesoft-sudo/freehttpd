@@ -1,3 +1,71 @@
+19-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] style: add license comments
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: update readme
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] merge: branch 'main' of github.com:onesoft-sudo/freehttpd
+         
+
+     [*] ci: update build workflow
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: update README.md
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] chore: update README.md
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: define custom macros
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix automake warnings
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] fix: compiler warnings
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: make rapidhash.h optional
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+18-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] refactor: better configuration management
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+17-07-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v2.0.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] release: v1.26.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
+         
+
 17-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
 
      [*] feat!: force release v2.0.0
@@ -58,13 +126,6 @@
      [*] refactor: port back to c99
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
-         
-
-17-07-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
-
-     [*] release: v1.26.0 [skip ci]
-         
-         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
          
 
 15-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>

@@ -35,11 +35,56 @@ AC_CONFIG_SRCDIR([src/freehttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE([-Wall gnu 1.11 info-in-builddir subdir-objects])
+AM_INIT_AUTOMAKE([-Wall gnu 1.11 info-in-builddir subdir-objects dist-xz dist-bzip2])
 AM_SILENT_RULES([yes])
 
+AC_SUBST([VERSION], FHTTPD_VERSION)
+
 # Options
-DEFINE_OPTIONS
+AC_ARG_ENABLE([debug],
+              [AS_HELP_STRING([--enable-debug], [Enable debug build mode (default: no)])],
+              [build_type=debug],
+              [build_type=release])
+
+AC_ARG_ENABLE([optimizations],
+            [AS_HELP_STRING([--enable-optimizations], [Enable the highest optimization flags (default: no)])],
+            [
+                : ${CFLAGS="-g -Ofast -flto -march=native -z now -Wall -Wextra -pedantic -std=gnu99"}
+                : ${LDFLAGS="-flto -march=native -z now"}
+            ],
+            [])
+
+AC_ARG_ENABLE([systemd],
+            [AS_HELP_STRING([--enable-systemd], [Enable systemd support (default: no)])],
+            [enable_systemd="$enableval"],
+            [enable_systemd=no])
+
+AC_ARG_ENABLE([rapidhash],
+            [AS_HELP_STRING([--enable-rapidhash], [Enable rapidhash algorithm (downloads the required header files, default: no).])],
+            [enable_rapidhash=1],
+            [enable_rapidhash=0])
+
+AC_ARG_ENABLE([misc-doc-formats],
+            [AS_HELP_STRING([--enable-misc-doc-formats], [Enable misc documentation formats such as DVI and PDF. (Default: no)])],
+            [enable_misc_doc_formats=1],
+            [enable_misc_doc_formats=0])
+
+AC_ARG_WITH([config-file],
+            [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
+            [FHTTPD_MAIN_CONFIG_FILE="$withval"],
+            [FHTTPD_MAIN_CONFIG_FILE="$sysconfdir/freehttpd/fhttpd.conf"])
+
+AC_MSG_CHECKING([whether to enable debug mode])
+
+AS_IF([test "x$build_type" = "xdebug"], [
+    AC_MSG_RESULT([yes])
+], [
+    AC_MSG_RESULT([no])
+    CPPFLAGS="$CPPFLAGS -DNDEBUG"
+])
+
+AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
+AM_CONDITIONAL([DISABLE_MISC_DOC_FORMATS], [test "x$enable_misc_doc_formats" != "x1"])
 
 # Checks for programs.
 AC_PROG_CC
@@ -47,50 +92,18 @@ AM_PROG_AR
 AC_PROG_RANLIB
 
 AC_CHECK_PROGS([GPG], [gpg gpg2], [no])
-AS_IF([test "x$GPG" = "xno"], [GPG=""], [])
-AC_SUBST([GPG])
-
 AC_CHECK_PROGS([CURL], [curl], [no])
 AC_CHECK_PROGS([WGET], [wget], [no])
 
-AS_IF([test "x$enable_rapidhash" = "x1"], [
-    AS_IF([test "x$CURL" = "xno" && test "x$WGET" = "xno"], [
-        AC_MSG_ERROR([curl or wget is required to fetch external files into the source tree])
-        exit 1
-    ])
-
-    AC_DEFINE_UNQUOTED([HAVE_RAPIDHASH_H], [1], [Define to 1 if rapidhash algorithm is enabled])
-])
-
-AM_CONDITIONAL([ENABLE_RAPIDHASH], [test "$enable_rapidhash" = "1"])
-
+AS_IF([test "x$GPG" = "xno"], [GPG=""], [])
+AC_SUBST([GPG])
 AC_SUBST([WGET])
 AC_SUBST([CURL])
 
 # Checks for libraries.
 
-AS_IF([test "x$enable_systemd" = "xyes"], [
-    PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [], [
-        AC_MSG_ERROR([libsystemd is required for systemd support. Please install it or disable systemd support with --disable-systemd.])
-    ])
-
-    AC_MSG_CHECKING([for systemd unit directory])
-
-    systemdsystemunitdir="$libdir/systemd/system"
-    AC_SUBST([systemdsystemunitdir])
-    AC_MSG_RESULT([$systemdsystemunitdir])
-
-    AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])
-
-    CFLAGS="$CFLAGS $SYSTEMD_CFLAGS"
-    LIBS="$LIBS $SYSTEMD_LIBS"
-])
-
-AM_CONDITIONAL([ENABLE_SYSTEMD], [test "x$enable_systemd" = "xyes"])
-
-AC_SUBST([SYSTEMD_CFLAGS])
-AC_SUBST([SYSTEMD_LIBS])
-AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
+FEATURE_SYSTEMD_SUPPORT_CHECK
+FEATURE_RAPIDHASH_CHECK
 
 ABS_SRCDIR=`cd "$srcdir" && pwd`
 ABS_BUILDDIR=`pwd`
@@ -154,17 +167,4 @@ AC_CONFIG_FILES([Makefile
                  systemd/Makefile
                  tests/Makefile])
 AC_OUTPUT
-
-AC_MSG_NOTICE([Configuration summary:
-
-  Version: $VERSION
-  Build type: $build_type
-  Compiler: $CC
-  Compiler flags: $CFLAGS
-  Linker flags: $LDFLAGS
-  Preprocessor flags: $CPPFLAGS
-  Libraries: $LIBS $SYSTEMD_LIBS
-  Installation prefix: $prefix
-  Main Configuration file: $FHTTPD_MAIN_CONFIG_FILE
-  Optional systemd support: $enable_systemd
-])
+PRINT_SUMMARY

@@ -1,5 +1,5 @@
 *
 !.gitignore
 !valgrind
-!gitlog-to-changelog
+!genchangelog
 !update-license-comments

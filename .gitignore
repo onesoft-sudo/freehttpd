@@ -18,6 +18,10 @@ stamp-h1
 *.tar.*
 *.zip
 *.tar
+*.shar
+*.shar.gz
+*.shar.asc
+*.shar.gz.asc
 /config.h
 /config.h.in
 Makefile.in
