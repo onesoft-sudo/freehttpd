@@ -1,3 +1,5 @@
 *.html
 *.info
 *.pdf
+version.texi
+stamp-*

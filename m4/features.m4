@@ -22,7 +22,7 @@ AC_DEFUN([FEATURE_SYSTEMD_SUPPORT_CHECK], [
 ])
 
 AC_DEFUN([FEATURE_RAPIDHASH_CHECK], [
-    AS_IF([test "x$enable_rapidhash" = "x1"], [
+    AS_IF([test "x$enable_rapidhash" = "xyes"], [
         AS_IF([test "x$CURL" = "xno" && test "x$WGET" = "xno"], [
             AC_MSG_ERROR([curl or wget is required to fetch external files into the source tree])
             exit 1
@@ -31,5 +31,5 @@ AC_DEFUN([FEATURE_RAPIDHASH_CHECK], [
         AC_DEFINE_UNQUOTED([HAVE_RAPIDHASH_H], [1], [Define to 1 if rapidhash algorithm is enabled])
     ])
 
-    AM_CONDITIONAL([ENABLE_RAPIDHASH], [test "$enable_rapidhash" = "1"])
+    AM_CONDITIONAL([ENABLE_RAPIDHASH], [test "$enable_rapidhash" = "yes"])
 ])

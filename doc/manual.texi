@@ -2,6 +2,8 @@
 @setfilename manual.info
 @settitle Freehttpd Manual
 
+@include version.texi
+
 @copying
 Copright (C) 2025 OSN Developers.
 @end copying

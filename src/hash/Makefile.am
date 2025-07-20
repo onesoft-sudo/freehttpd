@@ -25,16 +25,15 @@ libhash_a_SOURCES = \
 	itable.c \
 	itable.h
 
-if ENABLE_RAPIDHASH
-libhash_a_CPPFLAGS = -DHAVE_RAPIDHASH_H
-endif
-
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
 AM_LDFLAGS = $(EXPORTED_AM_LDFLAGS)
 
-distclean-local:
-	rm -f rapidhash.h
+if ENABLE_RAPIDHASH
+AM_CPPFLAGS += -DHAVE_RAPIDHASH_H
+endif
+
+DISTCLEANFILES = rapidhash.h
 
 clean-local:
 	rm -rf .deps

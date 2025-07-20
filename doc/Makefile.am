@@ -21,6 +21,7 @@
 info_TEXINFOS = manual.texi
 html_FILES = manual.html
 info_FILES = manual.info
+AM_DISTCHECK_DVI_TARGET = html
 
 EXTRA_DIST = $(info_TEXINFOS)
 AM_MAKEINFOHTMLFLAGS = --no-split
@@ -31,14 +32,3 @@ all-local: $(html_FILES)
 # This is a way to trick Automake into not showing warnings
 # regarding the overrides of the existing `pdf', `dvi' and `ps'
 # rules.  It is hacky, but it works.
-
-if DISABLE_MISC_DOC_FORMATS
-pdf:
-	@true
-
-dvi:
-	@true
-
-ps:
-	@true
-endif

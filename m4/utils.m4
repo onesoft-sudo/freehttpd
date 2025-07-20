@@ -30,5 +30,6 @@ AC_DEFUN([PRINT_SUMMARY], [
   Installation prefix: $prefix
   Main Configuration file: $FHTTPD_MAIN_CONFIG_FILE
   Optional systemd support: $enable_systemd
+  Optimizations: $enable_optimizations
 	])
 ])

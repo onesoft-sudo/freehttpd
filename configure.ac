@@ -51,8 +51,9 @@ AC_ARG_ENABLE([optimizations],
             [
                 : ${CFLAGS="-g -Ofast -flto -march=native -z now -Wall -Wextra -pedantic -std=gnu99"}
                 : ${LDFLAGS="-flto -march=native -z now"}
+				enable_optimizations=yes
             ],
-            [])
+            [enable_optimizations=no])
 
 AC_ARG_ENABLE([systemd],
             [AS_HELP_STRING([--enable-systemd], [Enable systemd support (default: no)])],
@@ -61,18 +62,13 @@ AC_ARG_ENABLE([systemd],
 
 AC_ARG_ENABLE([rapidhash],
             [AS_HELP_STRING([--enable-rapidhash], [Enable rapidhash algorithm (downloads the required header files, default: no).])],
-            [enable_rapidhash=1],
-            [enable_rapidhash=0])
+            [enable_rapidhash=yes],
+            [enable_rapidhash=no])
 
 AC_ARG_ENABLE([doc],
-            [AS_HELP_STRING([--enable-doc], [Enable the generation of documentation files. (Default: yes)])],
-            [enable_doc_gen=1],
-            [enable_doc_gen=0])
-
-AC_ARG_ENABLE([misc-doc-formats],
-            [AS_HELP_STRING([--enable-misc-doc-formats], [Enable misc documentation formats such as DVI and PDF. (Default: no)])],
-            [enable_misc_doc_formats=1],
-            [enable_misc_doc_formats=0])
+            [AS_HELP_STRING([--enable-doc], [Enable documentation generation (default: no).])],
+            [enable_doc=yes],
+            [enable_doc=no])
 
 AC_ARG_WITH([config-file],
             [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
@@ -89,8 +85,7 @@ AS_IF([test "x$build_type" = "xdebug"], [
 ])
 
 AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
-AM_CONDITIONAL([DISABLE_MISC_DOC_FORMATS], [test "x$enable_misc_doc_formats" != "x1"])
-AM_CONDITIONAL([ENABLE_DOC], [test "x$enable_doc_gen" = "x1"])
+AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
 
 # Checks for programs.
 AC_PROG_CC
@@ -144,7 +139,7 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
 
 AC_CONFIG_COMMANDS([fetchfiles], [
-    AS_IF([test "$enable_rapidhash" = "1" && ! test -f src/hash/rapidhash.h], [
+    AS_IF([test "$enable_rapidhash" = "yes" && ! test -f src/hash/rapidhash.h], [
         NETWORK_FETCH([https://raw.githubusercontent.com/Nicoshev/rapidhash/refs/heads/master/rapidhash.h], [src/hash/rapidhash.h])
     ])
 ], [
