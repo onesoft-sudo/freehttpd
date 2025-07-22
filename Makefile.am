@@ -46,6 +46,20 @@ ACLOCAL_AMFLAGS = -I m4
 GPG ?= @GPG@
 GPG_LOCAL_USER ?=
 
+nodist_noinst_HEADERS = confpaths.h
+BUILT_SOURCES = $(nodist_noinst_HEADERS)
+CLEANFILES = $(nodist_noinst_HEADERS)
+
+confpaths.h:
+	@echo "  GEN     $@" && \
+		{ \
+			echo "#ifndef CONFPATHS_H"; \
+			echo "#define CONFPATHS_H"; \
+			echo "#define FHTTPD_MAIN_CONFIG_FILE \"$(FHTTPD_MAIN_CONFIG_FILE)\""; \
+			echo "#define FHTTPD_MODULE_PATH \"$(FHTTPD_MODULE_PATH)\""; \
+			echo "#endif /* CONFPATHS_H */"; \
+		} > $@
+
 vcs-clean: clean
 	for dir in $(SUBDIRS) .; do \
 		rm -rf \

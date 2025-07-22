@@ -21,11 +21,8 @@
 SUBDIRS = core log utils include event hash mm http digest router modules
 
 bin_PROGRAMS = freehttpd
-nodist_noinst_HEADERS = confpaths.h
-BUILT_SOURCES = $(nodist_noinst_HEADERS)
 
 freehttpd_SOURCES = \
-	confpaths.h \
 	freehttpd.c
 
 freehttpd_LDADD = \
@@ -47,10 +44,10 @@ freehttpd_LIBTOOLFLAGS = \
 	--preserve-dup-deps
 
 freehttpd_LDFLAGS = \
-	-rdynamic 
+	-rdynamic
 
-export EXPORTED_AM_CFLAGS = 
-export EXPORTED_AM_LDFLAGS = 
+export EXPORTED_AM_CFLAGS =
+export EXPORTED_AM_LDFLAGS =
 export EXPORTED_AM_CPPFLAGS = \
 	-I$(ABS_SRCDIR)/src/include \
 	-I$(ABS_SRCDIR)/src \
@@ -65,15 +62,3 @@ AM_LDFLAGS = $(EXPORTED_AM_LDFLAGS)
 
 clean-local:
 	rm -rf .deps
-
-confpaths.h:
-	@echo "  GEN     $@" && \
-		{ \
-			echo "#ifndef CONFPATHS_H"; \
-			echo "#define CONFPATHS_H"; \
-			echo "#define FHTTPD_MAIN_CONFIG_FILE \"$(FHTTPD_MAIN_CONFIG_FILE)\""; \
-			echo "#define FHTTPD_MODULE_PATH \"$(FHTTPD_MODULE_PATH)\""; \
-			echo "#endif /* CONFPATHS_H */"; \
-		} > $@
-
-CLEANFILES = $(nodist_noinst_HEADERS)

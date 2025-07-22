@@ -48,3 +48,4 @@ atconfig
 *.la
 *.lo
 .libs
+/confpaths.h
