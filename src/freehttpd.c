@@ -55,6 +55,13 @@ main (int argc, char **argv)
 		return 1;
 	}
 
+	if (!fh_master_load_modules (master))
+	{
+		fh_pr_err ("failed to load modules: %s", strerror (errno));
+		fh_master_destroy (master);
+		return 1;
+	}
+
 	if (!fh_master_setup_signal (master))
 	{
 		fh_pr_err ("failed to setup signal handlers: %s", strerror (errno));

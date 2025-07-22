@@ -17,8 +17,8 @@
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef FH_MODULES_AUTOINDEX_H
-#define FH_MODULES_AUTOINDEX_H
+#ifndef FH_MODULES_MOD_AUTOINDEX_H
+#define FH_MODULES_MOD_AUTOINDEX_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -44,4 +44,4 @@ struct fh_autoindex
 
 bool fh_autoindex_handle (struct fh_autoindex *autoindex);
 
-#endif /* FH_MODULES_AUTOINDEX_H */
+#endif /* FH_MODULES_MOD_AUTOINDEX_H */

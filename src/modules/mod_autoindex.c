@@ -35,7 +35,7 @@
 
 #define FH_LOG_MODULE_NAME "autoindex"
 
-#include "autoindex.h"
+#include "mod_autoindex.h"
 #include "log/log.h"
 
 static struct fh_link end_chunk_link = {

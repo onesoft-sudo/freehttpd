@@ -19,15 +19,7 @@
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.61])
-
-define([FHTTPD_VERSION],
-	m4_esyscmd([
-		if test -f "$srcdir/.tarball-version"; then
-		   head -n1 "$srcdir/.tarball-version" | tr -d '\n';
-		else
-			jq -r '.version' .github/version.json | tr -d '\n';
-		fi]))
-
+DEFINE_VERSION
 AC_INIT([freehttpd],
   FHTTPD_VERSION,
   [bug-freehttpd@lists.onesoftnet.eu.org])
@@ -71,9 +63,19 @@ AC_ARG_ENABLE([doc],
             [enable_doc=no])
 
 AC_ARG_WITH([config-file],
-            [AS_HELP_STRING([--with-config-file=FILE], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
+            [AS_HELP_STRING([--with-config-file=PATH], [Path to the main configuration file (default: $sysconfdir/freehttpd/fhttpd.conf)])],
             [FHTTPD_MAIN_CONFIG_FILE="$withval"],
             [FHTTPD_MAIN_CONFIG_FILE="$sysconfdir/freehttpd/fhttpd.conf"])
+
+AC_ARG_WITH([module-path],
+            [AS_HELP_STRING([--with-module-path=PATH], [Path to the modules directory (default: $libdir/freehttpd/modules)])],
+            [FHTTPD_MODULE_PATH="$withval"],
+            [FHTTPD_MODULE_PATH="$libdir/freehttpd/modules"])
+
+AC_ARG_ENABLE([mod-foo],
+            [AS_HELP_STRING([--enable-mod-foo], [Enable the mod_foo module (default: no).])],
+            [enable_mod_foo=mod_foo],
+            [enable_mod_foo=""])
 
 AC_MSG_CHECKING([whether to enable debug mode])
 
@@ -85,12 +87,18 @@ AS_IF([test "x$build_type" = "xdebug"], [
 ])
 
 AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
+AC_SUBST([FHTTPD_MODULE_PATH])
 AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
 
+# Enable modules
+AM_CONDITIONAL([ENABLE_MOD_FOO], [test -n "$enable_mod_foo"])
+
+all_modules="$enable_mod_foo"
+
 # Checks for programs.
+AC_PROG_AWK
 AC_PROG_CC
 AM_PROG_AR
-AC_PROG_RANLIB
 
 AC_CHECK_PROGS([GPG], [gpg gpg2], [no])
 AC_CHECK_PROGS([CURL], [curl], [no])
@@ -101,7 +109,17 @@ AC_SUBST([GPG])
 AC_SUBST([WGET])
 AC_SUBST([CURL])
 
+LT_INIT
+
 # Checks for libraries.
+
+case "$host_os" in
+  darwin*) shared_library_ext="dylib" ;;
+  cygwin*|mingw*) shared_library_ext="dll" ;;
+  *) shared_library_ext="so" ;;
+esac
+
+AC_DEFINE_UNQUOTED([SHARED_LIBRARY_EXTENSION], ["$shared_library_ext"], [The extension shared libraries use on this platform])
 
 FEATURE_SYSTEMD_SUPPORT_CHECK
 FEATURE_RAPIDHASH_CHECK
@@ -116,7 +134,7 @@ AC_SUBST([ABS_BUILDDIR])
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
-AC_CHECK_HEADERS([stdnoreturn.h])
+AC_CHECK_HEADERS([stdnoreturn.h strings.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 STDC_CHECK_VLA_SUPPORT
@@ -126,17 +144,23 @@ AC_TYPE_OFF_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
+AC_TYPE_INT16_T
+AC_TYPE_INT64_T
 AC_TYPE_UINT16_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
+
+AC_C_INLINE
 
 # Checks for library functions.
 AC_FUNC_FORK
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
+AC_FUNC_STRTOD
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
+AC_CHECK_FUNCS([realpath strchr strncasecmp strtoul])
 
 AC_CONFIG_COMMANDS([fetchfiles], [
     AS_IF([test "$enable_rapidhash" = "yes" && ! test -f src/hash/rapidhash.h], [

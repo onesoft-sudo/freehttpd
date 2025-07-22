@@ -44,3 +44,7 @@ GTAGS
 /tests/*_bin
 atconfig
 /tests/*.helper
+/libtool
+*.la
+*.lo
+.libs

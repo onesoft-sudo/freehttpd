@@ -17,12 +17,12 @@
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
 
 #define FH_LOG_MODULE_NAME "master"
 
@@ -30,7 +30,12 @@
 #include "confproc.h"
 #include "log/log.h"
 #include "master.h"
+#include "modules/module.h"
 #include "worker.h"
+
+#ifdef HAVE_CONFPATHS_H
+	#include "confpaths.h"
+#endif /* HAVE_CONFPATHS_H */
 
 #define FH_MASTER_SPAWN_WORKERS 8
 
@@ -61,8 +66,11 @@ fh_master_destroy (struct fh_master *master)
 	}
 
 	if (master->config)
-    	fh_conf_free (master->config);
+		fh_conf_free (master->config);
 
+	if (master->module_manager)
+		fh_module_manager_free (master->module_manager);
+	
 	free (master);
 }
 
@@ -84,7 +92,8 @@ fh_master_setup_signal (struct fh_master *master)
 	act.sa_handler = &fh_master_handle_term;
 	sigemptyset (&act.sa_mask);
 
-	if (sigaction (SIGINT, &act, NULL) < 0 || sigaction (SIGTERM, &act, NULL) < 0)
+	if (sigaction (SIGINT, &act, NULL) < 0
+		|| sigaction (SIGTERM, &act, NULL) < 0)
 		return false;
 
 	act.sa_flags = SA_RESTART;
@@ -103,10 +112,12 @@ fh_master_reset_signal (void)
 	act.sa_handler = SIG_DFL;
 	sigemptyset (&act.sa_mask);
 
-	if (sigaction (SIGINT, &act, NULL) < 0 || sigaction (SIGTERM, &act, NULL) < 0)
+	if (sigaction (SIGINT, &act, NULL) < 0
+		|| sigaction (SIGTERM, &act, NULL) < 0)
 		return false;
 
-	return sigaction (SIGINT, &act, NULL) == 0 && sigaction (SIGTERM, &act, NULL) == 0
+	return sigaction (SIGINT, &act, NULL) == 0
+		   && sigaction (SIGTERM, &act, NULL) == 0
 		   && sigaction (SIGHUP, &act, NULL) == 0;
 }
 
@@ -123,13 +134,15 @@ fh_master_read_config (struct fh_master *master)
 
 	if (!parser)
 	{
-		fh_pr_err ("Failed to read configuration file: %s", strerror (errno));
+		fh_pr_err ("Failed to read configuration file: %s: %s", config_file,
+				   strerror (errno));
 		return false;
 	}
 
 	if (fh_conf_parser_read (parser) < 0)
 	{
-		fh_pr_err ("Failed to read configuration file: %s", strerror (errno));
+		fh_pr_err ("Failed to read configuration file: %s: %s", config_file,
+				   strerror (errno));
 		fh_conf_parser_destroy (parser);
 		return false;
 	}
@@ -154,6 +167,17 @@ fh_master_read_config (struct fh_master *master)
 }
 
 bool
+fh_master_load_modules (struct fh_master *master)
+{
+	master->module_manager = fh_module_manager_create ();
+
+	if (!master->module_manager)
+		return false;
+
+	return fh_module_manager_load (master->module_manager);
+}
+
+bool
 fh_master_spawn_workers (struct fh_master *master)
 {
 	master->worker_pids = calloc (FH_MASTER_SPAWN_WORKERS, sizeof (pid_t));
@@ -175,6 +199,7 @@ fh_master_spawn_workers (struct fh_master *master)
 			local_master = NULL;
 			fh_master_reset_signal ();
 			struct fh_config *config = master->config;
+			fh_module_manager_free (master->module_manager);
 			free (master->worker_pids);
 			free (master);
 			fh_worker_start (config);

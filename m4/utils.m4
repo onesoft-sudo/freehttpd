@@ -28,8 +28,23 @@ AC_DEFUN([PRINT_SUMMARY], [
   Preprocessor flags: $CPPFLAGS
   Libraries: $LIBS $SYSTEMD_LIBS
   Installation prefix: $prefix
-  Main Configuration file: $FHTTPD_MAIN_CONFIG_FILE
+  Main configuration file: $main_config_file_path
+  Module path: $module_dir_path
   Optional systemd support: $enable_systemd
+  Optional modules: $all_modules
   Optimizations: $enable_optimizations
 	])
+])
+
+AC_DEFUN([DEFINE_VERSION], [
+    define(
+        [FHTTPD_VERSION],
+        m4_esyscmd([
+            if test -f "$srcdir/.tarball-version"; then
+            head -n1 "$srcdir/.tarball-version" | tr -d '\n';
+            else
+                jq -r '.version' .github/version.json | tr -d '\n';
+            fi
+        ])
+    )
 ])

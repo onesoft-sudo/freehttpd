@@ -34,7 +34,7 @@
 #include "filesystem.h"
 #include "http/http1_request.h"
 #include "http/http1_response.h"
-#include "modules/autoindex.h"
+#include "modules/mod_autoindex.h"
 #include "router.h"
 #include "utils/utils.h"
 
