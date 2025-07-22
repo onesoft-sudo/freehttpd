@@ -42,11 +42,12 @@
 #include "log/log.h"
 #include "router/router.h"
 #include "server.h"
+#include "modules/module.h"
 
 #define FH_SERVER_MAX_EVENTS 128
 
 struct fh_server *
-fh_server_create (struct fh_config *config)
+fh_server_create (struct fh_config *config, struct fh_module_manager *module_manager)
 {
 	struct fh_server *server = calloc (1, sizeof (struct fh_server));
 
@@ -54,6 +55,7 @@ fh_server_create (struct fh_config *config)
 		return NULL;
 
 	server->config = config;
+	server->module_manager = module_manager;
 	server->host_configs = config->hosts;
 	server->sockfd_table = itable_create (0);
 
@@ -114,6 +116,7 @@ fh_server_destroy (struct fh_server *server)
 	itable_destroy (server->connections);
 	itable_destroy (server->sockfd_table);
 	xpoll_destroy (server->xpoll_fd);
+	fh_module_manager_free (server->module_manager);
 	fh_conf_free (server->config);
 	fh_router_free (server->router);
 	free (server->router);

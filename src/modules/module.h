@@ -3,6 +3,9 @@
 
 #include "core/server.h"
 
+#define __module_scope __attribute__((section(".rodata")))
+#define MODULE_SIGNATURE 0x043D20FAU
+
 enum fh_module_errno
 {
     FH_OK = 0,
@@ -22,20 +25,25 @@ struct fh_module
     struct fh_server *server;
 };
 
+struct fh_module_internal;
+
 typedef int (*fh_module_on_load_cb_t)(const struct fh_module *);
 typedef int (*fh_module_on_unload_cb_t)(const struct fh_module *);
 
 struct fh_module_info
 {
-    enum fh_module_type type;
+	uint32_t signature;
+	enum fh_module_type type;
+	const char *name;
     fh_module_on_load_cb_t on_load;
     fh_module_on_unload_cb_t on_unload;
 };
 
 struct fh_module_manager
 {
-    struct fh_module **loaded_modules;
-    size_t loaded_module_count;
+    struct fh_module_internal *loaded_module_head;
+    struct fh_module_internal *loaded_module_tail;
+	size_t loaded_module_count;
 };
 
 typedef void * dlhandle_t;

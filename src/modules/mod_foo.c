@@ -13,17 +13,21 @@
 static int
 module_load (const struct fh_module *module)
 {
+	fh_pr_info ("Hello world from mod_foo!");
 	return FH_OK;
 }
 
 static int
 module_unload (const struct fh_module *module)
 {
+	fh_pr_info ("Goodbye world from mod_foo!");
 	return FH_OK;
 }
 
 struct fh_module_info module_info = {
+	.signature = MODULE_SIGNATURE,
 	.type = FH_MODULE_GENERIC,
+	.name = "mod_foo",
 	.on_load = &module_load,
 	.on_unload = &module_unload,
 };

@@ -70,7 +70,7 @@ fh_master_destroy (struct fh_master *master)
 
 	if (master->module_manager)
 		fh_module_manager_free (master->module_manager);
-	
+
 	free (master);
 }
 
@@ -199,10 +199,10 @@ fh_master_spawn_workers (struct fh_master *master)
 			local_master = NULL;
 			fh_master_reset_signal ();
 			struct fh_config *config = master->config;
-			fh_module_manager_free (master->module_manager);
+			struct fh_module_manager *module_manager = master->module_manager;
 			free (master->worker_pids);
 			free (master);
-			fh_worker_start (config);
+			fh_worker_start (config, module_manager);
 		}
 		else
 		{
