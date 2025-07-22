@@ -31,6 +31,13 @@ trap "exit 1" INT TERM
 echo "Starting stress test in 2 seconds..."
 sleep 2
 
+if ! kill -0 "$pid" > /dev/null; then
+	echo "freehttpd failed to start" >&2
+	echo "logs [last 100 lines]:" >&2
+	tail -n100 freehttpd.log >&2
+	exit 1
+fi
+
 siege -b -c 50 -t 10s --no-parser http://127.0.0.1:8080/
 
 if [ $? -ne 0 ]; then
