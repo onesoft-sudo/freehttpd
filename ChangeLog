@@ -1,3 +1,24 @@
+22-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: basic no-op module loader
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+20-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] doc: better integration with automake
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+19-07-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v2.0.1 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
+         
+
 19-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
 
      [*] build: fix distcheck errors
