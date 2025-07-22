@@ -46,8 +46,12 @@ AC_ARG_ENABLE([debug],
 AC_ARG_ENABLE([optimizations],
             [AS_HELP_STRING([--enable-optimizations], [Enable the highest optimization flags (default: no)])],
             [
-                : ${CFLAGS="-g -Ofast -flto -march=native -z now -Wall -Wextra -pedantic -std=gnu99"}
-                : ${LDFLAGS="-flto -march=native -z now"}
+				new_cflags="-g -Ofast -flto -march=native -z now -Wall -Wextra -pedantic -std=gnu99"
+				new_ldflags="-flto -march=native -z now"
+
+				AS_IF([test -n "$CFLAGS"], [CFLAGS="$CFLAGS $new_cflags"], [CFLAGS="$new_cflags"])
+                AS_IF([test -n "$LDFLAGS"], [LDFLAGS="$LDFLAGS $new_ldflags"], [LDFLAGS="$new_ldflags"])
+
 				enable_optimizations=yes
             ],
             [enable_optimizations=no])
@@ -93,7 +97,7 @@ AS_IF([test "x$build_type" = "xdebug"], [
     AC_MSG_RESULT([yes])
 ], [
     AC_MSG_RESULT([no])
-    CPPFLAGS="$CPPFLAGS -DNDEBUG"
+    AS_IF([test -n "$CPPFLAGS"], [CPPFLAGS="$CPPFLAGS -DNDEBUG"], [CPPFLAGS="-DNDEBUG"])
 ])
 
 AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
