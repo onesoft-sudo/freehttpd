@@ -1,18 +1,18 @@
 /*
  * This file is part of OSN freehttpd.
- * 
+ *
  * Copyright (C) 2025  OSN Developers.
  *
  * OSN freehttpd is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * OSN freehttpd is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -145,9 +145,10 @@ fh_conf_traverse_include_file (struct fh_traverse_ctx *ctx,
 		return false;
 	}
 
+	ctx->parser = include_parser;
 	struct fh_config *config = fh_conf_process (include_parser, ctx, root_config);
-
 	parser->include_fc = include_parser->include_fc;
+	ctx->parser = parser;
 
 	if (!config)
 	{
@@ -565,11 +566,11 @@ fh_conf_traverse_security_block_assignment (struct fh_traverse_ctx *ctx,
 
 		int64_t intval = value->details.literal.value.int_value;
 
-		if (intval <= 0)
+		if (intval < 0)
 		{
 			fh_conf_parser_error (
 				ctx->parser, CONF_PARSER_ERROR_INVALID_CONFIG, value->line,
-				value->column, "Expected a positive non-zero integer value");
+				value->column, "Expected a positive integer value or zero");
 			return false;
 		}
 
