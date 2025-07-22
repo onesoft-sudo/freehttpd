@@ -12,8 +12,8 @@ AC_DEFUN([FEATURE_SYSTEMD_SUPPORT_CHECK], [
 
         AC_DEFINE_UNQUOTED([FHTTPD_ENABLE_SYSTEMD], [1], [Enables systemd support])
 
-        CFLAGS="$CFLAGS $SYSTEMD_CFLAGS"
-        LIBS="$LIBS $SYSTEMD_LIBS"
+        AS_IF([test -n "$CFLAGS"], [CFLAGS="$CFLAGS $SYSTEMD_CFLAGS"], [CFLAGS="$SYSTEMD_CFLAGS"])
+        AS_IF([test -n "$LIBS"], [LIBS="$LIBS $SYSTEMD_LIBS"], [LIBS="$SYSTEMD_LIBS"])
     ])
 
     AM_CONDITIONAL([ENABLE_SYSTEMD], [test "x$enable_systemd" = "xyes"])

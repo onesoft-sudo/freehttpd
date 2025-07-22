@@ -19,13 +19,18 @@
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.61])
-DEFINE_VERSION
+define([FHTTPD_VERSION], m4_esyscmd([build-aux/git-version-gen -d .github/version.json .version]))
+
 AC_INIT([freehttpd],
   FHTTPD_VERSION,
-  [bug-freehttpd@lists.onesoftnet.eu.org])
+  [bug-freehttpd@lists.onesoftnet.eu.org],
+  [freehttpd],
+  [https://github.com/onesoft-sudo/freehttpd])
+
 AC_CONFIG_SRCDIR([src/freehttpd.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
+AC_REQUIRE_AUX_FILE([git-version-gen])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall gnu 1.11 info-in-builddir subdir-objects dist-xz dist-bzip2])
 AM_SILENT_RULES([yes])
@@ -98,16 +103,23 @@ AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
 # Enable modules
 AM_CONDITIONAL([ENABLE_MOD_FOO], [test "x$enable_mod_foo" = "xyes" || test "x$enable_mod_all" = "xyes"])
 
+available_modules="foo"
 all_modules=""
 
-AS_IF([test "x$enable_mod_foo" = "xyes"], [
-    all_modules="$all_modules mod_foo"
-], [])
+for module in $available_modules; do
+	varname="enable_mod_$module"
+	varval="$(eval echo "\${$varname}")"
+
+	AS_IF([test "x$varval" = "xyes" || test "x$enable_mod_all" = "xyes"], [
+	    AS_IF([test -n "$all_modules"], [all_modules="$all_modules mod_$module"], [all_modules="mod_$module"])
+    ], [])
+done
 
 # Checks for programs.
-AC_PROG_AWK
 AC_PROG_CC
 AM_PROG_AR
+AC_PROG_LN_S
+AC_PROG_MKDIR_P
 
 AC_CHECK_PROGS([GPG], [gpg gpg2], [no])
 AC_CHECK_PROGS([CURL], [curl], [no])
@@ -142,8 +154,8 @@ AC_SUBST([ABS_BUILDDIR])
 # Define macros
 
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdint.h sys/socket.h sys/time.h unistd.h])
-AC_CHECK_HEADERS([stdnoreturn.h strings.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h sys/socket.h sys/time.h])
+AC_CHECK_HEADERS([stdnoreturn.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 STDC_CHECK_VLA_SUPPORT

@@ -39,7 +39,8 @@ EXTRA_DIST = \
 	.tarball-version \
 	build-aux/valgrind \
 	build-aux/genchangelog \
-	build-aux/update-license-comments
+	build-aux/update-license-comments \
+	build-aux/git-version-gen
 
 ACLOCAL_AMFLAGS = -I m4
 
