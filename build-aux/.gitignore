@@ -3,3 +3,4 @@
 !valgrind
 !genchangelog
 !update-license-comments
+!git-version-gen

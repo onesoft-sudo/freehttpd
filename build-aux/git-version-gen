@@ -1,0 +1,128 @@
+#!/bin/sh
+
+me="$0"
+script_version="1.0.0"
+
+pr_err ()
+{
+	fmt="$1"
+	shift
+	printf "$me: $fmt\n" $@ >&2
+}
+
+usage ()
+{
+	echo "Usage:"
+	echo "  $me [options] [FILE...]"
+	echo ""
+	echo "Prints the version number of this project.  Fallback files "
+	echo "containing versions can also be specified as arguments."
+	echo ""
+	echo "Options:"
+	echo "  -h, --help          Show this help message"
+	echo "  -v, --version       Show version information of this script"
+	echo "  -V, --verbose       Show verbose output"
+	echo "  -g, --git           Try to figure out the version from the "
+	echo "                      latest git tag"
+	echo "  -d, --dist          Assume distribution and read from .tarball-version"
+	echo ""
+	echo "Send bug reports to <rakinar2@onesoftnet.eu.org>."
+}
+
+show_version ()
+{
+	echo "git-version-gen $script_version"
+	echo "Copyright (C) 2025 OSN Developers.  License: GPLv3+"
+	echo ""
+	echo "Written by Ar Rakin <rakinar2@onesoftnet.eu.org>."
+}
+
+is_git=0
+is_dist=0
+verbose=0
+
+pr_err_vb ()
+{
+	fmt="$1"
+	shift
+
+	if test "$verbose" = "1"; then
+		pr_err "$fmt" $@
+	fi
+}
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-h | --help)    usage; exit 0;        ;;
+		-v | --version) show_version; exit 0; ;;
+		-g | --git)     is_git=1; shift;      ;;
+		-d | --dist)    is_dist=1; shift;     ;;
+		-V | --verbose) verbose=1; shift;     ;;
+		--)             shift; break;         ;;
+		-*)
+			pr_err "Invalid option '%s'" "$1"
+			exit 1
+			;;
+
+		*) break; ;;
+	esac
+done
+
+for file in : $@; do
+	if test "$file" = ":"; then
+		continue
+	fi
+
+	if test -f "$file"; then
+		case "$file" in
+			*.json)
+				if ! version="$(jq -r .version "$file" 2>/dev/null)"; then
+					pr_err_vb "failed to get version from JSON file $file"
+				elif test -z "$version"; then
+					pr_err_vb ".version is empty in JSON file $file"
+				else
+					printf "%s\n" "$version"
+					exit 0
+				fi
+				;;
+
+			*)
+				if ! version="$(cat "$file")"; then
+					pr_err_vb "failed to read $file"
+				elif test -z "$version"; then
+					pr_err_vb "$file is empty"
+				else
+					printf "%s\n" "$version"
+					exit 0
+				fi
+				;;
+		esac
+	fi
+done
+
+if test "$is_git" = "1" && test -d .git; then
+	if ! tag="$(git tag -l --sort=-creatordate | head -n1)"; then
+		pr_err_vb "git command failed"
+	else
+		if test "$(echo "$tag" | cut -c -1)" = "v"; then
+			tag="$(echo "$tag" | cut -c 2-)"
+		fi
+
+		printf "%s\n" "$tag"
+		exit 0
+	fi
+fi
+
+if test "$is_dist" = "1" && test -f .tarball-version; then
+	if ! version="$(cat .tarball-version)"; then
+		pr_err_vb "failed to read .tarball-version"
+	elif test -z "$version"; then
+		pr_err_vb ".tarball-version is empty"
+	else
+		printf "%s\n" "$version"
+		exit 0
+	fi
+fi
+
+pr_err_vb "failed to figure out the version of this project"
+exit 1
