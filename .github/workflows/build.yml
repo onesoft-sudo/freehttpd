@@ -67,6 +67,7 @@ jobs:
             tests/freehttpd.log
             tests/valgrind.log
             tests/vgcore.*
+						*.shar.gz
             *.tar.gz
             *.tar.bz2
             *.tar.xz
@@ -108,6 +109,7 @@ jobs:
           name: ${{ steps.automatic_versioning.outputs.tag }}
           body: ${{ steps.automatic_versioning.outputs.release_notes }}
           artifacts: |
+             build-artifacts/*.shar.gz,
              build-artifacts/*.tar.gz,
              build-artifacts/*.tar.xz,
              build-artifacts/*.tar.bz2,
