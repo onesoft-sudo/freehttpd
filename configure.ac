@@ -74,8 +74,13 @@ AC_ARG_WITH([module-path],
 
 AC_ARG_ENABLE([mod-foo],
             [AS_HELP_STRING([--enable-mod-foo], [Enable the mod_foo module (default: no).])],
-            [enable_mod_foo=mod_foo],
-            [enable_mod_foo=""])
+            [enable_mod_foo=yes],
+            [enable_mod_foo=no])
+
+AC_ARG_ENABLE([mod-all],
+            [AS_HELP_STRING([--enable-mod-all], [Enable all available modules (default: no).])],
+            [enable_mod_all=yes],
+            [enable_mod_all=no])
 
 AC_MSG_CHECKING([whether to enable debug mode])
 
@@ -91,9 +96,13 @@ AC_SUBST([FHTTPD_MODULE_PATH])
 AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
 
 # Enable modules
-AM_CONDITIONAL([ENABLE_MOD_FOO], [test -n "$enable_mod_foo"])
+AM_CONDITIONAL([ENABLE_MOD_FOO], [test "x$enable_mod_foo" = "xyes" || test "x$enable_mod_all" = "xyes"])
 
-all_modules="$enable_mod_foo"
+all_modules=""
+
+AS_IF([test "x$enable_mod_foo" = "xyes"], [
+    all_modules="$all_modules mod_foo"
+], [])
 
 # Checks for programs.
 AC_PROG_AWK

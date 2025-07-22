@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: |
           ./bootstrap
-          ./configure CC=/usr/bin/gcc-14 --prefix=$(pwd)/build --disable-silent-rules
+          ./configure CC=/usr/bin/gcc-14 --prefix=$(pwd)/build --disable-silent-rules --enable-optimizations --enable-mod-all
           make -j$(nproc)
           make install
 
