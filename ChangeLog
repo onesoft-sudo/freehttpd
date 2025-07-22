@@ -1,8 +1,44 @@
 22-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
 
+     [*] feat(modules): load dynamic objects and perform initialization
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix benchmark success even when the daemon fails to start
+         
+
+     [*] core/confproc.c (fh_traverse_include_file): fix overwrite of location
+         
+         The error location used to be accidentally overwritten by the sub-parsers,
+         which has been fixed.
+         
+
+     [*] build: generate confpaths.h in the project root
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] merge: branch 'main' of github.com:onesoft-sudo/freehttpd
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: build all modules
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
      [*] feat: basic no-op module loader
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+22-07-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v2.1.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
          
 
 20-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
