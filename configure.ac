@@ -139,13 +139,9 @@ LT_INIT
 
 # Checks for libraries.
 
-case "$host_os" in
-  darwin*) shared_library_ext="dylib" ;;
-  cygwin*|mingw*) shared_library_ext="dll" ;;
-  *) shared_library_ext="so" ;;
-esac
-
-AC_DEFINE_UNQUOTED([SHARED_LIBRARY_EXTENSION], ["$shared_library_ext"], [The extension shared libraries use on this platform])
+AC_CHECK_LIB([dl], [dlopen], [have_libdl=yes], [
+    AC_MSG_ERROR([libdl is required for loading dynamic modules])
+])
 
 FEATURE_SYSTEMD_SUPPORT_CHECK
 FEATURE_RAPIDHASH_CHECK
@@ -157,13 +153,21 @@ AC_SUBST([ABS_SRCDIR])
 AC_SUBST([ABS_BUILDDIR])
 
 # Define macros
+case "$host_os" in
+  darwin*) shared_library_ext="dylib" ;;
+  cygwin*|mingw*) shared_library_ext="dll" ;;
+  *) shared_library_ext="so" ;;
+esac
+
+AC_DEFINE_UNQUOTED([SHARED_LIBRARY_EXTENSION], ["$shared_library_ext"], [The extension shared libraries use on this platform])
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h sys/socket.h sys/time.h])
 AC_CHECK_HEADERS([stdnoreturn.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
-STDC_CHECK_VLA_SUPPORT
+CC_CHECK_VLA_SUPPORT
+CCLD_CHECK_RDYNAMIC_SUPPORT
 
 AC_CHECK_HEADER_STDBOOL
 AC_TYPE_OFF_T
@@ -187,10 +191,6 @@ AC_FUNC_REALLOC
 AC_FUNC_STRTOD
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
 AC_CHECK_FUNCS([realpath strchr strncasecmp strtoul getopt_long])
-
-AC_CHECK_LIB([dl], [dlopen], [have_libdl=yes], [
-    AC_MSG_ERROR([libdl is required for loading dynamic modules])
-])
 
 # Enable modules
 m4_foreach([name], [AVAILABLE_MODULES], [
