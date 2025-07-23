@@ -58,9 +58,10 @@ jobs:
           GPG_LOCAL_USER=6AE7B08C68169452 make dist-fhttpd-sign
 
       - name: Upload Artifacts
+        id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: build-artifacts.zip
           path: |
             build/
             tests/freehttpd-valgrind.log
@@ -73,6 +74,11 @@ jobs:
             *.tar.xz
             *.asc
 
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: build-artifacts.zip
+          subject-digest: sha256:${{ steps.upload.outputs.artifact-digest }}
+          
   release:
     runs-on: ubuntu-latest
     needs: [build]
@@ -84,7 +90,7 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: build-artifacts
+          name: build-artifacts.zip
           path: build-artifacts
 
       - name: Automatic versioning
