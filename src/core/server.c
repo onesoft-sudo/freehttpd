@@ -42,7 +42,7 @@
 #include "log/log.h"
 #include "router/router.h"
 #include "server.h"
-#include "modules/module.h"
+#include "module.h"
 
 #define FH_SERVER_MAX_EVENTS 128
 

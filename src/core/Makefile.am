@@ -33,7 +33,9 @@ libcore_a_SOURCES = \
 	confproc.c \
 	confproc.h \
 	stream.c \
-	stream.h
+	stream.h \
+	module.c \
+	module.h
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)

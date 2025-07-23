@@ -1,7 +1,7 @@
 #ifndef FH_MODULE_H
 #define FH_MODULE_H
 
-#include "core/server.h"
+#include "server.h"
 
 #define __module_scope __attribute__((section(".rodata")))
 #define MODULE_SIGNATURE 0x043D20FAU

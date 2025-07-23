@@ -20,8 +20,6 @@
 
 noinst_LIBRARIES = libmodules.a
 libmodules_a_SOURCES = \
-	module.c \
-	module.h \
 	mod_autoindex.c \
 	mod_autoindex.h
 
@@ -30,7 +28,7 @@ AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
 AM_LDFLAGS = $(EXPORTED_AM_LDFLAGS)
 
 modulesdir = @FHTTPD_MODULE_PATH@
-modules_LTLIBRARIES = 
+modules_LTLIBRARIES =
 COMMON_MODULE_CFLAGS = -module -avoid-version -shared
 
 if ENABLE_MOD_FOO

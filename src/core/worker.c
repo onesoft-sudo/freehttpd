@@ -30,7 +30,7 @@
 #include "log/log.h"
 #include "worker.h"
 #include "server.h"
-#include "modules/module.h"
+#include "module.h"
 
 static pid_t pid;
 static struct fh_server *server = NULL;

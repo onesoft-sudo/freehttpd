@@ -7,12 +7,13 @@
 #define FH_LOG_MODULE_NAME "foo"
 
 #include "core/server.h"
+#include "core/module.h"
 #include "log/log.h"
-#include "module.h"
 
 static int
 module_load (const struct fh_module *module)
 {
+	(void) module;
 	fh_pr_info ("Hello world from mod_foo!");
 	return FH_OK;
 }
@@ -20,6 +21,7 @@ module_load (const struct fh_module *module)
 static int
 module_unload (const struct fh_module *module)
 {
+	(void) module;
 	fh_pr_info ("Goodbye world from mod_foo!");
 	return FH_OK;
 }

@@ -113,7 +113,6 @@ bool
 fh_module_manager_load (struct fh_module_manager *manager)
 {
 	const char module_path[] = FHTTPD_MODULE_PATH;
-	const char moudle_ext[] = SHARED_LIBRARY_EXTENSION;
 	struct dirent **entries;
 	int entry_count = scandir (module_path, &entries, NULL, &versionsort);
 

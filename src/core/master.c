@@ -30,7 +30,7 @@
 #include "confproc.h"
 #include "log/log.h"
 #include "master.h"
-#include "modules/module.h"
+#include "module.h"
 #include "worker.h"
 
 #ifdef HAVE_CONFPATHS_H
