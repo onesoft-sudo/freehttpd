@@ -5,6 +5,8 @@ on: [push, pull_request]
 permissions:
   contents: write
   actions: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
