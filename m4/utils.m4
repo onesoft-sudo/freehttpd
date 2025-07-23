@@ -31,7 +31,11 @@ AC_DEFUN([PRINT_SUMMARY], [
   Main configuration file:   $FHTTPD_MAIN_CONFIG_FILE
   Module path:               $FHTTPD_MODULE_PATH
   Optional systemd support:  $enable_systemd
-  Optional modules:          $all_modules
+  Optional modules:          $enabled_modules
   Optimizations:             $enable_optimizations
 	])
+])
+
+AC_DEFUN([CONCAT_SPACED_STRING], [
+    AS_IF([test -n "$$1"], [$1="$1 $2"], [$1="$2"])
 ])

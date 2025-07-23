@@ -1,6 +1,6 @@
 AC_DEFUN([STDC_CHECK_VLA_SUPPORT], [
-    AC_MSG_CHECKING([whether the C compiler supports VLAs])
-    
+    AC_MSG_CHECKING([whether $CC supports VLAs])
+
     AC_COMPILE_IFELSE(
         [AC_LANG_PROGRAM(
             [[
@@ -12,7 +12,7 @@ AC_DEFUN([STDC_CHECK_VLA_SUPPORT], [
         [AC_MSG_RESULT([yes])],
         [
             AC_MSG_RESULT([no])
-            AC_MSG_ERROR([The compiler does not support VLAs (variable-length arrays)])
+            AC_MSG_ERROR([The C compiler $CC does not support VLAs (variable-length arrays)])
         ]
     )
 ])

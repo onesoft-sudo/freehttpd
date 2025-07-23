@@ -38,7 +38,8 @@ freehttpd_LDADD = \
 	$(top_builddir)/src/modules/libmodules.a \
 	$(top_builddir)/src/utils/libutils.a \
 	$(top_builddir)/res/libresources.a \
-	$(SYSTEMD_LIBS)
+	$(SYSTEMD_LIBS) \
+	-ldl
 
 freehttpd_LIBTOOLFLAGS = \
 	--preserve-dup-deps

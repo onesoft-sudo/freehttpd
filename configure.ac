@@ -37,6 +37,10 @@ AM_SILENT_RULES([yes])
 
 AC_SUBST([VERSION], FHTTPD_VERSION)
 
+# Set default variables
+
+CONCAT_SPACED_STRING([CFLAGS], [-g -O2 -std=gnu99 -Wall -Wextra -pedantic])
+
 # Options
 AC_ARG_ENABLE([debug],
               [AS_HELP_STRING([--enable-debug], [Enable debug build mode (default: no)])],
@@ -46,15 +50,20 @@ AC_ARG_ENABLE([debug],
 AC_ARG_ENABLE([optimizations],
             [AS_HELP_STRING([--enable-optimizations], [Enable the highest optimization flags (default: no)])],
             [
-				new_cflags="-g -Ofast -flto -march=native -z now -Wall -Wextra -pedantic -std=gnu99"
+				new_cflags="-Ofast -flto -march=native -z now"
 				new_ldflags="-flto -march=native -z now"
 
-				AS_IF([test -n "$CFLAGS"], [CFLAGS="$CFLAGS $new_cflags"], [CFLAGS="$new_cflags"])
-                AS_IF([test -n "$LDFLAGS"], [LDFLAGS="$LDFLAGS $new_ldflags"], [LDFLAGS="$new_ldflags"])
+				CONCAT_SPACED_STRING([CFLAGS], [$new_cflags])
+				CONCAT_SPACED_STRING([LDFLAGS], [$new_ldflags])
 
 				enable_optimizations=yes
             ],
             [enable_optimizations=no])
+
+AC_ARG_ENABLE([werror],
+			[AS_HELP_STRING([--enable-werror], [Turn on the -Werror compiler flag to make every warning an error (default: no)])],
+			[CONCAT_SPACED_STRING([CFLAGS], [-Werror])],
+			[])
 
 AC_ARG_ENABLE([systemd],
             [AS_HELP_STRING([--enable-systemd], [Enable systemd support (default: no)])],
@@ -81,15 +90,23 @@ AC_ARG_WITH([module-path],
             [FHTTPD_MODULE_PATH="$withval"],
             [FHTTPD_MODULE_PATH="$libdir/freehttpd/modules"])
 
-AC_ARG_ENABLE([mod-foo],
-            [AS_HELP_STRING([--enable-mod-foo], [Enable the mod_foo module (default: no).])],
-            [enable_mod_foo=yes],
-            [enable_mod_foo=no])
+# Module options
+m4_define([AVAILABLE_MODULES], [[foo]])
+
+available_modules="m4_foreach([mod], [AVAILABLE_MODULES], [mod` `])"
+enabled_modules=""
 
 AC_ARG_ENABLE([mod-all],
             [AS_HELP_STRING([--enable-mod-all], [Enable all available modules (default: no).])],
             [enable_mod_all=yes],
             [enable_mod_all=no])
+
+m4_foreach([name], [AVAILABLE_MODULES], [
+	AC_ARG_ENABLE([mod-]name,
+            [AS_HELP_STRING([--enable-mod-]name, [Enable the mod_]name[ module (default: no).])],
+            [enable_mod_]name[=yes],
+            [enable_mod_]name[=no])
+])
 
 AC_MSG_CHECKING([whether to enable debug mode])
 
@@ -97,27 +114,14 @@ AS_IF([test "x$build_type" = "xdebug"], [
     AC_MSG_RESULT([yes])
 ], [
     AC_MSG_RESULT([no])
-    AS_IF([test -n "$CPPFLAGS"], [CPPFLAGS="$CPPFLAGS -DNDEBUG"], [CPPFLAGS="-DNDEBUG"])
+	CONCAT_SPACED_STRING([CPPFLAGS], [-DNDEBUG])
 ])
 
 AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
 AC_SUBST([FHTTPD_MODULE_PATH])
 AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
 
-# Enable modules
-AM_CONDITIONAL([ENABLE_MOD_FOO], [test "x$enable_mod_foo" = "xyes" || test "x$enable_mod_all" = "xyes"])
-
-available_modules="foo"
-all_modules=""
-
-for module in $available_modules; do
-	varname="enable_mod_$module"
-	varval="$(eval echo "\${$varname}")"
-
-	AS_IF([test "x$varval" = "xyes" || test "x$enable_mod_all" = "xyes"], [
-	    AS_IF([test -n "$all_modules"], [all_modules="$all_modules mod_$module"], [all_modules="mod_$module"])
-    ], [])
-done
+AC_CANONICAL_HOST
 
 # Checks for programs.
 AC_PROG_CC
@@ -185,7 +189,21 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STRTOD
 AC_CHECK_FUNCS([atexit clock_gettime gettimeofday memchr memmove memset socket strcasecmp strdup strerror strndup strrchr strtoull])
-AC_CHECK_FUNCS([realpath strchr strncasecmp strtoul])
+AC_CHECK_FUNCS([realpath strchr strncasecmp strtoul getopt_long])
+
+AC_CHECK_LIB([dl], [dlopen], [have_libdl=yes], [
+    AC_MSG_ERROR([libdl is required for loading dynamic modules])
+])
+
+# Enable modules
+m4_foreach([name], [AVAILABLE_MODULES], [
+    AM_CONDITIONAL([ENABLE_MOD_]m4_toupper(name), [test "x$enable_mod_]name[" = "xyes" || test "x$enable_mod_all" = "xyes"])
+
+	AS_IF([test "x$enable_mod_]name[" = "xyes" || test "x$enable_mod_all" = "xyes"], [
+		CONCAT_SPACED_STRING([enabled_modules], [mod_]name)
+		AC_MSG_NOTICE([enabling module: mod_]name)
+	])
+])
 
 AC_CONFIG_COMMANDS([fetchfiles], [
     AS_IF([test "$enable_rapidhash" = "yes" && ! test -f src/hash/rapidhash.h], [
