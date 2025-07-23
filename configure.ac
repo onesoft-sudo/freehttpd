@@ -50,11 +50,8 @@ AC_ARG_ENABLE([debug],
 AC_ARG_ENABLE([optimizations],
             [AS_HELP_STRING([--enable-optimizations], [Enable the highest optimization flags (default: no)])],
             [
-				new_cflags="-Ofast -flto -march=native -z now"
-				new_ldflags="-flto -march=native -z now"
-
-				CONCAT_SPACED_STRING([CFLAGS], [$new_cflags])
-				CONCAT_SPACED_STRING([LDFLAGS], [$new_ldflags])
+				CONCAT_SPACED_STRING([CFLAGS], [-Ofast -flto -march=native -z now])
+				CONCAT_SPACED_STRING([LDFLAGS], [-flto -march=native -z now])
 
 				enable_optimizations=yes
             ],

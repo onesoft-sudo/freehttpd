@@ -37,5 +37,5 @@ AC_DEFUN([PRINT_SUMMARY], [
 ])
 
 AC_DEFUN([CONCAT_SPACED_STRING], [
-    AS_IF([test -n "$$1"], [$1="$1 $2"], [$1="$2"])
+    AS_IF([test -n "$$1"], [$1="$$1 $2"], [$1="$2"])
 ])
