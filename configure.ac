@@ -32,6 +32,10 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_REQUIRE_AUX_FILE([git-version-gen])
 AC_CONFIG_MACRO_DIR([m4])
+
+AC_CANONICAL_TARGET
+AC_CANONICAL_HOST
+
 AM_INIT_AUTOMAKE([-Wall gnu 1.11 info-in-builddir subdir-objects dist-xz dist-bzip2])
 AM_SILENT_RULES([yes])
 
@@ -105,6 +109,10 @@ m4_foreach([name], [AVAILABLE_MODULES], [
             [enable_mod_]name[=no])
 ])
 
+AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
+AC_SUBST([FHTTPD_MODULE_PATH])
+AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
+
 AC_MSG_CHECKING([whether to enable debug mode])
 
 AS_IF([test "x$build_type" = "xdebug"], [
@@ -114,14 +122,9 @@ AS_IF([test "x$build_type" = "xdebug"], [
 	CONCAT_SPACED_STRING([CPPFLAGS], [-DNDEBUG])
 ])
 
-AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
-AC_SUBST([FHTTPD_MODULE_PATH])
-AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
-
-AC_CANONICAL_HOST
-
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CPP
 AM_PROG_AR
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
@@ -162,14 +165,19 @@ esac
 AC_DEFINE_UNQUOTED([SHARED_LIBRARY_EXTENSION], ["$shared_library_ext"], [The extension shared libraries use on this platform])
 
 # Checks for header files.
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADER_STDBOOL
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h sys/socket.h sys/time.h])
 AC_CHECK_HEADERS([stdnoreturn.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 CC_CHECK_VLA_SUPPORT
 CCLD_CHECK_RDYNAMIC_SUPPORT
+AC_C_INLINE
+AC_C_CONST
+AC_C_RESTRICT
+AC_SYS_LARGEFILE
 
-AC_CHECK_HEADER_STDBOOL
 AC_TYPE_OFF_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
@@ -180,8 +188,7 @@ AC_TYPE_UINT16_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
-
-AC_C_INLINE
+AC_STRUCT_TM
 
 # Checks for library functions.
 AC_FUNC_FORK

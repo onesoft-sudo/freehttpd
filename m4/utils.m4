@@ -21,8 +21,12 @@ AC_DEFUN([PRINT_SUMMARY], [
 	AC_MSG_NOTICE([configuration summary:
 
   Version:                   $VERSION
+  Target:                    $target
+  Host:                      $host
   Build type:                $build_type
   Compiler:                  $CC
+  Preprocessor:              $CPP
+  Linker:                    $LD
   Compiler flags:            $CFLAGS
   Linker flags:              $LDFLAGS
   Preprocessor flags:        $CPPFLAGS
