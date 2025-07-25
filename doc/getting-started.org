@@ -1,0 +1,126 @@
+#                   -*- Org -*-
+
+#+TITLE: Getting started with freehttpd
+
+# Local Variables:
+# org-use-sub-superscripts: nil
+# org-export-with-sub-superscripts: nil
+# End:
+
+#+options: html-link-use-abs-url:nil html-postamble:auto html-preamble:t
+#+options: html-scripts:nil html-style:t html5-fancy:nil tex:t
+#+html_doctype: xhtml-strict
+#+html_container: div
+#+html_content_class: content
+#+description:
+#+keywords:
+#+html_link_home:
+#+html_link_up:
+#+html_mathjax:
+#+html_equation_reference_format: \eqref{%s}
+#+html_head:
+#+html_head_extra:
+#+subtitle:
+#+infojs_opt:
+#+creator: <a href="https://www.gnu.org/software/emacs/">Emacs</a> 30.1 (<a href="https://orgmode.org">Org</a> mode 9.7.11)
+#+latex_header:
+
+* Introduction
+
+Welcome to the freehttpd documentation!  This is the first page, which will guide
+you through the installation of freehttpd.
+
+* Requirements
+
+To compile, install and run freehttpd, you need to ensure that you have the
+following tools installed:
+
+- A C compiler that supports GNU extensions (e.g. [[https://gcc.gnu.org][GCC]] or [[https://clang.llvm.org][Clang]])
+- [[https://openssl.org][OpenSSL]] - For TLS encryption
+
+Additionally, you might also need to install the following:
+
+- [[https://www.freedesktop.org/software/systemd/man/latest/libsystemd.html][libsystemd]] - For systemd support
+- GNU Autotools (e.g. [[https://gnu.org/software/automake][Automake]] and [[https://gnu.org/software/autoconf][Autoconf]])
+
+* Building from source
+
+1. First of all, you will have to get the source distributions or clone the
+   Git repository.  If you have downloaded the source tarballs already, run the
+   following:
+
+   #+BEGIN_SRC bash
+     tar -xvf freehttpd-x.y.z.tar.gz # x.y.z is the version
+     cd freehttpd-x.y.z/
+   #+END_SRC
+
+   If you want to clone the Git repository instead, run the following command
+   (assuming you have Git installed):
+
+   #+BEGIN_SRC bash
+     git clone https://github.com/onesoft-sudo/freehttpd.git
+     cd freehttpd/
+   #+END_SRC
+
+   However, cloning it will land you to the latest *unstable* code.  Use it at
+   your own risk as things may break.
+
+2. After you obtain the source code, you can go ahead and build it.  Since
+   freehttpd uses GNU Autotools, you can run the usual commands:
+
+   #+BEGIN_SRC bash
+     ./configure           # Add `--help' to see more details
+     make -n$(nproc)       # Run the build
+   #+END_SRC
+
+   If you *cloned the repository* however, you should run the following *first*:
+
+   #+BEGIN_SRC bash
+     ./bootstrap
+   #+END_SRC
+
+3. After that, you can run the installation, if the build succeeds:
+
+   #+BEGIN_SRC bash
+     make install
+   #+END_SRC
+
+   In most modern systems, you will need superuser permissions to install things
+   in standard directories like ~/usr/~ and ~/usr/local/~.  For this reason, you
+   will need to run the install command as superuser to perform the installation
+   unless you have changed the installation destination.
+
+   Run one of the following commands, whichever works for you:
+
+   #+BEGIN_SRC bash
+     sudo make install          # Traditional sudo
+   #+END_SRC
+
+   #+BEGIN_SRC bash
+     doas make install          # Another tool, doas
+   #+END_SRC
+
+   #+BEGIN_SRC bash
+     run0 make install          # systemd-run
+   #+END_SRC
+
+   If none of the above commands seem to work (e.g. because you don't have the
+   programs like ~sudo~ installed), you will have to manually login as superuser:
+
+   #+BEGIN_SRC bash
+     su -
+     make install
+   #+END_SRC
+
+   If everything was right, you should now have freehttpd installed on your
+   system.  Congratulations!
+
+4. For more details, please see the [[../INSTALL][INSTALL]] file in the project root.  Also
+   consider running =./configure --help= to see the available configuration
+   options.
+
+
+* Help & Support
+
+Feel free to directly contact me, the project maintainer,
+at [[mailto:rakinar2@onesoftnet.eu.org][<rakinar2@onesoftnet.eu.org>]].

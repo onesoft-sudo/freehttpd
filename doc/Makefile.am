@@ -23,7 +23,7 @@ html_FILES = manual.html
 info_FILES = manual.info
 AM_DISTCHECK_DVI_TARGET = html
 
-EXTRA_DIST = $(info_TEXINFOS)
+EXTRA_DIST = $(info_TEXINFOS) getting-started.org
 AM_MAKEINFOHTMLFLAGS = --no-split
 CLEANFILES = $(html_FILES) $(info_FILES)
 
