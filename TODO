@@ -1,10 +1,14 @@
-TODOs for freehttpd
-===================
+#                   -*- Org -*-
 
-* http1_request.c: parse query strings
-* server: use writev and sendfile for fast I/O
-* server: default index file
-* autoindex: parent directory link icon
-* http1: keep-alive connections
-* module: base64.c
-* module: md5.c
+#+TITLE: TODOs for freehttpd
+
+# Local Variables:
+# org-use-sub-superscripts: nil
+# org-export-with-sub-superscripts: nil
+# End:
+
+* TODO [#A] ~http1_request.c~: parse query strings
+* TODO ~server~: default index file
+* TODO ~autoindex~: parent directory link icon
+* TODO ~http1~: keep-alive connections
+* TODO ~module~: ~md5.c~

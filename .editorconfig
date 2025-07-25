@@ -16,3 +16,6 @@ max_line_length = 0
 [*.yml]
 indent_style = space
 indent_size = 2
+
+[{TODO,*.org}]
+indent_size = 8

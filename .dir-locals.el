@@ -1,5 +1,5 @@
 ((nil . ((fill-column . 80)
-         (indent-tabs-mode . nil)
+         (indent-tabs-mode . t)
          (tab-width . 4)
 		 (require-final-newline t))))
 
@@ -12,3 +12,6 @@
 							   (substatement-open . 0)
 							   (brace-list-open . 0)
 							   (brace-list-close . 0)))))
+
+((org-mode . ((org-use-sub-superscripts . '{})
+			  (tab-width . 8))))
