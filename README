@@ -31,6 +31,12 @@ This should install all programs necessary to operate freehttpd, in
 /usr/local. You can change the destination by using the --prefix option
 with ./configure.
 
+Documentation
+-------------
+
+All documenation is available in the `doc` directory.  You may also visit the
+online documenation at <http://coreblade.sudobot.online:8080/doc/>.
+
 Licensing
 ---------
 
