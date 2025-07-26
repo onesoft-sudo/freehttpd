@@ -1,4 +1,4 @@
-#                                               -*- Automake -*-
+#                                               -*- mode: makefile-automake; -*-
 # Process this file with automake to produce Makefile.in.
 #
 # This file is part of OSN freehttpd.
@@ -18,17 +18,34 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
-info_TEXINFOS = manual.texi
-html_FILES = manual.html
-info_FILES = manual.info
-AM_DISTCHECK_DVI_TARGET = html
+orgdocdir = $(docdir)/org
+htmldocdir = $(docdir)/html
 
-EXTRA_DIST = $(info_TEXINFOS) getting-started.org
-AM_MAKEINFOHTMLFLAGS = --no-split
-CLEANFILES = $(html_FILES) $(info_FILES)
+orgdoc_DATA = \
+	getting-started.org \
+	common-config.org
 
-all-local: $(html_FILES)
+nodist_htmldoc_DATA = \
+	getting-started.html
 
-# This is a way to trick Automake into not showing warnings
-# regarding the overrides of the existing `pdf', `dvi' and `ps'
-# rules.  It is hacky, but it works.
+EXTRA_DIST = $(orgdoc_DATA)
+SUFFIXES = .org .html
+
+EMACS_LOAD_CONFIG = \
+	--eval "(progn \
+	(require 'package) \
+	(package-initialize) \
+	(require 'htmlize) \
+	(message \"htmlize loaded\") \
+	(setq-default image-scaling-factor 1) \
+	(global-font-lock-mode t))"
+
+EMACS_BATCH = $(EMACS) --batch $(EMACS_LOAD_CONFIG)
+
+if ENABLE_DOC
+all-local: $(nodist_htmldoc_DATA)
+CLEANFILES = $(nodist_htmldoc_DATA)
+endif
+
+.org.html:
+	@echo "  EMACSGEN  $@" && $(EMACS_BATCH) $< --eval "(org-html-export-to-html)"

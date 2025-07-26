@@ -111,7 +111,7 @@ m4_foreach([name], [AVAILABLE_MODULES], [
 
 AC_SUBST([FHTTPD_MAIN_CONFIG_FILE])
 AC_SUBST([FHTTPD_MODULE_PATH])
-AM_CONDITIONAL([ENABLE_DOC], [test "$enable_doc" = "yes"])
+AM_CONDITIONAL([ENABLE_DOC], [test "x$enable_doc" = "xyes"])
 
 AC_MSG_CHECKING([whether to enable debug mode])
 
@@ -132,6 +132,8 @@ CHECK_PROG_GPG
 CHECK_PROG_NETWORK_FETCH
 
 LT_INIT
+
+AS_IF([test "x$enable_doc" = "xyes"], [CHECK_PROG_EMACS], [])
 
 # Checks for libraries.
 

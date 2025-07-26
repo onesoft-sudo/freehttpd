@@ -1,5 +1,5 @@
 *.html
 *.info
 *.pdf
-version.texi
+*.tex
 stamp-*

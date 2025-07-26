@@ -1,4 +1,4 @@
-#                                               -*- Automake -*-
+#           -*- mode: makefile-automake; -*-
 # Process this file with automake to produce Makefile.in.
 #
 # This file is part of OSN freehttpd.

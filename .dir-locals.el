@@ -13,5 +13,6 @@
 							   (brace-list-open . 0)
 							   (brace-list-close . 0)))))
 
-((org-mode . ((org-use-sub-superscripts . '{})
+((org-mode . ((org-use-sub-superscripts . nil)
+			  (org-export-with-sub-superscripts . nil)
 			  (tab-width . 8))))

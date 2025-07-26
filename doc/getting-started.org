@@ -1,29 +1,7 @@
 #                   -*- Org -*-
 
-#+TITLE: Getting started with freehttpd
-
-# Local Variables:
-# org-use-sub-superscripts: nil
-# org-export-with-sub-superscripts: nil
-# End:
-
-#+options: html-link-use-abs-url:nil html-postamble:auto html-preamble:t
-#+options: html-scripts:nil html-style:t html5-fancy:nil tex:t
-#+html_doctype: xhtml-strict
-#+html_container: div
-#+html_content_class: content
-#+description:
-#+keywords:
-#+html_link_home:
-#+html_link_up:
-#+html_mathjax:
-#+html_equation_reference_format: \eqref{%s}
-#+html_head:
-#+html_head_extra:
-#+subtitle:
-#+infojs_opt:
-#+creator: <a href="https://www.gnu.org/software/emacs/">Emacs</a> 30.1 (<a href="https://orgmode.org">Org</a> mode 9.7.11)
-#+latex_header:
+#+title: Getting started with freehttpd
+#+include: ./common-config.org
 
 * Introduction
 
@@ -49,7 +27,7 @@ Additionally, you might also need to install the following:
    Git repository.  If you have downloaded the source tarballs already, run the
    following:
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      tar -xvf freehttpd-x.y.z.tar.gz # x.y.z is the version
      cd freehttpd-x.y.z/
    #+END_SRC
@@ -57,7 +35,7 @@ Additionally, you might also need to install the following:
    If you want to clone the Git repository instead, run the following command
    (assuming you have Git installed):
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      git clone https://github.com/onesoft-sudo/freehttpd.git
      cd freehttpd/
    #+END_SRC
@@ -68,20 +46,20 @@ Additionally, you might also need to install the following:
 2. After you obtain the source code, you can go ahead and build it.  Since
    freehttpd uses GNU Autotools, you can run the usual commands:
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      ./configure           # Add `--help' to see more details
      make -n$(nproc)       # Run the build
    #+END_SRC
 
    If you *cloned the repository* however, you should run the following *first*:
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      ./bootstrap
    #+END_SRC
 
 3. After that, you can run the installation, if the build succeeds:
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      make install
    #+END_SRC
 
@@ -92,22 +70,22 @@ Additionally, you might also need to install the following:
 
    Run one of the following commands, whichever works for you:
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      sudo make install          # Traditional sudo
    #+END_SRC
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      doas make install          # Another tool, doas
    #+END_SRC
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      run0 make install          # systemd-run
    #+END_SRC
 
    If none of the above commands seem to work (e.g. because you don't have the
    programs like ~sudo~ installed), you will have to manually login as superuser:
 
-   #+BEGIN_SRC bash
+   #+BEGIN_SRC shell
      su -
      make install
    #+END_SRC
