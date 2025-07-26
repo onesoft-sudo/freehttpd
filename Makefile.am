@@ -52,7 +52,7 @@ BUILT_SOURCES = $(nodist_noinst_HEADERS)
 CLEANFILES = $(nodist_noinst_HEADERS)
 
 confpaths.h:
-	@echo "  GEN     $@" && \
+	@echo "  GEN      $@" && \
 		{ \
 			echo "#ifndef CONFPATHS_H"; \
 			echo "#define CONFPATHS_H"; \

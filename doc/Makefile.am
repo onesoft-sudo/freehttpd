@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with OSN freehttpd.  If not, see <https://www.gnu.org/licenses/>.
 
+if ENABLE_DOC
 orgdocdir = $(docdir)/org
 htmldocdir = $(docdir)/html
 
@@ -42,10 +43,10 @@ EMACS_LOAD_CONFIG = \
 
 EMACS_BATCH = $(EMACS) --batch $(EMACS_LOAD_CONFIG)
 
-if ENABLE_DOC
 all-local: $(nodist_htmldoc_DATA)
 CLEANFILES = $(nodist_htmldoc_DATA)
-endif
 
 .org.html:
 	@echo "  EMACSGEN  $@" && $(EMACS_BATCH) $< --eval "(org-html-export-to-html)"
+
+endif

@@ -97,6 +97,23 @@ Additionally, you might also need to install the following:
    consider running =./configure --help= to see the available configuration
    options.
 
+* Configuration
+
+Configuring freehttpd is straightforward.  You can simply edit the configuration files
+located in your ~$(sysconfdir)~, which is typically ~/etc/~.  The main configuration file
+is usually ~$(sysconfdir)/freehttpd/fhttpd.conf~ unless configured otherwise during build.
+
+Here is a simple configuration that creates a virtual host to serve ~/var/www/html~:
+
+#+begin_src conf
+  host ("localhost:80") {
+    # Makes this vhost default
+    is_default = true;
+
+    # Document root to serve
+    docroot = "/var/www/html";
+  }
+#+end_src
 
 * Help & Support
 
