@@ -23,10 +23,16 @@ orgdocdir = $(docdir)/org
 htmldocdir = $(docdir)/html
 
 orgdoc_DATA = \
+	index.org \
+	licensing.org \
+	gfdl.org \
 	getting-started.org \
 	common-config.org
 
 nodist_htmldoc_DATA = \
+	index.html \
+	licensing.html \
+	gfdl.html \
 	getting-started.html
 
 EXTRA_DIST = $(orgdoc_DATA)
