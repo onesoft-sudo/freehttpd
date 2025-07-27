@@ -119,3 +119,6 @@ Here is a simple configuration that creates a virtual host to serve ~/var/www/ht
 
 Feel free to directly contact me, the project maintainer,
 at [[mailto:rakinar2@onesoftnet.eu.org][<rakinar2@onesoftnet.eu.org>]].
+
+#+ATTR_HTML: :width 256
+[[https://raw.githubusercontent.com/onesoft-sudo/freehttpd/refs/heads/main/res/freehttpd_http.png]]

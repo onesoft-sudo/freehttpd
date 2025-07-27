@@ -7,7 +7,7 @@
 #+html_content_class: content
 #+description:
 #+keywords:
-#+html_link_home:
+#+html_link_home: index.html
 #+html_link_up:
 #+html_mathjax:
 #+html_equation_reference_format: \eqref{%s}
