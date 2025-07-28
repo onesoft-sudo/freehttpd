@@ -27,13 +27,17 @@ orgdoc_DATA = \
 	licensing.org \
 	gfdl.org \
 	getting-started.org \
+	command-line.org \
+	managing-the-daemon.org \
 	common-config.org
 
 nodist_htmldoc_DATA = \
 	index.html \
 	licensing.html \
 	gfdl.html \
-	getting-started.html
+	getting-started.html \
+	command-line.html \
+	managing-the-daemon.html
 
 EXTRA_DIST = $(orgdoc_DATA)
 SUFFIXES = .org .html
@@ -53,6 +57,6 @@ all-local: $(nodist_htmldoc_DATA)
 CLEANFILES = $(nodist_htmldoc_DATA)
 
 .org.html:
-	@echo "  EMACSGEN  $@" && $(EMACS_BATCH) $< --eval "(org-html-export-to-html)"
+	@echo "  EMACSGEN  $@" && $(EMACS_BATCH) $< --eval "(org-html-export-to-html)" >> emacs.log 2>&1
 
 endif
