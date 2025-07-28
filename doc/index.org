@@ -4,7 +4,9 @@
 #+include: ./common-config.org
 #+options: toc:nil
 
-+ [[file:index.org#introduction][1 Introduction]]
++ [[file:licensing.org][1 Introduction]]
    - [[file:licensing.org][1.1 Licensing (AGPL)]]
    - [[file:gfdl.org][1.2 GNU Free Documenation License v1.3]]
    - [[file:getting-started.org][1.3 Getting started]]
++ [[file:command-line.org][2 Invoking freehttpd]]
+  - [[file:command-line.org][2.1 Command Line Interface]]

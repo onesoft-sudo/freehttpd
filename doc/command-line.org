@@ -1,0 +1,42 @@
+#                   -*- Org -*-
+
+#+title: Command Line Interface
+#+include: ./common-config.org
+
+The freehttpd command-line interface is designed to keep the workflow simple, and
+steady.  There's also a man page for ~freehttpd(8)~, you could check that instead
+if you wish.
+
+* Command-line Usage
+
+#+begin_src shell
+  freehttpd [-f file] [-h] [-v] [-V] [-T] [-d]
+#+end_src
+
+* Available Options
+
+| Option                | Description                                                                                                                                                     |
+|-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ~-f~, ~--config=FILE~ | Path to the config file to read.  The default value is set during build configuration.                                                                          |
+| ~-h~, ~--help~        | Show basic help and usage information.                                                                                                                          |
+| ~-v~, ~--verbose~     | Enable verbose mode.  Please note that this option does not have any change in its effect when used multiple times, unlike some programs that behave like this. |
+| ~-V~, ~--version~     | Print version information and exit.                                                                                                                             |
+| ~-T~, ~--test~        | Test the configuration files for correctness of syntax and values, then exit with code 0 if successful.  Otherwise, error messages will be printed.             |
+| ~-d~, ~--detach~      | Run in detached mode, a.k.a. daemon mode.  When using with systemd, this is not necessary, as systemd recommends staying in foreground mode.                    |
+
+* Daemon management
+
+If you have a service/daemon manager installed, and have configured freehttpd during
+build time with such support, you should rely on that specific service manager to
+manage freehttpd instead of starting it manually.  For example, if you have enabled
+support for systemd during build, a systemd service unit file should have been installed
+to the appropriate destination.  As such, you should be able to run:
+
+#+begin_src shell
+  systemctl start freehttpd.service
+#+end_src
+
+And all other standard ~systemctl~ commands should work as intended.  If you're using
+SysVinit, OpenRC, or some other service manager, you might need to manually create a
+service for freehttpd unless we support it.  In both cases, the workflow is pretty much
+the same.
