@@ -40,3 +40,5 @@ And all other standard ~systemctl~ commands should work as intended.  If you're 
 SysVinit, OpenRC, or some other service manager, you might need to manually create a
 service for freehttpd unless we support it.  In both cases, the workflow is pretty much
 the same.
+
+For more information, please see [[file:managing-the-daemon.org][Managing the Daemon]].

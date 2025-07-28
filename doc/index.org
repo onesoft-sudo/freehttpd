@@ -10,3 +10,4 @@
    - [[file:getting-started.org][1.3 Getting started]]
 + [[file:command-line.org][2 Invoking freehttpd]]
   - [[file:command-line.org][2.1 Command Line Interface]]
+  - [[file:managing-the-daemon.org][2.2 Managing the Daemon]]

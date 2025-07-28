@@ -1,0 +1,57 @@
+#                   -*- Org -*-
+
+#+title: Managing the Daemon
+#+include: ./common-config.org
+
+Most modern GNU/Linux or other Unix-like systems nowadays include a service
+management utility.  For example, on Fedora GNU/Linux, it is [[https://systemd.io][systemd]].  On the
+other hand, Apple Mac OS X uses launchd.  Other GNU/Linux distributions may
+choose to use other distributions, or the user might install something else as
+they like.  We cannot support all of these systems, however we can try to support
+the most common and widely used service managers.  Details for each service
+manager that we support currently are given below.
+
+* Using with systemd
+
+You can enable systemd support using a simple ~./configure~ option: ~--enable-systemd~.
+Note that this option requires your system to have ~libsystemd~ library installed.
+
+Once this option is used, the default systemd unit template will be prepared and
+installed to ~$(libdir)/systemd/system/~ by default, unless configured otherwise.
+
+The default unit file name is ~freehttpd.service~.  Logs will be in the format of
+systemd daemon log format, as described in the systemd documenation.
+
+After installation, you might need to reload the systemd daemon:
+
+#+begin_src shell
+  systemctl daemon-reload
+#+end_src
+
+On my system, I didn't have to run this command ever, to use the units after installation
+immediately.  However, I have seen some people saying that they couldn't until they ran
+this.  So, it's best to include it here.
+
+Afterwards, you can use the usual ~systemctl~ commands to manage the daemon:
+
+#+begin_src shell
+  systemctl enable --now freehttpd           # Enable and start
+  systemctl disable --now freehttpd
+  systemctl start freehttpd
+  systemctl status freehttpd
+#+end_src
+
+Please note that some operations may need superuser permissions, so you should be prepared
+to elevate the privileges as needed.
+
+** Integration of freehttpd with systemd
+
+freehttpd implements the [[https://www.freedesktop.org/software/systemd/man/latest/daemon.html][new systemd daemon specifications]].  More specifically, it implements
+the ~notify~ mode.  In this mode, systemd and the service daemons communicate using internal
+IPC.  freehttpd will show updates from time to time about the system load, requests and some
+basic statistics about what's happening behind the scenes.  You can see these details by
+running:
+
+#+begin_src shell
+  systemctl status freehttpd
+#+end_src
