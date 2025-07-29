@@ -1,0 +1,182 @@
+#!/bin/sh
+#
+# org-doc-gen -- generate html exports from org documents
+#
+
+scriptver=2025-07-29T15:00:00
+me="$0"
+
+pr_err ()
+{
+	fmt="$1"
+	shift
+	printf "%s: $fmt\n" "$0" $@ >&2
+}
+
+pr_notice ()
+{
+	fmt="$1"
+	shift
+	printf "%s: $fmt\n" "$0" $@
+}
+
+usage ()
+{
+	echo "Generates exported HTML files from Org documents, using GNU Emacs."
+	echo ""
+	echo "Usage:"
+	echo "  $0 [OPTION...] <FILE...>"
+	echo ""
+	echo "Options:"
+	echo "  -h, --help         Show this help message and exit"
+	echo "  -v, --version      Show version information and exit"
+	echo "  -o, --output=PATH  Output file or directory"
+	echo "  -E, --emacs=EXEC   Path to the emacs executable"
+}
+
+show_version ()
+{
+	echo "$(basename "$me") version $scriptver"
+}
+
+output=""
+emacs="emacs"
+
+while test $# -gt 0; do
+	case "$1" in
+		-h|--help)
+			usage
+			exit 0
+			;;
+
+		-v|--version)
+			show_version
+			exit 0
+			;;
+
+		-E|--emacs)
+			test -z "$2" &&
+				pr_err "Option '-E' (--emacs) requires an argument" && exit 1
+			emacs="$2"
+			shift 2
+			;;
+
+		-o|--output)
+			test -z "$2" &&
+				pr_err "Option '-o' (--output) requires an argument" && exit 1
+			output="$2"
+			shift 2
+			;;
+
+		--)
+			shift
+			break
+			;;
+
+		-*)
+			pr_err "invalid option '%s'" "$1"
+			exit 1
+			;;
+
+		*)
+			break
+			;;
+	esac
+done
+
+if test $# -eq 0; then
+	pr_err "no input files"
+	exit 1
+fi
+
+found=0
+
+prev_ifs="$IFS"
+IFS=':'
+
+for path in $PATH; do
+	if test -f "$path/$emacs" && test -x "$path/$emacs"; then
+		found=1
+		break
+	fi
+done
+
+IFS="$prev_ifs"
+
+if test "$found" != "1"; then
+	pr_err "Emacs executable path is invalid: '%s' is not an executable" "$2"
+	exit 1
+fi
+
+export_dir ()
+{
+	output="$2"
+	test -z "$output" && output="."
+
+	LISP=$(cat <<EOF
+(progn
+(require 'package)
+(package-initialize)
+(require 'htmlize)
+(require 'org)
+(setq org-publish-project-alist
+      '(("doc"
+         :base-directory "$1"
+         :base-extension "org"
+         :publishing-directory "$output"
+         :publishing-function org-html-publish-to-html
+         :recursive t)))
+(setq-default image-scaling-factor 1)
+(global-font-lock-mode t)
+(org-publish "doc" t))
+EOF
+		)
+
+	if ! emacs --batch --eval "$LISP" >/tmp/emacs.log 2>&1; then
+		pr_err "emacs failed with code $?"
+		pr_err "logs:"
+		cat /tmp/emacs.log
+		rm -f /tmp/emacs.log
+		exit 1
+	fi
+}
+
+export_file ()
+{
+	LISP=$(cat <<EOF
+(progn
+(require 'package)
+(package-initialize)
+(require 'htmlize)
+(require 'org)
+(setq-default image-scaling-factor 1)
+(global-font-lock-mode t))
+EOF
+		)
+
+	output="$2"
+	input="$1"
+
+	test -z "$output" && output=`printf "%s" "$input" | sed "s/\.org/\.html/g"`
+
+	if ! emacs --batch --eval "$LISP" "$input" \
+		 --eval "(org-export-to-file 'html \"$output\")"; then
+		pr_err "emacs failed with code $?"
+		pr_err "logs:"
+		cat /tmp/emacs.log
+		rm -f /tmp/emacs.log
+		exit 1	fi
+	fi
+}
+
+
+for file in $@; do
+	if test -d "$file"; then
+		export_dir "$file" "$output"
+	elif test -f "$file"; then
+		export_file "$file" "$output"
+	else
+		pr_err "Invalid input file '%s'" "$file"
+		exit 1
+	fi
+done
