@@ -7,8 +7,8 @@
 #+html_content_class: content
 #+description:
 #+keywords:
-#+html_link_home: index.html
-#+html_link_up:
+#+html_link_home: ../index.html
+#+html_link_up: index.html
 #+html_mathjax:
 #+html_equation_reference_format: \eqref{%s}
 #+html_head:

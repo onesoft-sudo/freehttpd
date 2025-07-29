@@ -1,7 +1,10 @@
 #                   -*- Org -*-
 
 #+title: Command Line Interface
-#+include: ./common-config.org
+#+include: ../common-config.org
+#+html_head: <style type="text/css">
+#+html_head: .table tr:nth-child(1) td { min-width: 150px; }
+#+html_head: </style>
 
 The freehttpd command-line interface is designed to keep the workflow simple, and
 steady.  There's also a man page for ~freehttpd(8)~, you could check that instead
@@ -15,8 +18,10 @@ if you wish.
 
 * Available Options
 
+#+attr_html: :class table
 | Option                | Description                                                                                                                                                     |
 |-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| <24>                  |                                                                                                                                                                 |
 | ~-f~, ~--config=FILE~ | Path to the config file to read.  The default value is set during build configuration.                                                                          |
 | ~-h~, ~--help~        | Show basic help and usage information.                                                                                                                          |
 | ~-v~, ~--verbose~     | Enable verbose mode.  Please note that this option does not have any change in its effect when used multiple times, unlike some programs that behave like this. |

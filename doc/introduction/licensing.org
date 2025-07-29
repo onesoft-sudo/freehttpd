@@ -1,12 +1,12 @@
 #                   -*- Org -*-
 
 #+title: Licensing
-#+include: ./common-config.org
+#+include: ../common-config.org
 
 * The License that we use
 
 The freehttpd project is licensed under the [[https://gnu.org/licenses/agpl-3.0.html][GNU Affero General Public License v3.0 or later]].
-The license text can be found at the [[file:../COPYING][COPYING]] file.
+The license text can be found at the [[file:../../COPYING][COPYING]] file.
 
 [[https://www.gnu.org/graphics/agplv3-155x51.png]]
 

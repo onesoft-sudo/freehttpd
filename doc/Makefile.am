@@ -24,20 +24,20 @@ htmldocdir = $(docdir)/html
 
 orgdoc_DATA = \
 	index.org \
-	licensing.org \
-	gfdl.org \
-	getting-started.org \
-	command-line.org \
-	managing-the-daemon.org \
-	common-config.org
+	common-config.org \
+	introduction/licensing.org \
+	introduction/gfdl.org \
+	introduction/getting-started.org \
+	invoking/command-line.org \
+	invoking/managing-the-daemon.org
 
 nodist_htmldoc_DATA = \
 	index.html \
-	licensing.html \
-	gfdl.html \
-	getting-started.html \
-	command-line.html \
-	managing-the-daemon.html
+	introduction/licensing.html \
+	introduction/gfdl.html \
+	introduction/getting-started.html \
+	invoking/command-line.html \
+	invoking/managing-the-daemon.html
 
 EXTRA_DIST = $(orgdoc_DATA)
 SUFFIXES = .org .html

@@ -1,7 +1,7 @@
 #                   -*- Org -*-
 
 #+title: The GNU Free Documentation License
-#+include: ./common-config.org
+#+include: ../common-config.org
 #+options: author:nil
 
 #+begin_center

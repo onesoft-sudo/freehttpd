@@ -1,7 +1,7 @@
 #                   -*- Org -*-
 
 #+title: Getting started with freehttpd
-#+include: ./common-config.org
+#+include: ../common-config.org
 
 * Introduction
 
@@ -93,7 +93,7 @@ Additionally, you might also need to install the following:
    If everything was right, you should now have freehttpd installed on your
    system.  Congratulations!
 
-4. For more details, please see the [[../INSTALL][INSTALL]] file in the project root.  Also
+4. For more details, please see the [[../../INSTALL][INSTALL]] file in the project root.  Also
    consider running =./configure --help= to see the available configuration
    options.
 

@@ -1,7 +1,7 @@
 #                   -*- Org -*-
 
 #+title: Managing the Daemon
-#+include: ./common-config.org
+#+include: ../common-config.org
 
 Most modern GNU/Linux or other Unix-like systems nowadays include a service
 management utility.  For example, on Fedora GNU/Linux, it is [[https://systemd.io][systemd]].  On the

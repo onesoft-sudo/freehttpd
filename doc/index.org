@@ -2,12 +2,14 @@
 
 #+title: Main Index
 #+include: ./common-config.org
+#+html_link_home: index.html
+#+html_link_up: index.html
 #+options: toc:nil
 
-+ [[file:licensing.org][1 Introduction]]
-   - [[file:licensing.org][1.1 Licensing (AGPL)]]
-   - [[file:gfdl.org][1.2 GNU Free Documenation License v1.3]]
-   - [[file:getting-started.org][1.3 Getting started]]
-+ [[file:command-line.org][2 Invoking freehttpd]]
-  - [[file:command-line.org][2.1 Command Line Interface]]
-  - [[file:managing-the-daemon.org][2.2 Managing the Daemon]]
++ [[file:introduction/licensing.org][1 Introduction]]
+   - [[file:introduction/licensing.org][1.1 Licensing (AGPL)]]
+   - [[file:introduction/gfdl.org][1.2 GNU Free Documenation License v1.3]]
+   - [[file:introduction/getting-started.org][1.3 Getting started]]
++ [[file:invoking/command-line.org][2 Invoking freehttpd]]
+  - [[file:invoking/command-line.org][2.1 Command Line Interface]]
+  - [[file:invoking/managing-the-daemon.org][2.2 Managing the Daemon]]
