@@ -20,7 +20,6 @@
 
 if ENABLE_DOC
 orgdocdir = $(docdir)/org
-htmldocdir = $(docdir)/html
 
 orgdoc_DATA = \
 	index.org \
@@ -31,32 +30,26 @@ orgdoc_DATA = \
 	invoking/command-line.org \
 	invoking/managing-the-daemon.org
 
-nodist_htmldoc_DATA = \
-	index.html \
-	introduction/licensing.html \
-	introduction/gfdl.html \
-	introduction/getting-started.html \
-	invoking/command-line.html \
-	invoking/managing-the-daemon.html
+nodist_doc_DATA = \
+	html/index.html \
+	html/introduction/licensing.html \
+	html/introduction/gfdl.html \
+	html/introduction/getting-started.html \
+	html/invoking/command-line.html \
+	html/invoking/managing-the-daemon.html
 
 EXTRA_DIST = $(orgdoc_DATA)
-SUFFIXES = .org .html
+CLEANFILES = $(nodist_doc_DATA)
+OUTPUT_DIR = html
 
-EMACS_LOAD_CONFIG = \
-	--eval "(progn \
-	(require 'package) \
-	(package-initialize) \
-	(require 'htmlize) \
-	(message \"htmlize loaded\") \
-	(setq-default image-scaling-factor 1) \
-	(global-font-lock-mode t))"
+all-local: $(OUTPUT_DIR)
 
-EMACS_BATCH = $(EMACS) --batch $(EMACS_LOAD_CONFIG)
+clean-local:
+	rm -rf $(OUTPUT_DIR)
 
-all-local: $(nodist_htmldoc_DATA)
-CLEANFILES = $(nodist_htmldoc_DATA)
+html: $(nodist_doc_DATA)
 
-.org.html:
-	@echo "  EMACSGEN  $@" && $(EMACS_BATCH) $< --eval "(org-html-export-to-html)" >> emacs.log 2>&1
+$(nodist_doc_DATA): $(orgdoc_DATA)
+	@echo "  EMACSGENHTML $(OUTPUT_DIR)" && $(top_srcdir)/build-aux/org-doc-gen -E "$(EMACS)" -o "$(OUTPUT_DIR)" .
 
 endif
