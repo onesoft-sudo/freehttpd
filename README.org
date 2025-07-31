@@ -14,6 +14,11 @@
 
 Please refer to the [[./README][plain-text README]].
 
+** Origin Repository
+
+The origin repository is located at <https://git.onesoftnet.eu.org/git/freehttpd.git>.
+You can browse it via [[https://git.onesoftnet.eu.org/gitweb/?p=freehttpd.git;a=summary][Gitweb]] too.
+
 ** Licensing
 
 freehttpd is licensed under the [[https://gnu.org/licenses/agpl-3.0.html][GNU Affero General Public License v3.0]]. You can find the full license text in the [[./COPYING][COPYING]] file.
