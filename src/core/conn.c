@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #define FH_LOG_MODULE_NAME "conn"
@@ -30,6 +31,8 @@
 #include "http/http1_response.h"
 #include "http/protocol.h"
 #include "log/log.h"
+#include "compat.h"
+#include "macros.h"
 
 #ifdef HAVE_RESOURCES
 	#include "resources.h"
@@ -61,6 +64,7 @@ fh_conn_create (fd_t client_sockfd, const struct sockaddr_in *client_addr,
 	conn->server_addr = server_addr;
 	conn->io_ctx.h1.req_ctx = NULL;
 	conn->io_ctx.h1.res_ctx = NULL;
+	conn->io_ctx.proto_det_buf.off = 0;
 	conn->requests = (struct fh_requests *) (conn->stream + 1);
 	conn->extra = (struct fh_conn_extra *) (conn->requests + 1);
 
@@ -165,4 +169,47 @@ fh_conn_send_err_response (struct fh_conn *conn, enum fh_status code)
 				  conn->extra->host, conn->extra->port);
 
 	return rc >= 0;
+}
+
+int
+fh_conn_detect_protocol (struct fh_conn *conn)
+{
+	fd_t sockfd = conn->client_sockfd;
+
+	if (conn->io_ctx.proto_det_buf.off == 0)
+	{
+		conn->io_ctx.proto_det_buf.buf = fh_pool_alloc (conn->pool, H2_PREFACE_SIZE);
+
+		if (!conn->io_ctx.proto_det_buf.buf)
+			return -1;
+	}
+
+	if (conn->io_ctx.proto_det_buf.off >= H2_PREFACE_SIZE - 1)
+		return 1;
+
+	ssize_t bytes_read = recv (
+		sockfd, conn->io_ctx.proto_det_buf.buf + conn->io_ctx.proto_det_buf.off,
+		H2_PREFACE_SIZE - conn->io_ctx.proto_det_buf.off, 0);
+
+	if (bytes_read <= 0)
+	{
+		if (would_block ())
+			return 0;
+
+		return -1;
+	}
+
+	conn->io_ctx.proto_det_buf.off += (size_t) bytes_read;
+
+	if (conn->io_ctx.proto_det_buf.off >= H2_PREFACE_SIZE - 1)
+	{
+		if (memcmp (conn->io_ctx.proto_det_buf.buf, H2_PREFACE, H2_PREFACE_SIZE) == 0)
+			conn->protocol = FH_PROTOCOL_H2;
+		else
+			conn->protocol = FH_PROTOCOL_HTTP_1_1;
+
+		return 1;
+	}
+
+	return 0;
 }

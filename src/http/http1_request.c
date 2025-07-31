@@ -45,9 +45,11 @@
 #define H1_ERR(code) ((1U << 31U) | (code))
 
 static const char *HTTP1_METHOD_LIST[] = {
-	[FH_METHOD_GET] = "GET",		 [FH_METHOD_POST] = "POST",		  [FH_METHOD_PUT] = "PUT",
-	[FH_METHOD_PATCH] = "PATCH",	 [FH_METHOD_DELETE] = "DELETE",	  [FH_METHOD_HEAD] = "HEAD",
-	[FH_METHOD_OPTIONS] = "OPTIONS", [FH_METHOD_CONNECT] = "CONNECT", [FH_METHOD_TRACE] = "TRACE",
+	[FH_METHOD_GET] = "GET",		 [FH_METHOD_POST] = "POST",
+	[FH_METHOD_PUT] = "PUT",		 [FH_METHOD_PATCH] = "PATCH",
+	[FH_METHOD_DELETE] = "DELETE",	 [FH_METHOD_HEAD] = "HEAD",
+	[FH_METHOD_OPTIONS] = "OPTIONS", [FH_METHOD_CONNECT] = "CONNECT",
+	[FH_METHOD_TRACE] = "TRACE",
 };
 
 static const size_t HTTP1_METHOD_LEN_LIST[] = {
@@ -56,12 +58,14 @@ static const size_t HTTP1_METHOD_LEN_LIST[] = {
 	[FH_METHOD_OPTIONS] = 7, [FH_METHOD_CONNECT] = 7, [FH_METHOD_TRACE] = 5,
 };
 
-static const size_t HTTP1_METHOD_LIST_SIZE = sizeof (HTTP1_METHOD_LIST) / sizeof HTTP1_METHOD_LIST[0];
+static const size_t HTTP1_METHOD_LIST_SIZE
+	= sizeof (HTTP1_METHOD_LIST) / sizeof HTTP1_METHOD_LIST[0];
 
 const size_t DEFAULT_BUF_SIZE = 4096;
 
 struct fh_http1_req_ctx *
-fh_http1_ctx_create (struct fh_server *server, struct fh_conn *conn, struct fh_stream *stream)
+fh_http1_ctx_create (struct fh_server *server, struct fh_conn *conn,
+					 struct fh_stream *stream)
 {
 	struct fh_http1_req_ctx *ctx = fh_pool_zalloc (stream->pool, sizeof (*ctx));
 
@@ -102,7 +106,8 @@ fh_http1_parse_method (struct fh_http1_req_ctx *ctx)
 
 				const char *method;
 				bool is_fragmented = ctx->cur.link != cur->link;
-				size_t eff_len = is_fragmented ? memchr_consumed : ctx->current_consumed;
+				size_t eff_len
+					= is_fragmented ? ctx->current_consumed : memchr_consumed;
 
 				if (eff_len == 0)
 				{
@@ -118,7 +123,8 @@ fh_http1_parse_method (struct fh_http1_req_ctx *ctx)
 
 				if (is_fragmented)
 				{
-					char *method_buf = fh_pool_alloc (ctx->stream->pool, eff_len);
+					char *method_buf
+						= fh_pool_alloc (ctx->stream->pool, eff_len);
 
 					if (!method_buf)
 					{
@@ -126,16 +132,20 @@ fh_http1_parse_method (struct fh_http1_req_ctx *ctx)
 						return H1_ERR (500);
 					}
 
-					size_t copied
-						= fh_stream_copy (method_buf, ctx->cur.link, ctx->cur.off, cur->link, cur->off, eff_len);
+					size_t copied = fh_stream_copy (method_buf, ctx->cur.link,
+													ctx->cur.off, cur->link,
+													cur->off, eff_len);
 
 					if (copied != eff_len)
 					{
-						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes", copied, eff_len);
+						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes",
+									 copied, eff_len);
 						return H1_ERR (500);
 					}
 
-					fh_pr_debug ("fh_stream_copy() successfully copied %zu bytes", copied);
+					fh_pr_debug (
+						"fh_stream_copy() successfully copied %zu bytes",
+						copied);
 					method = method_buf;
 				}
 				else
@@ -148,7 +158,9 @@ fh_http1_parse_method (struct fh_http1_req_ctx *ctx)
 				for (size_t i = 0; i < HTTP1_METHOD_LIST_SIZE; i++)
 				{
 					if (memcmp (method, HTTP1_METHOD_LIST[i],
-								HTTP1_METHOD_LEN_LIST[i] < eff_len ? HTTP1_METHOD_LEN_LIST[i] : eff_len)
+								HTTP1_METHOD_LEN_LIST[i] < eff_len
+									? HTTP1_METHOD_LEN_LIST[i]
+									: eff_len)
 						== 0)
 					{
 						ctx->request.method = i;
@@ -164,7 +176,8 @@ fh_http1_parse_method (struct fh_http1_req_ctx *ctx)
 				}
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
-				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the space */
+				ctx->arg_cur.off = ctx->cur.off
+					= cur->off + 1; /* For the space */
 				ctx->state = H1_REQ_STATE_URI;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
@@ -218,7 +231,8 @@ fh_http1_parse_uri (struct fh_http1_req_ctx *ctx)
 
 				const char *uri;
 				bool is_fragmented = ctx->cur.link != cur->link;
-				size_t eff_len = is_fragmented ? memchr_consumed : ctx->current_consumed;
+				size_t eff_len
+					= is_fragmented ? ctx->current_consumed : memchr_consumed;
 
 				if (eff_len == 0)
 				{
@@ -242,15 +256,20 @@ fh_http1_parse_uri (struct fh_http1_req_ctx *ctx)
 						return H1_ERR (500);
 					}
 
-					size_t copied = fh_stream_copy (uri_buf, ctx->cur.link, ctx->cur.off, cur->link, cur->off, eff_len);
+					size_t copied
+						= fh_stream_copy (uri_buf, ctx->cur.link, ctx->cur.off,
+										  cur->link, cur->off, eff_len);
 
 					if (copied != eff_len)
 					{
-						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes", copied, eff_len);
+						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes",
+									 copied, eff_len);
 						return H1_ERR (500);
 					}
 
-					fh_pr_debug ("fh_stream_copy() successfully copied %zu bytes", copied);
+					fh_pr_debug (
+						"fh_stream_copy() successfully copied %zu bytes",
+						copied);
 					uri = uri_buf;
 				}
 				else
@@ -262,7 +281,8 @@ fh_http1_parse_uri (struct fh_http1_req_ctx *ctx)
 				ctx->request.uri_len = eff_len;
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
-				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the space */
+				ctx->arg_cur.off = ctx->cur.off
+					= cur->off + 1; /* For the space */
 				ctx->state = H1_REQ_STATE_VERSION;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
@@ -274,6 +294,10 @@ fh_http1_parse_uri (struct fh_http1_req_ctx *ctx)
 				cur->off += len;
 				ctx->current_consumed += len;
 			}
+		}
+		else
+		{
+			fh_pr_debug ("NO");
 		}
 
 		if (!cur->link->next)
@@ -316,7 +340,8 @@ fh_http1_parse_version (struct fh_http1_req_ctx *ctx)
 
 				const char *version;
 				bool is_fragmented = ctx->cur.link != cur->link;
-				size_t eff_len = is_fragmented ? memchr_consumed : ctx->current_consumed;
+				size_t eff_len
+					= is_fragmented ? ctx->current_consumed : memchr_consumed;
 
 				if (eff_len != HTTP1_VERSION_MAX_LEN + 1)
 				{
@@ -326,7 +351,8 @@ fh_http1_parse_version (struct fh_http1_req_ctx *ctx)
 
 				if (is_fragmented)
 				{
-					char *version_buf = fh_pool_alloc (ctx->stream->pool, eff_len);
+					char *version_buf
+						= fh_pool_alloc (ctx->stream->pool, eff_len);
 
 					if (!version_buf)
 					{
@@ -334,16 +360,20 @@ fh_http1_parse_version (struct fh_http1_req_ctx *ctx)
 						return H1_ERR (500);
 					}
 
-					size_t copied
-						= fh_stream_copy (version_buf, ctx->cur.link, ctx->cur.off, cur->link, cur->off, eff_len);
+					size_t copied = fh_stream_copy (version_buf, ctx->cur.link,
+													ctx->cur.off, cur->link,
+													cur->off, eff_len);
 
 					if (copied != eff_len)
 					{
-						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes", copied, eff_len);
+						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes",
+									 copied, eff_len);
 						return H1_ERR (500);
 					}
 
-					fh_pr_debug ("fh_stream_copy() successfully copied %zu bytes", copied);
+					fh_pr_debug (
+						"fh_stream_copy() successfully copied %zu bytes",
+						copied);
 					version = version_buf;
 				}
 				else
@@ -375,10 +405,12 @@ fh_http1_parse_version (struct fh_http1_req_ctx *ctx)
 					return H1_ERR (400);
 				}
 
-				ctx->request.protocol = v3 == '0' ? FH_PROTOCOL_HTTP_1_0 : FH_PROTOCOL_HTTP_1_1;
+				ctx->request.protocol
+					= v3 == '0' ? FH_PROTOCOL_HTTP_1_0 : FH_PROTOCOL_HTTP_1_1;
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
-				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the '\n' */
+				ctx->arg_cur.off = ctx->cur.off
+					= cur->off + 1; /* For the '\n' */
 				ctx->state = H1_REQ_STATE_HEADER_NAME;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
@@ -431,7 +463,9 @@ fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 
 				if (is_fragmented)
 				{
-					size_t copied = fh_stream_copy (end, ctx->cur.link, ctx->cur.off, cur->link, cur->off + 2, 2);
+					size_t copied
+						= fh_stream_copy (end, ctx->cur.link, ctx->cur.off,
+										  cur->link, cur->off + 2, 2);
 
 					if (copied == 2)
 					{
@@ -447,13 +481,16 @@ fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 
 				if (found && end[0] == '\r' && end[1] == '\n')
 				{
-					bool no_body = ctx->request.method == FH_METHOD_GET || ctx->request.method == FH_METHOD_HEAD;
+					bool no_body = ctx->request.method == FH_METHOD_GET
+								   || ctx->request.method == FH_METHOD_HEAD;
 
-					fh_pr_debug ("\\r\\n received, switching to %s state", no_body ? "done" : "body");
+					fh_pr_debug ("\\r\\n received, switching to %s state",
+								 no_body ? "done" : "body");
 
 					ctx->arg_cur.link = ctx->cur.link = cur->link;
 					ctx->arg_cur.off = ctx->cur.off = cur->off + 2;
-					ctx->state = no_body ? H1_REQ_STATE_DONE : H1_REQ_STATE_BODY;
+					ctx->state
+						= no_body ? H1_REQ_STATE_DONE : H1_REQ_STATE_BODY;
 					ctx->total_consumed += 2;
 					ctx->current_consumed = 0;
 
@@ -477,7 +514,8 @@ fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 
 				const char *header_name;
 				bool is_fragmented = ctx->cur.link != cur->link;
-				size_t eff_len = is_fragmented ? memchr_consumed : ctx->current_consumed;
+				size_t eff_len
+					= is_fragmented ? ctx->current_consumed : memchr_consumed;
 
 				if (eff_len == 0)
 				{
@@ -501,15 +539,20 @@ fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 						return H1_ERR (500);
 					}
 
-					size_t copied = fh_stream_copy (uri_buf, ctx->cur.link, ctx->cur.off, cur->link, cur->off, eff_len);
+					size_t copied
+						= fh_stream_copy (uri_buf, ctx->cur.link, ctx->cur.off,
+										  cur->link, cur->off, eff_len);
 
 					if (copied != eff_len)
 					{
-						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes", copied, eff_len);
+						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes",
+									 copied, eff_len);
 						return H1_ERR (500);
 					}
 
-					fh_pr_debug ("fh_stream_copy() successfully copied %zu bytes", copied);
+					fh_pr_debug (
+						"fh_stream_copy() successfully copied %zu bytes",
+						copied);
 					header_name = uri_buf;
 				}
 				else
@@ -523,7 +566,8 @@ fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 				fh_pr_debug ("Header name: |%.*s|", (int) eff_len, header_name);
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
-				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the colon */
+				ctx->arg_cur.off = ctx->cur.off
+					= cur->off + 1; /* For the colon */
 				ctx->state = H1_REQ_STATE_HEADER_VALUE;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
@@ -558,13 +602,16 @@ fh_http1_parse_header_name (struct fh_http1_req_ctx *ctx)
 }
 
 static bool
-fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *header, struct fh_request *request)
+fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx,
+						 const struct fh_header *header,
+						 struct fh_request *request)
 {
 	if (!strncasecmp (header->name, "Host", header->name_len))
 	{
 		if (request->host)
 		{
-			fh_pr_debug ("Multiple host headers: |%.*s|", (int) header->value_len, header->value);
+			fh_pr_debug ("Multiple host headers: |%.*s|",
+						 (int) header->value_len, header->value);
 			return false;
 		}
 
@@ -572,11 +619,14 @@ fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *h
 
 		request->host = header->value;
 		request->full_host_len = header->value_len;
-		request->host_len = colon ? (size_t) (colon - header->value) : header->value_len;
+		request->host_len
+			= colon ? (size_t) (colon - header->value) : header->value_len;
 
-		if (request->full_host_len > HTTP1_HOST_MAX_LEN || request->full_host_len == 0)
+		if (request->full_host_len > HTTP1_HOST_MAX_LEN
+			|| request->full_host_len == 0)
 		{
-			fh_pr_debug ("Invalid Host header value: |%.*s|", (int) header->value_len, header->value);
+			fh_pr_debug ("Invalid Host header value: |%.*s|",
+						 (int) header->value_len, header->value);
 			return false;
 		}
 
@@ -589,21 +639,25 @@ fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *h
 		strncpy (host, request->host, request->full_host_len);
 		host[request->full_host_len] = 0;
 
-		if (conn->requests->count > 0 && strncmp (host, conn->extra->host, request->full_host_len))
+		if (conn->requests->count > 0
+			&& strncmp (host, conn->extra->host, request->full_host_len))
 		{
-			fh_pr_debug ("Invalid usage of different host than initial request: |%.*s|", (int) header->value_len,
-						 header->value);
+			fh_pr_debug (
+				"Invalid usage of different host than initial request: |%.*s|",
+				(int) header->value_len, header->value);
 			return false;
 		}
 
 		strncpy (host, request->host, request->full_host_len);
 		host[request->full_host_len] = 0;
 
-		struct fh_config_host *config = strtable_get (ctx->server->host_configs, host);
+		struct fh_config_host *config
+			= strtable_get (ctx->server->host_configs, host);
 
 		if (!config)
 		{
-			fh_pr_debug ("Non-existing host: |%.*s|", (int) header->value_len, header->value);
+			fh_pr_debug ("Non-existing host: |%.*s|", (int) header->value_len,
+						 header->value);
 			return false;
 		}
 
@@ -614,18 +668,21 @@ fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *h
 			conn->extra->host = host;
 			conn->extra->host_len = request->host_len;
 			conn->extra->full_host_len = request->full_host_len;
-			fh_pr_debug ("Selected canonical host: %.*s", (int) header->value_len, header->value);
+			fh_pr_debug ("Selected canonical host: %.*s",
+						 (int) header->value_len, header->value);
 		}
 
 		fh_pr_debug ("Docroot for this request: %s", config->docroot);
 	}
 	else if (!strncasecmp (header->name, "Content-Length", header->name_len))
 	{
-		uint64_t content_length = strntoull (header->value, header->value_len, 10);
+		uint64_t content_length
+			= strntoull (header->value, header->value_len, 10);
 
 		if (errno == EINVAL)
 		{
-			fh_pr_debug ("Invalid Content-Length header value: |%.*s|", (int) header->value_len, header->value);
+			fh_pr_debug ("Invalid Content-Length header value: |%.*s|",
+						 (int) header->value_len, header->value);
 			return false;
 		}
 
@@ -639,7 +696,8 @@ fh_http1_populate_attrs (struct fh_http1_req_ctx *ctx, const struct fh_header *h
 		}
 		else
 		{
-			fh_pr_debug ("Invalid Transfer-Encoding header value: |%.*s|", (int) header->value_len, header->value);
+			fh_pr_debug ("Invalid Transfer-Encoding header value: |%.*s|",
+						 (int) header->value_len, header->value);
 			return false;
 		}
 	}
@@ -671,7 +729,8 @@ fh_http1_parse_header_value (struct fh_http1_req_ctx *ctx)
 
 				const char *header_value;
 				bool is_fragmented = ctx->cur.link != cur->link;
-				size_t eff_len = is_fragmented ? memchr_consumed : ctx->current_consumed;
+				size_t eff_len
+					= is_fragmented ? ctx->current_consumed :memchr_consumed;
 
 				if (eff_len == 0)
 				{
@@ -703,15 +762,20 @@ fh_http1_parse_header_value (struct fh_http1_req_ctx *ctx)
 						return H1_ERR (500);
 					}
 
-					size_t copied = fh_stream_copy (uri_buf, ctx->cur.link, ctx->cur.off, cur->link, cur->off, eff_len);
+					size_t copied
+						= fh_stream_copy (uri_buf, ctx->cur.link, ctx->cur.off,
+										  cur->link, cur->off, eff_len);
 
 					if (copied != eff_len)
 					{
-						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes", copied, eff_len);
+						fh_pr_debug ("fh_stream_copy() copied %zu/%zu bytes",
+									 copied, eff_len);
 						return H1_ERR (500);
 					}
 
-					fh_pr_debug ("fh_stream_copy() successfully copied %zu bytes", copied);
+					fh_pr_debug (
+						"fh_stream_copy() successfully copied %zu bytes",
+						copied);
 					header_value = uri_buf;
 				}
 				else
@@ -720,17 +784,22 @@ fh_http1_parse_header_value (struct fh_http1_req_ctx *ctx)
 				}
 
 				size_t trimmed_len = 0;
-				const char *trimmed_header_value = str_trim_whitespace (header_value, eff_len, &trimmed_len);
+				const char *trimmed_header_value
+					= str_trim_whitespace (header_value, eff_len, &trimmed_len);
 				struct fh_header *header = NULL;
 
-				if (!(header = fh_header_add (ctx->stream->pool, &ctx->request.headers, ctx->current_header_name,
-											  ctx->current_header_name_len, trimmed_header_value, trimmed_len)))
+				if (!(header
+					  = fh_header_add (ctx->stream->pool, &ctx->request.headers,
+									   ctx->current_header_name,
+									   ctx->current_header_name_len,
+									   trimmed_header_value, trimmed_len)))
 				{
 					fh_pr_debug ("Failed to add header");
 					return H1_ERR (500);
 				}
 
-				fh_pr_debug ("Header value: |%.*s|", (int) trimmed_len, trimmed_header_value);
+				fh_pr_debug ("Header value: |%.*s|", (int) trimmed_len,
+							 trimmed_header_value);
 
 				if (!fh_http1_populate_attrs (ctx, header, &ctx->request))
 				{
@@ -739,7 +808,8 @@ fh_http1_parse_header_value (struct fh_http1_req_ctx *ctx)
 				}
 
 				ctx->arg_cur.link = ctx->cur.link = cur->link;
-				ctx->arg_cur.off = ctx->cur.off = cur->off + 1; /* For the colon */
+				ctx->arg_cur.off = ctx->cur.off
+					= cur->off + 1; /* For the colon */
 				ctx->state = H1_REQ_STATE_HEADER_NAME;
 				ctx->total_consumed += ctx->current_consumed + 1;
 				ctx->current_consumed = 0;
@@ -770,9 +840,11 @@ fh_http1_parse_header_value (struct fh_http1_req_ctx *ctx)
 }
 
 static unsigned int
-fh_http1_validate (struct fh_http1_req_ctx *ctx, struct fh_conn *conn __attribute_maybe_unused__)
+fh_http1_validate (struct fh_http1_req_ctx *ctx,
+				   struct fh_conn *conn __attribute_maybe_unused__)
 {
-	if (!ctx->request.host || !ctx->request.host_len || !ctx->request.full_host_len)
+	if (!ctx->request.host || !ctx->request.host_len
+		|| !ctx->request.full_host_len)
 	{
 		fh_pr_debug ("Invalid or missing Host header");
 		return H1_ERR (400);
@@ -811,7 +883,8 @@ fh_http1_parse_body (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 		struct fh_buf *buf = current->buf;
 
 		uint8_t *start = buf->attrs.mem.data + cur->off;
-		size_t len = cur->off < buf->attrs.mem.len ? buf->attrs.mem.len - cur->off : 0;
+		size_t len
+			= cur->off < buf->attrs.mem.len ? buf->attrs.mem.len - cur->off : 0;
 
 		struct fh_buf *new_buf;
 
@@ -858,7 +931,6 @@ fh_http1_parse_body (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 	}
 
 	ctx->stream->tail->is_eos = true;
-	fh_stream_print (ctx->stream);
 	return H1_DONE;
 }
 
@@ -913,7 +985,8 @@ fh_http1_recv (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 
 	if (is_allocated)
 	{
-		if (!fh_stream_add_buf_data (ctx->stream, ptr, (size_t) bytes_read, DEFAULT_BUF_SIZE))
+		if (!fh_stream_add_buf_data (ctx->stream, ptr, (size_t) bytes_read,
+									 DEFAULT_BUF_SIZE))
 		{
 			fh_pr_debug ("Memory allocation failed");
 			return H1_ERR (500);
@@ -926,7 +999,8 @@ fh_http1_recv (struct fh_http1_req_ctx *ctx, struct fh_conn *conn)
 			ctx->cur.off = ctx->arg_cur.off = 0;
 		}
 
-		fh_pr_debug ("Allocated new buffer of size %zu bytes", DEFAULT_BUF_SIZE);
+		fh_pr_debug ("Allocated new buffer of size %zu bytes",
+					 DEFAULT_BUF_SIZE);
 	}
 	else
 	{

@@ -136,7 +136,8 @@ fh_stream_print (struct fh_stream *stream)
 		fh_pr_debug ("Start: %u", l->is_start);
 		fh_pr_debug ("EOS: %u", l->is_eos);
 		fh_pr_debug ("Readonly: %u", l->buf->attrs.mem.rd_only);
-		fh_pr_debug ("Data: |%.*s|", (int) l->buf->attrs.mem.len, l->buf->attrs.mem.data);
+		fh_pr_debug ("DATA:");
+		fh_pr_debug ("|%.*s|", (int) l->buf->attrs.mem.len, l->buf->attrs.mem.data);
 		fh_pr_debug ("=======");
 		l = l->next;
 	}

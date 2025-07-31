@@ -668,6 +668,9 @@ fh_http1_send_response (struct fh_http1_res_ctx *ctx, struct fh_conn *conn)
 void
 fh_http1_res_ctx_clean (struct fh_http1_res_ctx *ctx)
 {
+	if (!ctx->response)
+		return;
+
 	struct fh_link *link = ctx->response->body_start;
 
 	while (link)
