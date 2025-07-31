@@ -1,0 +1,22 @@
+#                   -*- Org -*-
+
+#+title: Frequently Asked Questions
+#+include: ./common-config.org
+#+html_link_home: index.html
+#+html_link_up: index.html
+
+* Why freehttpd when other HTTP servers exist?
+
+Good question.  There wasn't any specific reason why I built it.   It was a
+random day, and I decided that I'll be writing a HTTP server.  And I did it.  I
+didn't build freehttpd to compete with existing HTTP servers, but rather I
+created it as a fun project that I can work on to keep myself busy.  If you like
+it, thank you and if you wish to contribute, you're welcome!
+
+* Do you plan to support operating systems other than GNU/Linux?
+
+Yes, I eventually plan to support other Unix-like systems.  However, I do not
+plan to support Windows, as Windows has completely different APIs compared to
+Unix-like systems, therefore it will require a lot of work to support.
+Currently freehttpd only supports GNU/Linux, but I very soon will start working
+on BSD support.
