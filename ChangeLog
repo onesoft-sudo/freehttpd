@@ -1,4 +1,168 @@
+31-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat: initial h2 support code
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+30-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] doc: update Makefile.am
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+29-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] build: add aux script 'org-doc-gen'
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: use subdirectories
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+28-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] build: update doc/Makefile.am
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: add daemon management guide
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: add command line guide
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] style: add license comments
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+27-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] doc: ensure files are added to Makefile.am
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: add license and index page
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+26-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] doc: update getting started page
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore(readme): add link to online documenation
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: rewrite in org
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+25-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] doc: add getting started guide (in org-mode)
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: update TODOs and emacs local config
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: add .dir-locals.el for GNU Emacs users
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: extract common code into macros
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+23-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] build: add more checks
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: add checks for -rdynamic linker flag support
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: fix concat macro used in flag manipulations
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] refactor: move module manager to core subsystem
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: better use of macros and organized variables
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: add proper permissions
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] ci: add attest build provenance
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+
 22-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] build: display cppflags correctly without leading spaces
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: add additional aux scripts
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] build: ensure correct concatenation of variables in m4
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: fix workflow yml indentation
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] merge: branch 'main' of github.com:onesoft-sudo/freehttpd
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] ci: fix inclusion of '.shar.gz' dist archives
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
 
      [*] feat(modules): load dynamic objects and perform initialization
          
@@ -35,6 +199,11 @@
          
 
 22-07-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v2.2.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
+         
 
      [*] release: v2.1.0 [skip ci]
          
