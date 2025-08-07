@@ -31,7 +31,9 @@ libutils_a_SOURCES = \
 	calc.c \
 	calc.h \
 	path.c \
-	path.h
+	path.h \
+	print.h \
+	print.c
 
 AM_CFLAGS = $(EXPORTED_AM_CFLAGS)
 AM_CPPFLAGS = $(EXPORTED_AM_CPPFLAGS)
