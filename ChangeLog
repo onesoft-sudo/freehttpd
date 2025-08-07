@@ -1,8 +1,42 @@
+07-08-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] feat(freehttpd.c): add command-line option parsing support
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
 31-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
+
+     [*] chore: update README.org
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] doc: add FAQ
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] merge branch 'main' of github.com:onesoft-sudo/freehttpd
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+     [*] chore: use org readme instead of markdown
+         
+         Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
 
      [*] feat: initial h2 support code
          
          Signed-off-by: Ar Rakin <rakinar2@onesoftnet.eu.org>
+         
+
+31-07-2025  Conventional Release Action <rakinar2@onesoftnet.eu.org>
+
+     [*] release: v2.3.0 [skip ci]
+         
+         Signed-off-by: Conventional Release Action <rakinar2@onesoftnet.eu.org>
          
 
 30-07-2025  Ar Rakin <rakinar2@onesoftnet.eu.org>
