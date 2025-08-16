@@ -12,6 +12,12 @@
 
 #+html: <br />
 
+** ⚠️ This repository on GitHub is no longer updated
+
+Please visit the upstream at [[https://git.onesoftnet.eu.org][git.onesoftnet.eu.org]] using [[https://git.onesoftnet.eu.org/gitweb/?p=freehttpd.git;a=summary][Gitweb]] or [[https://git.onesoftnet.eu.org/cgit/freehttpd.git/][CGIT]] for up-to-date source code.
+
+#+html: <br />
+
 Please refer to the [[./README][plain-text README]].
 
 ** Origin Repository
